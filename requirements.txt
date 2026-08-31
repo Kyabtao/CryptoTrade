@@ -1,0 +1,3 @@
+# Runtime dependency for bot.py. Indicators are implemented in pure Python,
+# so nothing else is required to run the paper-trading engine.
+ccxt>=4.0.0
