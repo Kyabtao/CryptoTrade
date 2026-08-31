@@ -313,139 +313,6 @@ class TestIndicators:
 
 
 # ========================================================================== #
-# Currency / exchange selection (INR support)
-# ========================================================================== #
-
-
-class _FakeExchange:
-    """Minimal ccxt stand-in so symbol validation can be tested offline."""
-
-    def __init__(self, markets, exc_id="fake"):
-        self.markets = markets
-        self.id = exc_id
-        self.loaded = 0
-
-    def load_markets(self):
-        self.loaded += 1
-        return self.markets
-
-
-class TestCurrencyHandling:
-    def test_quote_extraction(self):
-        assert botmod.quote_of("BTC/INR") == "INR"
-        assert botmod.quote_of("ETH/INR") == "INR"
-        assert botmod.quote_of("BTC/USDT") == "USDT"
-        assert botmod.quote_of("btc/inr") == "INR"
-        assert botmod.quote_of("BTC/USD:BTC") == "USD", "settlement suffix must be stripped"
-
-    def test_balance_key_per_currency(self):
-        assert botmod.balance_key_for("INR") == "balance_inr"
-        assert botmod.balance_key_for("USDT") == "balance_usd"
-        assert botmod.balance_key_for("USD") == "balance_usd"
-        assert botmod.balance_key_for("USDC") == "balance_usd"
-        assert botmod.balance_key_for("EUR") == "balance_eur"
-
-    def test_currency_symbols(self):
-        assert botmod.currency_symbol_for("INR") == "\u20b9"
-        assert botmod.currency_symbol_for("USDT") == "$"
-        assert botmod.currency_symbol_for("XYZ") == "", "unknown currency renders bare"
-
-    def test_config_defaults_are_inr(self):
-        cfg = Config()
-        assert cfg.symbol == "BTC/INR"
-        assert cfg.starting_balance == 10000.0
-        assert cfg.quote_currency == "INR"
-        assert cfg.balance_key == "balance_inr"
-        assert cfg.currency_symbol == "\u20b9"
-        assert cfg.min_notional == 100.0
-
-    def test_exchange_is_chosen_from_the_quote_currency(self):
-        """Binance has no INR spot book, so INR must not default to it."""
-        assert Config(symbol="BTC/INR").resolved_exchange == "zebpay"
-        assert Config(symbol="ETH/INR").resolved_exchange == "zebpay"
-        assert Config(symbol="BTC/USDT").resolved_exchange == "binance"
-
-    def test_explicit_exchange_wins(self):
-        assert Config(symbol="BTC/INR", exchange="mudrex").resolved_exchange == "mudrex"
-
-    def test_symbol_validation_passes_for_a_listed_pair(self, tmp_path):
-        engine = make_engine(["01_rsi_mean_reversion"], tmp_path)
-        ex = _FakeExchange({"BTC/INR": {}, "ETH/INR": {}})
-        engine._validate_symbol(ex)
-        assert ex.loaded == 1
-
-    def test_symbol_validation_names_alternatives(self, tmp_path):
-        engine = make_engine(["01_rsi_mean_reversion"], tmp_path)
-        engine.cfg.symbol = "BTC/INR"
-        ex = _FakeExchange({"BTC/USDT": {}, "ETH/USDT": {}}, exc_id="binance")
-        with pytest.raises(RuntimeError) as ei:
-            engine._validate_symbol(ex)
-        msg = str(ei.value)
-        assert "does not list BTC/INR" in msg
-        assert "zebpay" in msg, "must suggest an exchange that actually lists INR"
-
-    def test_symbol_validation_lists_same_quote_markets(self, tmp_path):
-        engine = make_engine(["01_rsi_mean_reversion"], tmp_path)
-        engine.cfg.symbol = "DOGE/INR"
-        ex = _FakeExchange({"BTC/INR": {}, "ETH/INR": {}}, exc_id="zebpay")
-        with pytest.raises(RuntimeError) as ei:
-            engine._validate_symbol(ex)
-        assert "BTC/INR" in str(ei.value), "should show which INR pairs do exist"
-
-    def test_symbol_validation_survives_a_network_error(self, tmp_path):
-        """An unreachable markets endpoint must not block trading."""
-        engine = make_engine(["01_rsi_mean_reversion"], tmp_path)
-
-        class _Down:
-            id = "down"
-            markets = {}
-
-            def load_markets(self):
-                raise OSError("no network")
-
-        engine._validate_symbol(_Down())   # must not raise
-
-    def test_usd_mode_still_works_end_to_end(self, tmp_path):
-        """Switching back to a USD venue must restore the old schema."""
-        cfg = Config(state_path=str(tmp_path / "usd.json"), symbol="BTC/USDT")
-        log = logging.getLogger("bot"); log.addHandler(logging.NullHandler())
-        engine = Engine(cfg, log)
-        engine.load_state(reset=True)
-        acc = engine.accounts["01_rsi_mean_reversion"]
-        assert acc.balance_key == "balance_usd"
-        assert acc.quote_currency == "USDT"
-        dumped = acc.to_dict()
-        assert "balance_usd" in dumped and "balance_inr" not in dumped
-
-    def test_env_vars_configure_the_currency(self, monkeypatch):
-        monkeypatch.setenv("BOT_SYMBOL", "ETH/INR")
-        monkeypatch.setenv("BOT_STARTING_BALANCE", "25000")
-        monkeypatch.setenv("BOT_EXCHANGE", "mudrex")
-        cfg = Config.from_env()
-        assert cfg.symbol == "ETH/INR"
-        assert cfg.starting_balance == 25000.0
-        assert cfg.resolved_exchange == "mudrex"
-        assert cfg.balance_key == "balance_inr"
-
-    def test_summary_report_is_denominated_in_rupees(self):
-        summary = {
-            "01_rsi_mean_reversion": {
-                "name": "RSI", "equity": 10500.0, "return_pct": 5.0, "balance": 0.0,
-                "holdings": 0.0, "entry_price": None, "unrealized_pnl": 0.0,
-                "realized_pnl": 500.0, "trades": 2, "action": "hold", "reason": "",
-                "rejections": [],
-            }
-        }
-        out = botmod.format_summary(summary, 5000000.0, "BTC/INR", "INR")
-        assert "\u20b9" in out, "report must show the rupee sign"
-        assert "INR" in out
-        assert "10,500.00" in out
-
-        md = botmod.format_markdown(summary, 5000000.0, "BTC/INR", 1, "INR")
-        assert "\u20b910,500.00 INR" in md
-
-
-# ========================================================================== #
 # Broker: fees, guards, FIFO
 # ========================================================================== #
 
@@ -465,7 +332,7 @@ class TestBroker:
         assert trade is not None
         assert trade["qty"] == pytest.approx(0.01)
         assert trade["fee"] == pytest.approx(0.5)              # 0.1% of 500
-        assert acc.balance == pytest.approx(1000.0 - 500.0 - 0.5)
+        assert acc.balance_usd == pytest.approx(1000.0 - 500.0 - 0.5)
         assert acc.total_fees == pytest.approx(0.5)
 
     def test_sell_deducts_fee_and_books_net_pnl(self, cfg):
@@ -478,27 +345,25 @@ class TestBroker:
         assert trade["pnl"] == pytest.approx(50.0 - 0.5 - 0.55)
         assert acc.realized_pnl == pytest.approx(trade["pnl"])
         assert acc.crypto_holdings == 0.0
-        assert acc.balance == pytest.approx(1000.0 + trade["pnl"])
+        assert acc.balance_usd == pytest.approx(1000.0 + trade["pnl"])
 
     def test_insufficient_balance_is_rejected(self, cfg):
         acc, br = self._acc(balance=100.0), self._broker(cfg)
         assert br.buy(acc, 50000.0, notional=500.0, reason="too big") is None
-        assert acc.balance == 100.0
+        assert acc.balance_usd == 100.0
         assert not acc.lots
         assert acc.rejections and "insufficient balance" in acc.rejections[0]
 
     def test_fee_headroom_is_counted_in_the_guard(self, cfg):
         """Buying with 100% of cash must fail: cost + fee exceeds balance."""
-        acc, br = self._acc(balance=1000.0), self._broker(cfg)
-        assert br.buy(acc, 100.0, notional=1000.0, reason="all in") is None
-        assert br.buy(acc, 100.0, notional=998.0, reason="fits") is not None
+        acc, br = self._acc(balance=100.0), self._broker(cfg)
+        assert br.buy(acc, 100.0, notional=100.0, reason="all in") is None
+        assert br.buy(acc, 100.0, notional=99.8, reason="fits") is not None
 
     def test_below_min_notional_is_rejected(self, cfg):
-        assert cfg.min_notional == 100.0, "INR venues enforce a ~Rs 100 floor"
         acc, br = self._acc(), self._broker(cfg)
-        assert br.buy(acc, 50000.0, notional=50.0, reason="dust") is None
+        assert br.buy(acc, 50000.0, notional=5.0, reason="dust") is None
         assert any("min notional" in r for r in acc.rejections)
-        assert any("INR" in r for r in acc.rejections), "rejection should name the currency"
 
     def test_sell_without_position_is_rejected(self, cfg):
         acc, br = self._acc(), self._broker(cfg)
@@ -545,8 +410,8 @@ class TestStateStore:
     def test_round_trip_preserves_account(self, tmp_path):
         path = str(tmp_path / "data.json")
         store = StateStore(path, logging.getLogger("t"))
-        acc = Account("01_x", "X", 10000.0, "INR")
-        acc.balance = 8123.4
+        acc = Account("01_x", "X", 1000.0)
+        acc.balance_usd = 812.34
         acc.lots = [botmod.Lot(qty=0.5, price=375.0, fee=0.1875)]
         acc.crypto_holdings = 0.5
         acc.entry_price = 375.0
@@ -555,11 +420,9 @@ class TestStateStore:
         store.save({"meta": {"version": 1}, "accounts": {"01_x": acc.to_dict()}})
 
         raw = json.load(open(path))
-        assert raw["accounts"]["01_x"]["balance_inr"] == pytest.approx(8123.4)
-        assert "balance_usd" not in raw["accounts"]["01_x"], "INR account must not claim USD"
-        restored = Account.from_dict(raw["accounts"]["01_x"], 10000.0, "INR")
-        assert restored.balance == pytest.approx(8123.4)
-        assert restored.quote_currency == "INR"
+        assert raw["accounts"]["01_x"]["balance_usd"] == pytest.approx(812.34)
+        restored = Account.from_dict(raw["accounts"]["01_x"], 1000.0)
+        assert restored.balance_usd == pytest.approx(812.34)
         assert restored.crypto_holdings == pytest.approx(0.5)
         assert restored.entry_price == pytest.approx(375.0)
         assert len(restored.lots) == 1
@@ -585,16 +448,9 @@ class TestStateStore:
     def test_legacy_state_without_lots_is_reconciled(self):
         raw = {"strategy_id": "01_x", "name": "X", "balance_usd": 500.0,
                "crypto_holdings": 2.0, "entry_price": 250.0, "trades": []}
-        acc = Account.from_dict(raw, 1000.0, "USDT")
+        acc = Account.from_dict(raw, 1000.0)
         assert len(acc.lots) == 1
         assert acc.lots[0].qty == 2.0 and acc.lots[0].price == 250.0
-
-    def test_legacy_balance_usd_key_still_loads_for_an_inr_account(self):
-        """A pre-INR-switch state file must not silently reset to zero."""
-        raw = {"strategy_id": "01_x", "name": "X", "balance_usd": 742.5, "trades": []}
-        acc = Account.from_dict(raw, 10000.0, "INR")
-        assert acc.balance == pytest.approx(742.5)
-        assert acc.balance_key == "balance_inr"
 
 
 # ========================================================================== #
@@ -722,16 +578,16 @@ class TestStrategiesFire:
         acc = self._run("11_dynamic_dca", syn.ohlc_from_closes(closes), tmp_path)
         buys = [t for t in acc.trades if t["side"] == "buy"]
         assert buys, "DCA never bought"
-        doubled = [t for t in buys if t["notional"] > 900.0]
+        doubled = [t for t in buys if t["notional"] > 90.0]
         assert doubled, "no order was doubled despite a negative 24h change"
         assert all("[dip x2]" in (t.get("entry_reason") or "") for t in doubled)
 
     def test_11_dca_stops_when_cash_runs_out(self, tmp_path):
         closes = syn.flat(50000.0, 400, jitter_pct=0.05)
         acc = self._run("11_dynamic_dca", syn.ohlc_from_closes(closes), tmp_path)
-        assert acc.balance >= 0.0
+        assert acc.balance_usd >= 0.0
         total_spent = sum(t["notional"] + t["fee"] for t in acc.trades if t["side"] == "buy")
-        assert total_spent <= 10000.0 + 1e-6
+        assert total_spent <= 1000.0 + 1e-6
 
     def test_12_grid_runs_a_profitable_round_trip(self, tmp_path):
         # Dip 1.2% (fills a buy level) then recover 1.2% (fills its take-profit).
@@ -771,7 +627,7 @@ class TestStrategiesFire:
         acc = account(engine, "12_arithmetic_grid")
         assert acc.trades, "grid never traded"
         assert not acc.rejections, f"grid orders were refused: {acc.rejections}"
-        assert acc.balance >= 0.0
+        assert acc.balance_usd >= 0.0
 
     def test_12_grid_reanchors_and_liquidates_on_a_large_drift(self, tmp_path):
         closes = syn.flat(50000.0, 20, jitter_pct=0.02)
@@ -789,13 +645,11 @@ class TestStrategiesFire:
 
 
 class TestEngine:
-    def test_all_twelve_accounts_start_at_ten_thousand_inr(self, tmp_path):
+    def test_all_twelve_accounts_start_at_one_thousand(self, tmp_path):
         engine = make_engine(ALL_IDS, tmp_path)
         assert len(engine.accounts) == 12
         for sid, acc in engine.accounts.items():
-            assert acc.balance == 10000.0
-            assert acc.quote_currency == "INR"
-            assert acc.balance_key == "balance_inr"
+            assert acc.balance_usd == 1000.0
             assert acc.crypto_holdings == 0.0
             assert acc.entry_price is None
             assert acc.trades == []
@@ -819,7 +673,7 @@ class TestEngine:
             equity = acc.equity(price)
             expected = acc.starting_balance + acc.realized_pnl + acc.unrealized_pnl - acc.open_entry_fee
             assert equity == pytest.approx(expected, abs=1e-6), f"invariant broke for {sid}"
-            assert acc.balance >= -1e-9, f"{sid} went into overdraft"
+            assert acc.balance_usd >= -1e-9, f"{sid} went into overdraft"
             checked += 1
         assert checked == 12
 
@@ -921,7 +775,7 @@ class TestEngine:
         engine2.load_state()
         for sid, acc in engine.accounts.items():
             restored = engine2.accounts[sid]
-            assert restored.balance == pytest.approx(acc.balance, abs=1e-6)
+            assert restored.balance_usd == pytest.approx(acc.balance_usd, abs=1e-6)
             assert restored.crypto_holdings == pytest.approx(acc.crypto_holdings, abs=1e-9)
             assert restored.realized_pnl == pytest.approx(acc.realized_pnl, abs=1e-6)
             assert len(restored.trades) == len(acc.trades)
@@ -978,12 +832,12 @@ class TestEngine:
         engine = make_engine(["06_bollinger_mean_reversion"], tmp_path)
         acc = account(engine, "06_bollinger_mean_reversion")
         br = engine.broker
-        br.buy(acc, 50000.0, notional=9000.0, reason="in")
+        br.buy(acc, 50000.0, notional=900.0, reason="in")
         br.sell(acc, 50000.0, reason="out")
-        assert acc.equity(50000.0) < 10000.0
-        # two-sided 0.1% on a 9,000 INR notional = 9.00 in, 9.00 out
-        assert acc.equity(50000.0) == pytest.approx(10000.0 - 9.0 - 9.0, abs=1e-9)
-        assert acc.total_fees == pytest.approx(18.0, abs=1e-9)
+        assert acc.equity(50000.0) < 1000.0
+        # two-sided 0.1% on a 900 USDT notional = 0.90 in, 0.90 out
+        assert acc.equity(50000.0) == pytest.approx(1000.0 - 0.9 - 0.9, abs=1e-9)
+        assert acc.total_fees == pytest.approx(1.8, abs=1e-9)
 
 
 # ========================================================================== #
@@ -1012,15 +866,12 @@ class TestCli:
 
         data = json.load(open(state))
         assert data["meta"]["version"] == 1
-        assert data["meta"]["starting_balance"] == 10000.0
+        assert data["meta"]["starting_balance"] == 1000.0
         assert data["meta"]["fee_rate"] == 0.001
-        assert data["meta"]["symbol"] == "BTC/INR"
-        assert data["meta"]["quote_currency"] == "INR"
         assert len(data["accounts"]) == 12
         for sid, acc in data["accounts"].items():
-            for key in ("balance_inr", "crypto_holdings", "entry_price", "unrealized_pnl", "trades"):
+            for key in ("balance_usd", "crypto_holdings", "entry_price", "unrealized_pnl", "trades"):
                 assert key in acc, f"{sid} missing {key}"
-            assert "balance_usd" not in acc, f"{sid} must not report a USD balance"
         assert sum(len(a["trades"]) for a in data["accounts"].values()) > 0
 
     def test_dry_run_does_not_touch_disk(self, tmp_path):
@@ -1030,29 +881,6 @@ class TestCli:
         assert r.returncode == 0, r.stderr
         assert not os.path.exists(state)
         assert "not written" in r.stdout
-
-    def test_starting_balance_and_exchange_flags(self, tmp_path):
-        csv_path = syn.to_csv(syn.ohlc_from_closes(syn.multi_regime(30)), str(tmp_path / "hist.csv"))
-        state = str(tmp_path / "data.json")
-        r = self._run(["--replay", csv_path, "--state", state, "--reset", "--yes",
-                       "--starting-balance", "25000", "--exchange", "mudrex"])
-        assert r.returncode == 0, r.stderr + r.stdout
-        meta = json.load(open(state))["meta"]
-        assert meta["starting_balance"] == 25000.0
-        assert meta["exchange"] == "mudrex"
-        assert "\u20b9" in r.stdout, "the run banner should be rupee-denominated"
-
-    def test_usd_symbol_switches_schema_back(self, tmp_path):
-        csv_path = syn.to_csv(syn.ohlc_from_closes(syn.multi_regime(30)), str(tmp_path / "hist.csv"))
-        state = str(tmp_path / "data.json")
-        r = self._run(["--replay", csv_path, "--state", state, "--reset", "--yes",
-                       "--symbol", "BTC/USDT"])
-        assert r.returncode == 0, r.stderr + r.stdout
-        data = json.load(open(state))
-        assert data["meta"]["quote_currency"] == "USDT"
-        assert data["meta"]["exchange"] == "binance"
-        acc = data["accounts"]["01_rsi_mean_reversion"]
-        assert "balance_usd" in acc and "balance_inr" not in acc
 
     def test_symbol_flag_is_recorded_in_state(self, tmp_path):
         csv_path = syn.to_csv(syn.ohlc_from_closes(syn.multi_regime(30)), str(tmp_path / "hist.csv"))
@@ -1065,12 +893,12 @@ class TestCli:
         csv_path = syn.to_csv(syn.ohlc_from_closes(syn.multi_regime(30)), str(tmp_path / "hist.csv"))
         state = str(tmp_path / "data.json")
         r = self._run(["--replay", csv_path, "--state", state, "--reset", "--yes",
-                       "--param", "11_dynamic_dca.base_notional=250",
+                       "--param", "11_dynamic_dca.base_notional=25",
                        "--param", "11_dynamic_dca.take_profit_pct=null"])
         assert r.returncode == 0, r.stderr + r.stdout
         buys = [t for t in json.load(open(state))["accounts"]["11_dynamic_dca"]["trades"] if t["side"] == "buy"]
         assert buys
-        assert all(t["notional"] <= 500.0 + 1e-9 for t in buys), "base_notional override was ignored"
+        assert all(t["notional"] <= 50.0 + 1e-9 for t in buys), "base_notional override was ignored"
 
     def test_bad_param_syntax_exits_2(self, tmp_path):
         r = self._run(["--param", "nonsense", "--dry-run", "--replay", "/dev/null"])
