@@ -11,7 +11,7 @@ on:
       symbol:
         description: "Market to trade"
         required: false
-        default: "BTC/USDT"
+        default: "BTC/INR"
       force:
         description: "Reprocess the candle even if already handled"
         required: false
@@ -29,11 +29,11 @@ permissions:
   contents: write
 
 env:
-  SYMBOL: ${{ github.event.inputs.symbol || 'BTC/USDT' }}
+  SYMBOL: ${{ github.event.inputs.symbol || 'BTC/INR' }}
 
 jobs:
   trade:
-    name: Run strategies on ${{ github.event.inputs.symbol || 'BTC/USDT' }}
+    name: Run strategies on ${{ github.event.inputs.symbol || 'BTC/INR' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
 

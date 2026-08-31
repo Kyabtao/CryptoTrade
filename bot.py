@@ -24,7 +24,8 @@ Design notes
 Scheduled usage (GitHub Actions)::
 
     python bot.py                       # one tick, persists to docs/data.json
-    python bot.py --symbol ETH/USDT     # alternate market
+    python bot.py --symbol ETH/INR      # alternate market
+    python bot.py --symbol BTC/USDT --exchange binance  # USD venue
     python bot.py --replay hist.csv     # offline replay / backtest
     python bot.py --reset --yes         # rebuild the state file from scratch
 
@@ -62,9 +63,41 @@ DEFAULT_STATE_PATH = os.path.join("docs", "data.json")
 EPS = 1e-12          # float comparison guard for quantities / balances
 MIN_QTY_STEP = 1e-8  # quantities below this are treated as flat
 
-# Binance spot minimum order notional (USDT). Orders smaller than this are
+# Minimum order notional in the quote currency. Orders smaller than this are
 # rejected by the broker simulation, mirroring real exchange behaviour.
-DEFAULT_MIN_NOTIONAL = 10.0
+# INR venues commonly enforce a ~Rs 100 floor (CoinDCX, ZebPay).
+DEFAULT_MIN_NOTIONAL = 100.0
+
+# USD-pegged quotes all report under the legacy ``balance_usd`` key so that
+# existing state files keep loading. Everything else gets its own key.
+_USD_QUOTES = ("USD", "USDT", "USDC", "BUSD", "FDUSD", "TUSD", "DAI")
+
+# Exchanges that can actually serve the quote currency. Binance has no INR
+# spot order book (INR there is P2P only), so INR needs an Indian venue.
+DEFAULT_EXCHANGE_BY_QUOTE = {
+    "INR": "zebpay",
+}
+FALLBACK_EXCHANGE = "binance"
+
+CURRENCY_SYMBOLS = {"INR": "\u20b9", "USD": "$", "USDT": "$", "USDC": "$", "BUSD": "$", "EUR": "\u20ac", "GBP": "\u00a3"}
+
+
+def quote_of(symbol: str) -> str:
+    """Quote currency of a ccxt symbol: ``BTC/INR`` -> ``INR``.
+
+    Strips settlement suffixes so ``BTC/USD:BTC`` still yields ``USD``.
+    """
+    tail = symbol.split("/")[-1]
+    return tail.split(":")[0].upper()
+
+
+def balance_key_for(quote: str) -> str:
+    q = quote.upper()
+    return "balance_usd" if q in _USD_QUOTES else f"balance_{q.lower()}"
+
+
+def currency_symbol_for(quote: str) -> str:
+    return CURRENCY_SYMBOLS.get(quote.upper(), "")
 
 
 def utcnow_iso() -> str:
@@ -84,12 +117,13 @@ def ms_to_iso(ms: int) -> str:
 class Config:
     """Runtime configuration. Precedence: defaults < environment < CLI flags."""
 
-    symbol: str = "BTC/USDT"
+    symbol: str = "BTC/INR"
     timeframe: str = "15m"
     candle_limit: int = 100
     state_path: str = DEFAULT_STATE_PATH
+    exchange: Optional[str] = None   # None -> chosen from the quote currency
 
-    starting_balance: float = 1000.0
+    starting_balance: float = 10000.0
     fee_rate: float = 0.001          # 0.1% spot taker fee, applied both sides
     min_notional: float = DEFAULT_MIN_NOTIONAL
     slippage: float = 0.0            # fraction of price, applied adversely
@@ -107,6 +141,27 @@ class Config:
     # Per-strategy parameter overrides: {"01_rsi_mean_reversion": {"rsi_buy": 25}}
     overrides: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     disabled: List[str] = field(default_factory=list)
+
+    # -- derived ------------------------------------------------------------ #
+
+    @property
+    def quote_currency(self) -> str:
+        return quote_of(self.symbol)
+
+    @property
+    def balance_key(self) -> str:
+        return balance_key_for(self.quote_currency)
+
+    @property
+    def currency_symbol(self) -> str:
+        return currency_symbol_for(self.quote_currency)
+
+    @property
+    def resolved_exchange(self) -> str:
+        """Exchange id to use: explicit config wins, else per-quote default."""
+        if self.exchange:
+            return self.exchange
+        return DEFAULT_EXCHANGE_BY_QUOTE.get(self.quote_currency, FALLBACK_EXCHANGE)
 
     @classmethod
     def from_env(cls, base: Optional["Config"] = None) -> "Config":
@@ -127,6 +182,8 @@ class Config:
         cfg.symbol = _get("BOT_SYMBOL") or cfg.symbol
         cfg.timeframe = _get("BOT_TIMEFRAME") or cfg.timeframe
         cfg.state_path = _get("BOT_STATE_PATH") or cfg.state_path
+        cfg.exchange = _get("BOT_EXCHANGE") or cfg.exchange
+        _apply("starting_balance", "BOT_STARTING_BALANCE", float)
         _apply("candle_limit", "BOT_CANDLE_LIMIT", int)
         _apply("fee_rate", "BOT_FEE_RATE", float)
         _apply("slippage", "BOT_SLIPPAGE", float)
@@ -577,12 +634,20 @@ class Lot:
 
 
 class Account:
-    """One isolated virtual sub-account."""
+    """One isolated virtual sub-account.
 
-    def __init__(self, account_id: str, name: str, starting_balance: float):
+    Cash lives on ``self.balance``; the JSON key is derived from the quote
+    currency (``balance_inr``, or the legacy ``balance_usd`` for USD-pegged
+    quotes) so the file never claims a currency it does not hold.
+    """
+
+    def __init__(self, account_id: str, name: str, starting_balance: float,
+                 quote_currency: str = "INR"):
         self.id = account_id
         self.name = name
-        self.balance_usd = float(starting_balance)
+        self.quote_currency = quote_currency.upper()
+        self.balance_key = balance_key_for(self.quote_currency)
+        self.balance = float(starting_balance)
         self.starting_balance = float(starting_balance)
         self.crypto_holdings = 0.0
         self.entry_price: Optional[float] = None
@@ -610,7 +675,7 @@ class Account:
         return self.crypto_holdings > MIN_QTY_STEP
 
     def equity(self, price: float) -> float:
-        return self.balance_usd + self.crypto_holdings * price
+        return self.balance + self.crypto_holdings * price
 
     def mark_to_market(self, price: float) -> None:
         """Recompute entry price / unrealized PnL from the FIFO lot book."""
@@ -646,7 +711,8 @@ class Account:
         return {
             "strategy_id": self.id,
             "name": self.name,
-            "balance_usd": round(self.balance_usd, 8),
+            "quote_currency": self.quote_currency,
+            self.balance_key: round(self.balance, 8),
             "crypto_holdings": round(self.crypto_holdings, 12),
             "entry_price": None if self.entry_price is None else round(self.entry_price, 8),
             "unrealized_pnl": round(self.unrealized_pnl, 8),
@@ -660,13 +726,23 @@ class Account:
         }
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any], starting_balance: float) -> "Account":
+    def from_dict(cls, d: Dict[str, Any], starting_balance: float,
+                  quote_currency: str = "INR") -> "Account":
         acc = cls(
             account_id=d.get("strategy_id") or d.get("id", "unknown"),
             name=d.get("name", d.get("strategy_id", "unknown")),
             starting_balance=float(d.get("starting_balance", starting_balance)),
+            quote_currency=d.get("quote_currency", quote_currency),
         )
-        acc.balance_usd = float(d.get("balance_usd", acc.starting_balance))
+        # Prefer the currency-specific key; fall back to the legacy names so
+        # state files written before the INR switch still load.
+        raw = d.get(acc.balance_key)
+        if raw is None:
+            for legacy in ("balance_usd", "balance"):
+                if d.get(legacy) is not None:
+                    raw = d[legacy]
+                    break
+        acc.balance = float(raw) if raw is not None else acc.starting_balance
         acc.crypto_holdings = float(d.get("crypto_holdings", 0.0))
         entry = d.get("entry_price")
         acc.entry_price = float(entry) if entry is not None else None
@@ -724,23 +800,25 @@ class Broker:
         fee = cost * self.cfg.fee_rate
         required = cost + fee
 
-        if required > acc.balance_usd + 1e-9:
+        if required > acc.balance + 1e-9:
             self._reject(
                 acc,
-                f"insufficient balance: need {required:.4f} USDT, have {acc.balance_usd:.4f} USDT",
+                f"insufficient balance: need {required:.4f} {acc.quote_currency}, "
+                f"have {acc.balance:.4f} {acc.quote_currency}",
             )
             return None
         if cost < self.cfg.min_notional:
             self._reject(
                 acc,
-                f"order {cost:.4f} USDT below min notional {self.cfg.min_notional:.2f} USDT",
+                f"order {cost:.4f} {acc.quote_currency} below min notional "
+                f"{self.cfg.min_notional:.2f} {acc.quote_currency}",
             )
             return None
         if qty <= MIN_QTY_STEP:
             self._reject(acc, "computed quantity rounds to zero")
             return None
 
-        acc.balance_usd -= required
+        acc.balance -= required
         acc.total_fees += fee
         acc.lots.append(Lot(qty=qty, price=price, fee=fee))
         acc.crypto_holdings += qty
@@ -757,7 +835,7 @@ class Broker:
             "gross_pnl": 0.0,
             "exit_reason": None,
             "entry_reason": reason,
-            "balance_after": acc.balance_usd,
+            "balance_after": acc.balance,
             "holdings_after": acc.crypto_holdings,
         }
         acc.trades.append(trade)
@@ -809,7 +887,7 @@ class Broker:
         gross_pnl = proceeds - entry_cost
         net_pnl = gross_pnl - entry_fee - fee
 
-        acc.balance_usd += proceeds - fee
+        acc.balance += proceeds - fee
         acc.total_fees += fee
         acc.realized_pnl += net_pnl
         acc.crypto_holdings = sum(l.qty for l in acc.lots)
@@ -826,7 +904,7 @@ class Broker:
             "gross_pnl": gross_pnl,
             "exit_reason": reason,
             "entry_reason": None,
-            "balance_after": acc.balance_usd,
+            "balance_after": acc.balance,
             "holdings_after": acc.crypto_holdings,
         }
         acc.trades.append(trade)
@@ -890,7 +968,7 @@ class Strategy:
         if alloc is None:
             alloc = cfg.position_alloc if cfg is not None else 0.95
         alloc = max(0.0, min(1.0, float(alloc)))
-        return acc.balance_usd * alloc
+        return acc.balance * alloc
 
     # -- entry point -------------------------------------------------------- #
 
@@ -1191,7 +1269,7 @@ class DynamicDca(Strategy):
     warmup = 2
     params = {
         "interval_candles": 4,       # every 4 x 15m candles == hourly
-        "base_notional": 50.0,
+        "base_notional": 500.0,      # ~5% of the Rs 10,000 starting balance
         "dip_multiplier": 2.0,
         "lookback_24h": 96,          # 96 x 15m == 24h
         "take_profit_pct": None,     # optional: exit whole stack at +X%
@@ -1223,7 +1301,7 @@ class DynamicDca(Strategy):
             notional = base * float(self.p["dip_multiplier"])
 
         label = f"24h {change:+.2f}%" if change is not None else "24h n/a"
-        affordable = acc.balance_usd / (1.0 + cfg.fee_rate) if cfg.fee_rate > 0 else acc.balance_usd
+        affordable = acc.balance / (1.0 + cfg.fee_rate) if cfg.fee_rate > 0 else acc.balance
         if notional > affordable:
             return self.hold(f"DCA order {notional:.2f} exceeds affordable cash {affordable:.2f}")
         return self.buy(
@@ -1440,7 +1518,7 @@ class StateStore:
 
 
 def _fresh_account(strategy: Strategy, cfg: Config) -> Account:
-    return Account(strategy.id, strategy.name, cfg.starting_balance)
+    return Account(strategy.id, strategy.name, cfg.starting_balance, cfg.quote_currency)
 
 
 # --------------------------------------------------------------------------- #
@@ -1478,6 +1556,8 @@ class Engine:
                 "symbol": self.cfg.symbol,
                 "timeframe": self.cfg.timeframe,
                 "starting_balance": self.cfg.starting_balance,
+                "quote_currency": self.cfg.quote_currency,
+                "exchange": self.cfg.resolved_exchange,
                 "fee_rate": self.cfg.fee_rate,
                 "run_count": int(meta.get("run_count", 0)),
                 "candles_processed": int(meta.get("candles_processed", 0)),
@@ -1491,10 +1571,13 @@ class Engine:
         for strategy in self.strategies:
             saved = accounts_raw.get(strategy.id)
             if saved:
-                self.accounts[strategy.id] = Account.from_dict(saved, self.cfg.starting_balance)
+                self.accounts[strategy.id] = Account.from_dict(
+                    saved, self.cfg.starting_balance, self.cfg.quote_currency
+                )
             else:
                 self.accounts[strategy.id] = _fresh_account(strategy, self.cfg)
-                self.log.info("Initialised new account %s with %.2f USDT", strategy.id, self.cfg.starting_balance)
+                self.log.info("Initialised new account %s with %.2f %s",
+                          strategy.id, self.cfg.starting_balance, self.cfg.quote_currency)
 
     def persist(self) -> None:
         self.state["meta"]["updated_at"] = utcnow_iso()
@@ -1505,6 +1588,36 @@ class Engine:
 
     # -- market data -------------------------------------------------------- #
 
+    def _validate_symbol(self, ex) -> None:
+        """Fail fast with an actionable message if the pair is not listed.
+
+        Binance, for example, has no INR spot order book at all (INR there is
+        P2P only), so a BTC/INR request against it must not die deep inside a
+        network call.
+        """
+        try:
+            ex.load_markets()
+        except Exception as exc:  # noqa: BLE001 - network layer is broad by nature
+            self.log.warning("Could not load markets to validate %s: %s", self.cfg.symbol, exc)
+            return
+
+        if self.cfg.symbol in ex.markets:
+            return
+
+        quoted = self.cfg.quote_currency
+        same_quote = sorted(s for s in ex.markets if quote_of(s) == quoted)
+        hint = ""
+        if same_quote:
+            hint = f" Available {quoted} markets: {', '.join(same_quote[:8])}."
+        elif quoted == "INR":
+            hint = (
+                " This exchange lists no INR spot market (Binance INR is P2P only). "
+                "Try --exchange zebpay, --exchange mudrex or --exchange delta."
+            )
+        else:
+            hint = f" This exchange lists no {quoted} market at all."
+        raise RuntimeError(f"{ex.id} does not list {self.cfg.symbol}.{hint}")
+
     def required_candles(self) -> int:
         warmups = [s.warmup for s in self.strategies] or [50]
         # +1 because the in-progress candle is dropped before evaluation.
@@ -1513,7 +1626,21 @@ class Engine:
     def fetch_live(self, exchange=None) -> MarketData:
         if ccxt is None:
             raise RuntimeError("ccxt is not installed. Run: pip install ccxt")
-        ex = exchange or ccxt.binance({"enableRateLimit": True, "timeout": 30000, "options": {"defaultType": "spot"}})
+
+        if exchange is None:
+            exchange_id = self.cfg.resolved_exchange
+            if not hasattr(ccxt, exchange_id):
+                raise RuntimeError(
+                    f"ccxt has no exchange named {exchange_id!r}. "
+                    f"Pass --exchange with one of: {', '.join(sorted(ccxt.exchanges)[:12])} ..."
+                )
+            cls = getattr(ccxt, exchange_id)
+            ex = cls({"enableRateLimit": True, "timeout": 30000})
+            self.log.info("Using exchange %r for %s", exchange_id, self.cfg.symbol)
+        else:
+            ex = exchange
+
+        self._validate_symbol(ex)
 
         limit = max(self.cfg.candle_limit, self.required_candles())
         if limit > self.cfg.candle_limit:
@@ -1675,7 +1802,7 @@ class Engine:
                 "name": strategy.name,
                 "equity": equity,
                 "return_pct": (equity / acc.starting_balance - 1.0) * 100.0,
-                "balance": acc.balance_usd,
+                "balance": acc.balance,
                 "holdings": acc.crypto_holdings,
                 "entry_price": acc.entry_price,
                 "unrealized_pnl": acc.unrealized_pnl,
@@ -1699,12 +1826,14 @@ class Engine:
 # --------------------------------------------------------------------------- #
 
 
-def format_summary(summary: Dict[str, Any], price: float, symbol: str) -> str:
+def format_summary(summary: Dict[str, Any], price: float, symbol: str,
+                   quote: str = "INR") -> str:
     rows = [s for s in summary.values() if not s.get("skipped")]
     if not rows:
         return "No strategies processed this run (duplicate candle)."
 
-    header = f"{'STRATEGY':<34} {'EQUITY':>11} {'RET %':>8} {'POS':>5} {'TRD':>5} {'ACTION':>6}"
+    csym = currency_symbol_for(quote)
+    header = f"{'STRATEGY':<34} {'EQUITY':>13} {'RET %':>8} {'POS':>5} {'TRD':>5} {'ACTION':>6}"
     sep = "-" * len(header)
     lines = [
         "",
@@ -1721,21 +1850,25 @@ def format_summary(summary: Dict[str, Any], price: float, symbol: str) -> str:
         total_equity += row["equity"]
         pos = "LONG" if (row["holdings"] or 0) > MIN_QTY_STEP else "flat"
         lines.append(
-            f"{sid:<34} {row['equity']:>11.2f} {row['return_pct']:>+8.2f} {pos:>5} {row['trades']:>5} {row['action']:>6}"
+            f"{sid:<34} {csym}{row['equity']:>12,.2f} {row['return_pct']:>+8.2f} "
+            f"{pos:>5} {row['trades']:>5} {row['action']:>6}"
         )
     lines.append(sep)
-    lines.append(f"{'TOTAL EQUITY':<34} {total_equity:>11.2f}   ({len(rows)} strategies)")
+    lines.append(f"{'TOTAL EQUITY':<34} {csym}{total_equity:>12,.2f}   "
+                 f"({len(rows)} strategies, {quote})")
     lines.append("")
     return "\n".join(lines)
 
 
-def format_markdown(summary: Dict[str, Any], price: float, symbol: str, run_count: int) -> str:
+def format_markdown(summary: Dict[str, Any], price: float, symbol: str, run_count: int,
+                    quote: str = "INR") -> str:
+    csym = currency_symbol_for(quote)
     rows = [(sid, s) for sid, s in summary.items() if not s.get("skipped")]
     total = sum(s["equity"] for _, s in rows)
     out = [
         f"### CryptoTrade paper-trading run #{run_count}",
         "",
-        f"**{symbol}** @ `{price:.4f}` — total virtual equity **${total:,.2f}**",
+        f"**{symbol}** @ `{price:.4f}` — total virtual equity **{csym}{total:,.2f} {quote}**",
         "",
         "| Strategy | Equity | Return | Position | Trades | Last action |",
         "| --- | ---: | ---: | :---: | ---: | :--- |",
@@ -1744,9 +1877,10 @@ def format_markdown(summary: Dict[str, Any], price: float, symbol: str, run_coun
         pos = "LONG" if (s["holdings"] or 0) > MIN_QTY_STEP else "flat"
         reason = (s.get("reason") or "").replace("|", "\\|")[:60]
         out.append(
-            f"| `{sid}` | ${s['equity']:,.2f} | {s['return_pct']:+.2f}% | {pos} | {s['trades']} | {s['action']} — {reason} |"
+            f"| `{sid}` | {csym}{s['equity']:,.2f} | {s['return_pct']:+.2f}% | {pos} | "
+            f"{s['trades']} | {s['action']} — {reason} |"
         )
-    out.append(f"| **Total** | **${total:,.2f}** | | | | |")
+    out.append(f"| **Total** | **{csym}{total:,.2f}** | | | | |")
     return "\n".join(out)
 
 
@@ -1820,7 +1954,9 @@ def build_parser() -> argparse.ArgumentParser:
         description="Multi-strategy crypto paper-trading engine (12 isolated virtual accounts).",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    p.add_argument("--symbol", help="Market to trade (e.g. BTC/USDT, ETH/USDT)")
+    p.add_argument("--symbol", help="Market to trade (e.g. BTC/INR, ETH/INR, BTC/USDT)")
+    p.add_argument("--exchange", help="ccxt exchange id (default: zebpay for INR, binance otherwise)")
+    p.add_argument("--starting-balance", type=float, help="Virtual cash per account, in the quote currency")
     p.add_argument("--timeframe", help="Candle timeframe (e.g. 15m, 1h)")
     p.add_argument("--limit", type=int, help="Candles requested from the exchange")
     p.add_argument("--state", help="Path to the JSON state file")
@@ -1891,6 +2027,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     cfg = Config.from_env()
     if args.symbol:
         cfg.symbol = args.symbol
+    if args.exchange:
+        cfg.exchange = args.exchange
+    if args.starting_balance is not None:
+        cfg.starting_balance = args.starting_balance
     if args.timeframe:
         cfg.timeframe = args.timeframe
     if args.limit:
@@ -1926,7 +2066,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         engine.load_state(reset=True)
         engine.persist()
         print(f"Initialised {len(engine.strategies)} virtual accounts with "
-              f"{cfg.starting_balance:.2f} USDT each in {cfg.state_path}")
+              f"{cfg.currency_symbol}{cfg.starting_balance:,.2f} {cfg.quote_currency} each "
+              f"in {cfg.state_path}")
         return 0
 
     if args.reset and not args.yes:
@@ -1941,8 +2082,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     engine = Engine(cfg, log)
     engine.load_state(reset=args.reset)
 
-    log.info("CryptoTrade v%s | %s %s | fee %.3f%% | state %s | %d strategies",
-             __version__, cfg.symbol, cfg.timeframe, cfg.fee_rate * 100, cfg.state_path, len(engine.strategies))
+    log.info("CryptoTrade v%s | %s %s on %s | %s%s %s per account | fee %.3f%% | state %s | %d strategies",
+             __version__, cfg.symbol, cfg.timeframe, cfg.resolved_exchange,
+             cfg.currency_symbol, f"{cfg.starting_balance:,.2f}", cfg.quote_currency,
+             cfg.fee_rate * 100, cfg.state_path, len(engine.strategies))
 
     try:
         if args.replay:
@@ -1968,9 +2111,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             raise
         return 1
 
-    report = format_summary(summary, md_price, cfg.symbol)
+    report = format_summary(summary, md_price, cfg.symbol, cfg.quote_currency)
     print(report)
-    write_github_summary(format_markdown(summary, md_price, cfg.symbol, engine.state["meta"]["run_count"]))
+    write_github_summary(format_markdown(summary, md_price, cfg.symbol,
+                                          engine.state["meta"]["run_count"], cfg.quote_currency))
 
     if args.dry_run:
         # Always visible: a dry run must never look like a persisted run.
