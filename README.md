@@ -282,6 +282,14 @@ indicators implemented in pure Python.
 - **Grid fills are optimistic.** A limit order is treated as filled whenever the
   candle's low/high reaches its level, which overstates fills in fast markets.
 - **No funding, borrow or shorting.** This models spot only.
+- **Binance geo-restriction.** The engine calls `api.binance.com`, which returns
+  HTTP 451 to United States IP addresses. GitHub-hosted runners are US-based, so
+  a scheduled run there will fail at the data-fetch step. Use a self-hosted
+  runner outside the US, or point the bot at an exchange that permits US access
+  (Kraken, Coinbase, KuCoin, OKX, Bybit all serve `*/USDT` spot). Note that ccxt
+  4.x has no `hostname` option for Binance, so redirecting to Binance's public
+  `data-api.binance.vision` mirror requires overriding `urls` in code.
+  *Not verified in the offline test-suite, which has no network access.*
 - **Results depend on synthetic-free live data.** The test-suite verifies
   mechanics, not edge; a strategy that beats a seeded random walk here has no
   implied edge in the real market.
