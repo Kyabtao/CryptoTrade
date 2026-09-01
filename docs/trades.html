@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CryptoTrade — Trade Ledger</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a class="brand" href="index.html"><span class="logo">₿</span> CryptoTrade</a>
+      <div class="nav-links">
+        <a href="index.html">Dashboard</a>
+        <a href="strategies.html">Strategies</a>
+        <a href="trades.html" class="active">Trades</a>
+      </div>
+      <div class="nav-status">
+        <span class="dot"></span>
+        <span id="navStatus">Loading…</span>
+      </div>
+    </div>
+  </nav>
+
+  <div class="wrap">
+    <div class="hero">
+      <div>
+        <h1>Trade Ledger</h1>
+        <div class="sub">Every simulated fill across all 42 sub-accounts, FIFO lot-matched and fee-adjusted</div>
+      </div>
+    </div>
+
+    <div class="grid kpis" id="kpis"></div>
+
+    <div class="section" style="margin-top:18px;">
+      <div class="card">
+        <h3>All Trades</h3>
+        <div class="controls">
+          <select id="acctFilter"><option value="">All accounts</option></select>
+          <select id="sideFilter">
+            <option value="">All sides</option>
+            <option value="buy">Buys</option>
+            <option value="sell">Sells</option>
+          </select>
+          <input type="text" id="search" placeholder="Search reason…" />
+          <span class="spacer"></span>
+          <span class="mini" id="rowCount"></span>
+        </div>
+        <div class="table-wrap">
+          <table class="data" id="trades">
+            <thead>
+              <tr>
+                <th class="sortable" data-key="timestamp">Time</th>
+                <th>Account</th>
+                <th>Side</th>
+                <th class="sortable r" data-key="price">Price</th>
+                <th class="sortable r" data-key="qty">Qty</th>
+                <th class="sortable r" data-key="notional">Notional</th>
+                <th class="sortable r" data-key="fee">Fee</th>
+                <th class="sortable r" data-key="pnl">PnL</th>
+                <th class="sortable r" data-key="gross_pnl">Gross PnL</th>
+                <th>Reason</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="pager">
+          <button class="btn" id="prev">← Prev</button>
+          <span id="pageInfo"></span>
+          <button class="btn" id="next">Next →</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="note">
+      <b>Fees</b> are 0.1% of notional on every buy and sell. <b>PnL</b> on sells is net of both the entry and exit
+      fees; <b>Gross PnL</b> is proceeds minus entry cost before fees.
+    </div>
+    <div class="footer">CryptoTrade · reconstructed from <code>docs/data.json</code> on every page load</div>
+  </div>
+
+  <script src="assets/data.js"></script>
+  <script>
+    (async function () {
+      const state = await loadState();
+      const env = enrichState(state);
+      document.getElementById("navStatus").textContent =
+        `Live · ${env.meta.symbol || "—"} · updated ${fmtTs(env.meta.updated_at)}`;
+
+      /* flatten all trades */
+      let all = [];
+      env.accounts.forEach((a) => {
+        (a.raw.trades || []).forEach((t) => {
+          all.push({ account: a.id, name: a.name, ...t });
+        });
+      });
+      all.sort((a, b) => (b.timestamp || "").localeCompare(a.timestamp || ""));
+
+      /* summary KPIs */
+      const buys = all.filter((t) => t.side === "buy");
+      const sells = all.filter((t) => t.side === "sell");
+      const wins = sells.filter((t) => (t.pnl || 0) > 0).length;
+      const totalPnl = sells.reduce((s, t) => s + (t.pnl || 0), 0);
+      const totalFees = all.reduce((s, t) => s + (t.fee || 0), 0);
+      document.getElementById("kpis").innerHTML = [
+        { label: "Total Fills", value: fmtNum(all.length), sub: buys.length + " buys · " + sells.length + " sells", cls: "" },
+        { label: "Realized PnL", value: fmtUSD(totalPnl), sub: "net of fees", cls: pctClass(totalPnl) },
+        { label: "Winning Sells", value: sells.length ? (wins / sells.length * 100).toFixed(1) + "%" : "—", sub: wins + " of " + sells.length, cls: wins > sells.length / 2 ? "pos" : "neu" },
+        { label: "Total Fees", value: fmtUSD(totalFees), sub: "0.1% per side", cls: "" },
+        { label: "Accounts Traded", value: fmtNum(new Set(all.map((t) => t.account)).size), sub: "of " + env.accounts.length, cls: "" },
+        { label: "Last Fill", value: all.length ? fmtTs(all[0].timestamp) : "—", sub: all.length ? all[0].account : "no trades yet", cls: "" },
+      ].map((k) => `<div class="card kpi"><div class="label">${esc(k.label)}</div><div class="value num ${k.cls}">${k.value}</div><div class="sub">${esc(k.sub)}</div></div>`).join("");
+
+      /* filters */
+      const acctSel = document.getElementById("acctFilter");
+      acctSel.innerHTML = '<option value="">All accounts</option>' +
+        env.accounts.map((a) => `<option value="${esc(a.id)}">${esc(a.id)} — ${esc(a.name)}</option>`).join("");
+      const params = new URLSearchParams(location.search);
+      if (params.get("sid")) acctSel.value = params.get("sid");
+
+      const PAGE = 50;
+      let page = 0, sortKey = "timestamp", sortDir = -1;
+      const tb = document.getElementById("trades").querySelector("tbody");
+
+      function render() {
+        const q = document.getElementById("search").value.toLowerCase();
+        const af = acctSel.value, sf = document.getElementById("sideFilter").value;
+        const rows = all
+          .filter((t) => !af || t.account === af)
+          .filter((t) => !sf || t.side === sf)
+          .filter((t) => (t.entry_reason || t.exit_reason || "").toLowerCase().includes(q))
+          .sort((a, b) => {
+            let av = a[sortKey], bv = b[sortKey];
+            if (typeof av === "string") return av.localeCompare(bv) * sortDir;
+            av = av == null ? -Infinity : av; bv = bv == null ? -Infinity : bv;
+            return (av - bv) * sortDir;
+          });
+        const pages = Math.max(1, Math.ceil(rows.length / PAGE));
+        page = Math.min(page, pages - 1);
+        const slice = rows.slice(page * PAGE, page * PAGE + PAGE);
+        document.getElementById("rowCount").textContent = `${rows.length} trades`;
+        document.getElementById("pageInfo").textContent = `Page ${page + 1} of ${pages}`;
+        document.getElementById("prev").disabled = page === 0;
+        document.getElementById("next").disabled = page >= pages - 1;
+
+        tb.innerHTML = slice.map((t) => `
+          <tr>
+            <td class="num">${fmtTs(t.timestamp)}</td>
+            <td><div style="font-weight:600">${esc(t.name)}</div><div class="id mono" style="color:var(--text-faint);font-size:11px">${esc(t.account)}</div></td>
+            <td><span class="badge ${t.side}">${t.side}</span></td>
+            <td class="r num">${fmtPrice(t.price)}</td>
+            <td class="r num">${fmtQty(t.qty)}</td>
+            <td class="r num">${fmtUSD(t.notional)}</td>
+            <td class="r num" style="color:var(--text-faint)">${fmtUSD(t.fee)}</td>
+            <td class="r num ${pctClass(t.pnl)}">${fmtUSD(t.pnl)}</td>
+            <td class="r num ${pctClass(t.gross_pnl)}">${fmtUSD(t.gross_pnl)}</td>
+            <td style="max-width:360px;white-space:normal;color:var(--text-dim)">${esc(t.exit_reason || t.entry_reason || "—")}</td>
+          </tr>`).join("") || '<tr><td colspan="10" class="empty">No trades match the current filters.</td></tr>';
+      }
+
+      document.getElementById("search").addEventListener("input", () => { page = 0; render(); });
+      acctSel.addEventListener("change", () => { page = 0; render(); });
+      document.getElementById("sideFilter").addEventListener("change", () => { page = 0; render(); });
+      document.getElementById("prev").addEventListener("click", () => { page--; render(); });
+      document.getElementById("next").addEventListener("click", () => { page++; render(); });
+      document.querySelectorAll("#trades th.sortable").forEach((th) => {
+        th.addEventListener("click", () => {
+          const k = th.dataset.key;
+          if (sortKey === k) sortDir *= -1; else { sortKey = k; sortDir = -1; }
+          document.querySelectorAll("#trades th.sortable .arrow").forEach((s) => (s.textContent = ""));
+          th.innerHTML += ` <span class="arrow">${sortDir === 1 ? "▲" : "▼"}</span>`;
+          page = 0; render();
+        });
+      });
+      render();
+    })().catch((e) => {
+      document.body.innerHTML = '<div class="wrap"><div class="empty">Failed to load data: ' + e.message + '</div></div>';
+    });
+  </script>
+</body>
+</html>

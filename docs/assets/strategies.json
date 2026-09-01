@@ -1,0 +1,626 @@
+[
+  {
+    "id": "01_rsi_mean_reversion",
+    "name": "RSI Mean Reversion",
+    "category": "Momentum & Trend Following",
+    "warmup": 20,
+    "single_position": true,
+    "entry": "RSI(14) < 30 (oversold)",
+    "exit": "RSI(14) > 70 (overbought)",
+    "params": {
+      "rsi_period": 14,
+      "rsi_buy": 30.0,
+      "rsi_sell": 70.0,
+      "alloc": null
+    }
+  },
+  {
+    "id": "02_dual_ema_crossover",
+    "name": "Dual EMA Crossover (9/21)",
+    "category": "Momentum & Trend Following",
+    "warmup": 30,
+    "single_position": true,
+    "entry": "EMA9 crosses above EMA21",
+    "exit": "EMA9 crosses below EMA21",
+    "params": {
+      "fast": 9,
+      "slow": 21,
+      "alloc": null
+    }
+  },
+  {
+    "id": "03_macd_histogram_reversal",
+    "name": "MACD Signal Crossover",
+    "category": "Momentum & Trend Following",
+    "warmup": 45,
+    "single_position": true,
+    "entry": "MACD line crosses above signal",
+    "exit": "MACD line crosses below signal",
+    "params": {
+      "fast": 12,
+      "slow": 26,
+      "signal": 9,
+      "alloc": null
+    }
+  },
+  {
+    "id": "04_triple_moving_average",
+    "name": "Triple MA Trend (20/50/200)",
+    "category": "Momentum & Trend Following",
+    "warmup": 200,
+    "single_position": true,
+    "entry": "SMA20 > SMA50 > SMA200 aligned",
+    "exit": "SMA20 drops below SMA50",
+    "params": {
+      "fast": 20,
+      "mid": 50,
+      "slow": 200,
+      "alloc": null
+    }
+  },
+  {
+    "id": "05_supertrend_atr",
+    "name": "Supertrend ATR Trailing Stop",
+    "category": "Momentum & Trend Following",
+    "warmup": 25,
+    "single_position": true,
+    "entry": "Supertrend (ATR 10, \u00d73) flips bullish",
+    "exit": "flips bearish / stop breached",
+    "params": {
+      "atr_period": 10,
+      "multiplier": 3.0,
+      "alloc": null
+    }
+  },
+  {
+    "id": "13_adx_dmi_trend",
+    "name": "ADX DMI Trend Strength",
+    "category": "Momentum & Trend Following",
+    "warmup": 35,
+    "single_position": true,
+    "entry": "ADX(14) > 25 and +DI > \u2212DI",
+    "exit": "ADX < 20 or \u2212DI takes the lead",
+    "params": {
+      "period": 14,
+      "adx_min": 25.0,
+      "alloc": null
+    }
+  },
+  {
+    "id": "14_ichimoku_cloud",
+    "name": "Ichimoku Cloud Breakout",
+    "category": "Momentum & Trend Following",
+    "warmup": 80,
+    "single_position": true,
+    "entry": "TK cross above the cloud, cloud green",
+    "exit": "close re-enters the cloud",
+    "params": {
+      "tenkan": 9,
+      "kijun": 26,
+      "senkou_b": 52,
+      "displacement": 26,
+      "alloc": null
+    }
+  },
+  {
+    "id": "15_parabolic_sar",
+    "name": "Parabolic SAR Flip",
+    "category": "Momentum & Trend Following",
+    "warmup": 15,
+    "single_position": true,
+    "entry": "SAR dot flips below price",
+    "exit": "SAR dot flips above price",
+    "params": {
+      "step": 0.02,
+      "maximum": 0.2,
+      "alloc": null
+    }
+  },
+  {
+    "id": "16_roc_momentum",
+    "name": "ROC Momentum Burst",
+    "category": "Momentum & Trend Following",
+    "warmup": 20,
+    "single_position": true,
+    "entry": "ROC(12) crosses above entry level",
+    "exit": "ROC(12) loses momentum",
+    "params": {
+      "period": 12,
+      "entry_pct": 2.0,
+      "exit_pct": 0.0,
+      "alloc": null
+    }
+  },
+  {
+    "id": "17_aroon_trend",
+    "name": "Aroon Trend",
+    "category": "Momentum & Trend Following",
+    "warmup": 30,
+    "single_position": true,
+    "entry": "Aroon Up > 70 and Up > Down",
+    "exit": "Aroon Down > 70 or Down > Up",
+    "params": {
+      "period": 25,
+      "strong": 70.0,
+      "alloc": null
+    }
+  },
+  {
+    "id": "18_heikin_ashi_trend",
+    "name": "Heikin-Ashi Trend",
+    "category": "Momentum & Trend Following",
+    "warmup": 12,
+    "single_position": true,
+    "entry": "3 wick-free HA candles, colour flip",
+    "exit": "HA candle flips colour",
+    "params": {
+      "confirm_bars": 3,
+      "alloc": null
+    }
+  },
+  {
+    "id": "19_trix_momentum",
+    "name": "TRIX Signal Crossover",
+    "category": "Momentum & Trend Following",
+    "warmup": 60,
+    "single_position": true,
+    "entry": "TRIX(15) crosses above its 9-signal",
+    "exit": "TRIX crosses below its signal",
+    "params": {
+      "period": 15,
+      "signal": 9,
+      "alloc": null
+    }
+  },
+  {
+    "id": "20_ema_ribbon_consensus",
+    "name": "EMA Ribbon Consensus",
+    "category": "Momentum & Trend Following",
+    "warmup": 60,
+    "single_position": true,
+    "entry": "EMA 8/13/21/34/55 fully aligned up",
+    "exit": "any ribbon crossover down",
+    "params": {
+      "periods": "8,13,21,34,55",
+      "alloc": null
+    }
+  },
+  {
+    "id": "06_bollinger_mean_reversion",
+    "name": "Bollinger Bands Mean Reversion",
+    "category": "Mean Reversion & Channels",
+    "warmup": 25,
+    "single_position": true,
+    "entry": "close < Lower Band (20, 2)",
+    "exit": "close reaches Middle Band",
+    "params": {
+      "period": 20,
+      "mult": 2.0,
+      "alloc": null
+    }
+  },
+  {
+    "id": "07_keltner_breakout",
+    "name": "Keltner Channel Breakout",
+    "category": "Mean Reversion & Channels",
+    "warmup": 25,
+    "single_position": true,
+    "entry": "close > EMA20 + 2\u00b7ATR",
+    "exit": "close falls below EMA20",
+    "params": {
+      "period": 20,
+      "mult": 2.0,
+      "alloc": null
+    }
+  },
+  {
+    "id": "08_stoch_rsi_reversal",
+    "name": "Stochastic RSI Reversal",
+    "category": "Mean Reversion & Channels",
+    "warmup": 35,
+    "single_position": true,
+    "entry": "%K crosses above %D below 20",
+    "exit": "%K crosses below %D above 80",
+    "params": {
+      "rsi_period": 14,
+      "stoch_period": 14,
+      "k_period": 3,
+      "d_period": 3,
+      "oversold": 20.0,
+      "overbought": 80.0,
+      "alloc": null
+    }
+  },
+  {
+    "id": "21_williams_r_reversal",
+    "name": "Williams %R Reversal",
+    "category": "Mean Reversion & Oscillators",
+    "warmup": 20,
+    "single_position": true,
+    "entry": "%R turns up out of < \u221280",
+    "exit": "%R turns down out of > \u221220",
+    "params": {
+      "period": 14,
+      "oversold": -80.0,
+      "overbought": -20.0,
+      "alloc": null
+    }
+  },
+  {
+    "id": "22_cci_mean_reversion",
+    "name": "CCI Mean Reversion",
+    "category": "Mean Reversion & Oscillators",
+    "warmup": 25,
+    "single_position": true,
+    "entry": "CCI(20) crosses up through \u2212100",
+    "exit": "CCI crosses down through +100",
+    "params": {
+      "period": 20,
+      "lower": -100.0,
+      "upper": 100.0,
+      "alloc": null
+    }
+  },
+  {
+    "id": "23_connors_rsi_pullback",
+    "name": "Connors RSI(2) Pullback",
+    "category": "Mean Reversion & Oscillators",
+    "warmup": 110,
+    "single_position": true,
+    "entry": "Connors RSI(3,2,100) < 10",
+    "exit": "Connors RSI > 90",
+    "params": {
+      "rsi_period": 3,
+      "streak_period": 2,
+      "rank_period": 100,
+      "buy_below": 10.0,
+      "sell_above": 90.0,
+      "alloc": null
+    }
+  },
+  {
+    "id": "24_zscore_mean_reversion",
+    "name": "Z-Score Mean Reversion",
+    "category": "Mean Reversion & Oscillators",
+    "warmup": 25,
+    "single_position": true,
+    "entry": "z-score(20) < \u22122",
+    "exit": "z-score returns to 0",
+    "params": {
+      "period": 20,
+      "entry_z": -2.0,
+      "exit_z": 0.0,
+      "alloc": null
+    }
+  },
+  {
+    "id": "25_mfi_flow_reversal",
+    "name": "Money Flow Index Reversal",
+    "category": "Mean Reversion & Oscillators",
+    "warmup": 20,
+    "single_position": true,
+    "entry": "MFI(14) crosses up out of < 20",
+    "exit": "MFI crosses down out of > 80",
+    "params": {
+      "period": 14,
+      "oversold": 20.0,
+      "overbought": 80.0,
+      "alloc": null
+    }
+  },
+  {
+    "id": "26_chande_momentum",
+    "name": "Chande Momentum Oscillator",
+    "category": "Mean Reversion & Oscillators",
+    "warmup": 25,
+    "single_position": true,
+    "entry": "CMO(20) crosses up through \u221250",
+    "exit": "CMO crosses down through +50",
+    "params": {
+      "period": 20,
+      "entry": -50.0,
+      "exit": 50.0,
+      "alloc": null
+    }
+  },
+  {
+    "id": "09_vwap_pullback",
+    "name": "Session VWAP Pullback",
+    "category": "Volume & Volatility",
+    "warmup": 20,
+    "single_position": true,
+    "entry": "close < VWAP and RSI > 40",
+    "exit": "close \u2265 VWAP + 1.5%",
+    "params": {
+      "rsi_period": 14,
+      "rsi_min": 40.0,
+      "extension_pct": 1.5,
+      "min_session_candles": 2,
+      "alloc": null
+    }
+  },
+  {
+    "id": "10_donchian_breakout",
+    "name": "Donchian Turtle Breakout (20/10)",
+    "category": "Volume & Volatility",
+    "warmup": 25,
+    "single_position": true,
+    "entry": "close breaks the 20-candle high",
+    "exit": "close breaks the 10-candle low",
+    "params": {
+      "entry_period": 20,
+      "exit_period": 10,
+      "alloc": null
+    }
+  },
+  {
+    "id": "27_obv_trend_breakout",
+    "name": "OBV Trend Breakout",
+    "category": "Volume & Volatility",
+    "warmup": 25,
+    "single_position": true,
+    "entry": "OBV breaks its 20-candle high, close up",
+    "exit": "OBV breaks its 20-candle low",
+    "params": {
+      "lookback": 20,
+      "alloc": null
+    }
+  },
+  {
+    "id": "28_volume_spike_breakout",
+    "name": "Volume Spike Breakout",
+    "category": "Volume & Volatility",
+    "warmup": 25,
+    "single_position": true,
+    "entry": "volume > 2\u00d7 SMA20 with a 20-candle high break",
+    "exit": "close breaks the 10-candle low",
+    "params": {
+      "lookback": 20,
+      "volume_mult": 2.0,
+      "exit_lookback": 10,
+      "alloc": null
+    }
+  },
+  {
+    "id": "29_volatility_squeeze",
+    "name": "Volatility Squeeze Breakout",
+    "category": "Volume & Volatility",
+    "warmup": 25,
+    "single_position": true,
+    "entry": "TTM squeeze releases, close > mid band",
+    "exit": "close falls below the middle band",
+    "params": {
+      "bb_period": 20,
+      "bb_mult": 2.0,
+      "kc_period": 20,
+      "kc_mult": 1.5,
+      "alloc": null
+    }
+  },
+  {
+    "id": "30_elder_ray_power",
+    "name": "Elder-Ray Power Shift",
+    "category": "Volume & Volatility",
+    "warmup": 20,
+    "single_position": true,
+    "entry": "bear power lifts toward 0, bull power > 0",
+    "exit": "bull power rolls over",
+    "params": {
+      "period": 13,
+      "alloc": null
+    }
+  },
+  {
+    "id": "31_engulfing_reversal",
+    "name": "Engulfing Candle Reversal",
+    "category": "Price Action",
+    "warmup": 25,
+    "single_position": true,
+    "entry": "bullish engulfing at a 20-candle low",
+    "exit": "bearish engulfing or stop",
+    "params": {
+      "trend_lookback": 10,
+      "trend_pct": 1.0,
+      "alloc": null
+    }
+  },
+  {
+    "id": "32_fibonacci_pullback",
+    "name": "Fibonacci Retracement Pullback",
+    "category": "Price Action",
+    "warmup": 55,
+    "single_position": true,
+    "entry": "pullback into the 0.382\u20130.618 retracement",
+    "exit": "new swing high taken or stop",
+    "params": {
+      "swing_lookback": 50,
+      "entry_level": "0.618",
+      "exit_level": "0.236",
+      "alloc": null
+    }
+  },
+  {
+    "id": "33_pivot_point_bounce",
+    "name": "Pivot Point Bounce",
+    "category": "Price Action",
+    "warmup": 5,
+    "single_position": true,
+    "entry": "bounce off prior-session S1 / pivot",
+    "exit": "prior-session R1 reached",
+    "params": {
+      "alloc": null
+    }
+  },
+  {
+    "id": "34_opening_range_breakout",
+    "name": "Opening Range Breakout",
+    "category": "Price Action",
+    "warmup": 10,
+    "single_position": true,
+    "entry": "UTC open + 1h range broken upward",
+    "exit": "back inside the opening range",
+    "params": {
+      "minutes": 60,
+      "alloc": null
+    }
+  },
+  {
+    "id": "35_chandelier_trend_ride",
+    "name": "Chandelier Exit Trend Ride",
+    "category": "Risk & Trailing",
+    "warmup": 60,
+    "single_position": true,
+    "entry": "uptrend confirmed, entry on a pullback",
+    "exit": "3\u00d7ATR chandelier stop",
+    "params": {
+      "trend_period": 50,
+      "atr_period": 22,
+      "multiplier": 3.0,
+      "alloc": null
+    }
+  },
+  {
+    "id": "11_dynamic_dca",
+    "name": "Dynamic DCA (Dip Multiplier)",
+    "category": "Execution-Based & Portfolio",
+    "warmup": 2,
+    "single_position": false,
+    "entry": "every 4th candle, \u00d72 if 24h is red",
+    "exit": "accumulates; optional take-profit",
+    "params": {
+      "interval_candles": 4,
+      "base_notional": 50.0,
+      "dip_multiplier": 2.0,
+      "lookback_24h": 96,
+      "take_profit_pct": null
+    }
+  },
+  {
+    "id": "12_arithmetic_grid",
+    "name": "Fixed-Step Arithmetic Grid",
+    "category": "Execution-Based & Portfolio",
+    "warmup": 2,
+    "single_position": false,
+    "entry": "limit buys each 1% step down",
+    "exit": "take-profit one step up",
+    "params": {
+      "step_pct": 1.0,
+      "levels_each_side": 5,
+      "capital_pct": 0.95,
+      "reanchor_pct": 6.0
+    }
+  },
+  {
+    "id": "36_martingale_dip",
+    "name": "Martingale Dip Accumulator",
+    "category": "Execution-Based & Portfolio",
+    "warmup": 5,
+    "single_position": false,
+    "entry": "each \u22122% dip, size doubles (max 4 steps)",
+    "exit": "accumulates; optional take-profit",
+    "params": {
+      "dip_pct": 2.0,
+      "base_notional": 100.0,
+      "multiplier": 2.0,
+      "max_steps": 4,
+      "take_profit_pct": null
+    }
+  },
+  {
+    "id": "37_anti_martingale_pyramid",
+    "name": "Anti-Martingale Pyramid",
+    "category": "Execution-Based & Portfolio",
+    "warmup": 25,
+    "single_position": false,
+    "entry": "20-candle high breakout, adds at each +2% leg",
+    "exit": "3% trail below the tracked peak",
+    "params": {
+      "entry_lookback": 20,
+      "add_pct": 2.0,
+      "max_adds": 3,
+      "trail_pct": 3.0,
+      "size_pct": 0.3
+    }
+  },
+  {
+    "id": "38_kelly_fraction_sizer",
+    "name": "Kelly Fraction Position Sizing",
+    "category": "Execution-Based & Portfolio",
+    "warmup": 25,
+    "single_position": true,
+    "entry": "Donchian(20) breakout, sized by half-Kelly",
+    "exit": "close breaks the 10-candle low",
+    "params": {
+      "entry_period": 20,
+      "exit_period": 10,
+      "min_trades": 10,
+      "default_fraction": 0.1,
+      "max_fraction": 0.5,
+      "kelly_fraction": 0.5
+    }
+  },
+  {
+    "id": "39_multi_indicator_consensus",
+    "name": "Multi-Indicator Consensus Vote",
+    "category": "Composite & Hybrid",
+    "warmup": 45,
+    "single_position": true,
+    "entry": "\u22653 of 5 independent votes agree",
+    "exit": "\u22653 votes turn the other way",
+    "params": {
+      "threshold": 3,
+      "alloc": null
+    }
+  },
+  {
+    "id": "40_trend_pullback_confluence",
+    "name": "Trend + Pullback Confluence",
+    "category": "Composite & Hybrid",
+    "warmup": 200,
+    "single_position": true,
+    "entry": "RSI(14) < 35 and close > SMA200 > SMA50",
+    "exit": "RSI > 60 or trend breaks",
+    "params": {
+      "trend_period": 200,
+      "mid_period": 50,
+      "rsi_period": 14,
+      "rsi_buy": 35.0,
+      "rsi_sell": 65.0,
+      "alloc": null
+    }
+  },
+  {
+    "id": "41_volatility_regime_switcher",
+    "name": "Volatility Regime Switcher",
+    "category": "Composite & Hybrid",
+    "warmup": 120,
+    "single_position": true,
+    "entry": "ATR percentile \u2265 70 \u2192 fade, \u2264 30 \u2192 break out",
+    "exit": "per the active sub-regime",
+    "params": {
+      "atr_period": 14,
+      "percentile_lookback": 100,
+      "high_vol": 70.0,
+      "low_vol": 30.0,
+      "bb_period": 20,
+      "bb_mult": 2.0,
+      "entry_period": 20,
+      "exit_period": 10,
+      "alloc": null
+    }
+  },
+  {
+    "id": "42_sibling_performance_allocator",
+    "name": "Sibling Performance Allocator",
+    "category": "Composite & Hybrid",
+    "warmup": 25,
+    "single_position": true,
+    "entry": "peers' median return \u2265 0 (else stands aside)",
+    "exit": "median return turns negative",
+    "params": {
+      "momentum_lookback": 20,
+      "median_floor_pct": 0.0,
+      "alloc": null
+    }
+  }
+]

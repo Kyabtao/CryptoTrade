@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CryptoTrade — Dashboard</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a class="brand" href="index.html"><span class="logo">₿</span> CryptoTrade</a>
+      <div class="nav-links">
+        <a href="index.html" class="active">Dashboard</a>
+        <a href="strategies.html">Strategies</a>
+        <a href="trades.html">Trades</a>
+      </div>
+      <div class="nav-status">
+        <span class="dot"></span>
+        <span id="navStatus">Loading…</span>
+      </div>
+    </div>
+  </nav>
+
+  <div class="wrap">
+    <div class="hero">
+      <div>
+        <h1>Paper-Trading Dashboard</h1>
+        <div class="sub" id="heroSub">42 virtual sub-accounts · simulated spot fills · 0.1% fee per side</div>
+      </div>
+      <div class="hero-price">
+        <div class="big num" id="heroPrice">—</div>
+        <div class="sub" id="heroPriceMeta">—</div>
+      </div>
+    </div>
+
+    <div class="grid kpis" id="kpis"></div>
+
+    <div class="section" style="margin-top:18px;">
+      <div class="card">
+        <h3>Portfolio Equity <span class="hint" id="eqHint">—</span></h3>
+        <div class="legend" id="eqLegend"></div>
+        <div id="equityChart" class="chart"></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="card">
+        <h3>Strategy Return Over Time <span class="hint">top performers vs portfolio</span></h3>
+        <div class="legend" id="retLegend"></div>
+        <div id="retChart" class="chart"></div>
+      </div>
+    </div>
+
+    <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));">
+      <div class="card">
+        <h3>Return Distribution <span class="hint">latest tick</span></h3>
+        <div id="distChart" class="chart"></div>
+      </div>
+      <div class="card">
+        <h3>Average Return by Category <span class="hint">latest tick</span></h3>
+        <div id="catChart" class="chart"></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="card">
+        <h3>Leaderboard <span class="hint">click a row for the trade ledger</span></h3>
+        <div class="controls">
+          <input type="text" id="search" placeholder="Search strategy…" />
+          <select id="catFilter"><option value="">All categories</option></select>
+          <span class="spacer"></span>
+          <span class="mini" id="rowCount"></span>
+        </div>
+        <div class="table-wrap">
+          <table class="data" id="leaderboard">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th class="sortable" data-key="name">Strategy</th>
+                <th class="sortable" data-key="category">Category</th>
+                <th class="sortable r" data-key="equity">Equity</th>
+                <th class="sortable r" data-key="returnPct">Return</th>
+                <th class="c">Pos</th>
+                <th class="sortable r" data-key="tradesCount">Trades</th>
+                <th class="sortable r" data-key="winRate">Win %</th>
+                <th class="sortable r" data-key="realizedPnl">Realized</th>
+                <th class="sortable r" data-key="unrealizedPnl">Unrealized</th>
+                <th class="sortable r" data-key="totalFees">Fees</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="note">
+      <b>Paper trading only.</b> Fills are simulated against Kraken OHLCV candles with a 0.1% spot fee on both
+      sides; no real orders are ever placed. Results do not transfer to live trading and are not financial advice.
+    </div>
+    <div class="footer">CryptoTrade · state updates every 15 minutes via the scheduled tick · page auto-refreshes</div>
+  </div>
+
+  <script src="assets/data.js"></script>
+  <script src="assets/charts.js"></script>
+  <script>
+    (async function () {
+      const [state, history, catalog] = await Promise.all([loadState(), loadHistory(), loadCatalog()]);
+      const env = enrichState(state);
+      const catById = {};
+      (catalog || []).forEach((c) => (catById[c.id] = c));
+      env.accounts.forEach((a) => { a.category = (catById[a.id] || {}).category || "Other"; });
+      const cats = [...new Set((catalog || []).map((c) => c.category).filter(Boolean))];
+      if (!cats.length) cats.push("Other");
+
+      /* ---- header ---- */
+      document.getElementById("navStatus").textContent =
+        `Live · ${env.meta.symbol || "—"} · updated ${fmtTs(env.meta.updated_at)}`;
+      document.getElementById("heroSub").textContent =
+        `${env.accounts.length} virtual sub-accounts · ${env.meta.timeframe || "—"} candles · run #${env.meta.run_count} · bot v${env.meta.bot_version || "?"}`;
+      const hp = document.getElementById("heroPrice");
+      hp.textContent = fmtPrice(env.price);
+      hp.className = "big num " + pctClass(env.totalReturnPct);
+      document.getElementById("heroPriceMeta").textContent =
+        `${env.meta.symbol || "—"} · last candle ${fmtTs(msToLocal(env.meta.last_candle_ts))}`;
+
+      /* ---- KPIs ---- */
+      const kpis = [
+        { label: "Total Virtual Equity", value: fmtUSD0(env.totalEquity), sub: "across " + env.accounts.length + " accounts", cls: "" },
+        { label: "Portfolio Return", value: fmtPct(env.totalReturnPct), sub: "vs $1,000 start each", cls: pctClass(env.totalReturnPct) },
+        { label: "Total Trades", value: fmtNum(env.totalTrades), sub: "buys + sells", cls: "" },
+        { label: "Open Positions", value: fmtNum(env.openCount), sub: "of " + env.accounts.length + " accounts", cls: env.openCount ? "gold" : "" },
+        { label: "Total Fees Paid", value: fmtUSD(env.totalFees), sub: "0.1% per side", cls: "" },
+        { label: "Last Price", value: fmtPrice(env.price), sub: env.meta.symbol || "—", cls: "" },
+      ];
+      document.getElementById("kpis").innerHTML = kpis.map((k) =>
+        `<div class="card kpi"><div class="label">${esc(k.label)}</div><div class="value num ${k.cls}">${k.value}</div><div class="sub">${esc(k.sub)}</div></div>`
+      ).join("");
+
+      /* ---- charts ---- */
+      const eqSeries = [];
+      if (history.length) {
+        eqSeries.push({ name: "Total portfolio", color: "#3b82f6", values: history.map((r) => r.equity), area: true });
+        const xLabels = history.map((r) => fmtTsShort(r.ts));
+        drawLineChart("#equityChart", eqSeries, xLabels, (v) => "$" + v.toLocaleString("en-US", { maximumFractionDigits: 0 }));
+        document.getElementById("eqHint").textContent =
+          `${history.length} ticks · first ${fmtTs(history[0].ts)} → last ${fmtTs(history[history.length - 1].ts)}`;
+      } else {
+        document.getElementById("equityChart").innerHTML = '<div class="empty">No history yet — run the bot once to start recording.</div>';
+      }
+
+      // top performers for the return-over-time chart
+      const top = [...env.accounts].sort((a, b) => Math.abs(b.returnPct) - Math.abs(a.returnPct)).slice(0, 6);
+      const retSeries = [
+        { name: "Portfolio", color: "#e6eaf2", visible: true, values: history.map((r) => r.return_pct) },
+        ...top.map((a, i) => ({ name: a.id, color: CAT_COLORS[i], visible: true, values: history.map((r) => (r.rets && r.rets[a.id] != null ? r.rets[a.id] : null)) })),
+      ];
+      buildLegend("#retLegend", retSeries, () => drawReturnChart());
+      drawReturnChart();
+
+      function drawReturnChart() {
+        const active = retSeries.filter((s) => s.visible !== false);
+        const labels = history.map((r) => fmtTsShort(r.ts));
+        lineChart(document.getElementById("retChart"), active, labels, { yFmt: (v) => v.toFixed(1) + "%" });
+      }
+
+      /* return distribution */
+      const dist = env.accounts
+        .map((a) => ({ label: a.id, value: a.returnPct, color: a.returnPct >= 0 ? "#22c55e" : "#ef4444" }))
+        .sort((a, b) => b.value - a.value);
+      barChartH(document.getElementById("distChart"), dist, {});
+
+      /* category performance */
+      const catAgg = {};
+      cats.forEach((c) => (catAgg[c] = { n: 0, sum: 0 }));
+      env.accounts.forEach((a) => {
+        const c = a.category || "Other";
+        if (!catAgg[c]) catAgg[c] = { n: 0, sum: 0 };
+        catAgg[c].n++; catAgg[c].sum += a.returnPct;
+      });
+      const catItems = Object.keys(catAgg).map((c) => ({
+        label: c.length > 18 ? c.slice(0, 18) + "…" : c,
+        value: catAgg[c].n ? catAgg[c].sum / catAgg[c].n : 0,
+        color: categoryColor(c, cats),
+      }));
+      barChartV(document.getElementById("catChart"), catItems, { yFmt: (v) => v.toFixed(1) + "%" });
+
+      /* ---- leaderboard ---- */
+      const catSel = document.getElementById("catFilter");
+      catSel.innerHTML = '<option value="">All categories</option>' +
+        cats.map((c) => `<option>${c}</option>`).join("");
+
+      let sortKey = "returnPct", sortDir = -1;
+      const tb = document.getElementById("leaderboard").querySelector("tbody");
+
+      function renderTable() {
+        const q = document.getElementById("search").value.toLowerCase();
+        const cf = catSel.value;
+        const rows = env.accounts
+          .filter((a) => (a.id + " " + a.name).toLowerCase().includes(q))
+          .filter((a) => !cf || a.category === cf)
+          .sort((a, b) => {
+            const av = a[sortKey], bv = b[sortKey];
+            if (typeof av === "string") return av.localeCompare(bv) * sortDir;
+            return (av - bv) * sortDir;
+          });
+        document.getElementById("rowCount").textContent = `${rows.length} strategies`;
+        tb.innerHTML = rows.map((a, i) => `
+          <tr class="clickable" onclick="location.href='trades.html?sid=${encodeURIComponent(a.id)}'">
+            <td class="num" style="color:var(--text-faint)">${i + 1}</td>
+            <td><div style="font-weight:600">${esc(a.name)}</div><div class="id mono" style="color:var(--text-faint);font-size:11px">${esc(a.id)}</div></td>
+            <td><span class="badge cat">${esc(a.category)}</span></td>
+            <td class="r num">${fmtUSD(a.equity)}</td>
+            <td class="r num ${pctClass(a.returnPct)}">${fmtPct(a.returnPct)}</td>
+            <td class="c">${a.inPosition ? '<span class="badge long">LONG</span>' : '<span class="badge flat">flat</span>'}</td>
+            <td class="r num">${fmtNum(a.tradesCount)}</td>
+            <td class="r num">${a.closedCount ? a.winRate.toFixed(0) + "%" : "—"}</td>
+            <td class="r num ${pctClass(a.realizedPnl)}">${fmtUSD(a.realizedPnl)}</td>
+            <td class="r num ${pctClass(a.unrealizedPnl)}">${fmtUSD(a.unrealizedPnl)}</td>
+            <td class="r num" style="color:var(--text-faint)">${fmtUSD(a.totalFees)}</td>
+          </tr>`).join("");
+      }
+
+      document.getElementById("search").addEventListener("input", renderTable);
+      catSel.addEventListener("change", renderTable);
+      document.querySelectorAll("#leaderboard th.sortable").forEach((th) => {
+        th.addEventListener("click", () => {
+          const k = th.dataset.key;
+          if (sortKey === k) sortDir *= -1; else { sortKey = k; sortDir = -1; }
+          document.querySelectorAll("#leaderboard th.sortable .arrow").forEach((s) => (s.textContent = ""));
+          th.innerHTML = th.innerHTML.replace(' <span class="arrow"></span>', "") + ` <span class="arrow">${sortDir === 1 ? "▲" : "▼"}</span>`;
+          renderTable();
+        });
+      });
+      renderTable();
+
+      function msToLocal(ms) { return ms ? new Date(ms).toISOString() : null; }
+      function buildLegend(id, series, onChange) {
+        const box = document.getElementById(id.replace(/^#/, ""));
+        box.innerHTML = series.map((s, i) =>
+          `<div class="item" data-i="${i}"><span class="swatch" style="background:${s.color}"></span>${s.name}</div>`
+        ).join("");
+        box.querySelectorAll(".item").forEach((node) => {
+          node.addEventListener("click", () => {
+            const i = +node.dataset.i;
+            series[i].visible = series[i].visible === false;
+            node.style.opacity = series[i].visible === false ? 0.35 : 1;
+            onChange();
+          });
+        });
+      }
+      function drawLineChart(sel, series, labels, yFmt) {
+        lineChart(document.querySelector(sel), series, labels, { yFmt });
+      }
+    })().catch((e) => {
+      document.body.innerHTML = '<div class="wrap"><div class="empty">Failed to load data: ' + e.message +
+        '<br/>Serve this folder over HTTP (e.g. <code>python -m http.server</code> in <code>docs/</code>) so the JSON files can load.</div></div>';
+    });
+  </script>
+</body>
+</html>

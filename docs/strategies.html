@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CryptoTrade — Strategy Library</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a class="brand" href="index.html"><span class="logo">₿</span> CryptoTrade</a>
+      <div class="nav-links">
+        <a href="index.html">Dashboard</a>
+        <a href="strategies.html" class="active">Strategies</a>
+        <a href="trades.html">Trades</a>
+      </div>
+      <div class="nav-status">
+        <span class="dot"></span>
+        <span id="navStatus">Loading…</span>
+      </div>
+    </div>
+  </nav>
+
+  <div class="wrap">
+    <div class="hero">
+      <div>
+        <h1>Strategy Library &amp; Analysis</h1>
+        <div class="sub">All 42 sub-accounts, their signal logic and live paper-trading state</div>
+      </div>
+      <div class="chip">⏱ warmup = candles needed before a strategy may signal</div>
+    </div>
+
+    <div class="controls">
+      <input type="text" id="search" placeholder="Search strategy…" />
+      <select id="catFilter"><option value="">All categories</option></select>
+      <select id="posFilter">
+        <option value="">Any position</option>
+        <option value="long">Open (LONG)</option>
+        <option value="flat">Flat</option>
+      </select>
+      <span class="spacer"></span>
+      <span class="mini" id="rowCount"></span>
+    </div>
+
+    <div class="strat-grid" id="grid"></div>
+
+    <div class="note">
+      <b>How to read this.</b> “Entry” / “Exit” describe the signal the strategy waits for on the last closed candle;
+      “Params” are the current defaults (override with <code>--param id.key=value</code>). Live figures come from
+      <code>docs/data.json</code>, refreshed every tick.
+    </div>
+    <div class="footer">CryptoTrade · strategy definitions are generated from <code>bot.py</code> via <code>scripts/generate_strategy_catalog.py</code></div>
+  </div>
+
+  <!-- detail drawer -->
+  <div class="drawer" id="drawer">
+    <div class="sheet" id="sheet"></div>
+  </div>
+
+  <script src="assets/data.js"></script>
+  <script src="assets/charts.js"></script>
+  <script>
+    (async function () {
+      const [state, catalog] = await Promise.all([loadState(), loadCatalog()]);
+      const env = enrichState(state);
+      const byId = {};
+      env.accounts.forEach((a) => (byId[a.id] = a));
+      const catById = {};
+      (catalog || []).forEach((c) => (catById[c.id] = c));
+
+      const cats = [...new Set((catalog || []).map((c) => c.category))];
+      document.getElementById("navStatus").textContent =
+        `Live · ${env.meta.symbol || "—"} · updated ${fmtTs(env.meta.updated_at)}`;
+      const catSel = document.getElementById("catFilter");
+      catSel.innerHTML = '<option value="">All categories</option>' +
+        cats.map((c) => `<option>${c}</option>`).join("");
+
+      const entries = env.accounts.map((a) => {
+        const meta = catById[a.id] || {};
+        return { account: a, meta };
+      });
+
+      function render() {
+        const q = document.getElementById("search").value.toLowerCase();
+        const cf = catSel.value;
+        const pf = document.getElementById("posFilter").value;
+        const rows = entries
+          .filter((e) => (e.account.id + " " + e.account.name).toLowerCase().includes(q))
+          .filter((e) => !cf || e.meta.category === cf)
+          .filter((e) => !pf || (pf === "long" ? e.account.inPosition : !e.account.inPosition));
+        document.getElementById("rowCount").textContent = `${rows.length} strategies`;
+
+        document.getElementById("grid").innerHTML = rows.map(({ account: a, meta: m }) => {
+          const params = Object.entries(m.params || {}).slice(0, 4)
+            .map(([k, v]) => `<span class="tag">${esc(k)}=${esc(v == null ? "—" : v)}</span>`).join("") ||
+            '<span class="tag">no params</span>';
+          const stateBits = prettyState(a.strategyState).slice(0, 4);
+          return `
+          <div class="strat-card" onclick="openDetail('${a.id}')">
+            <div class="top">
+              <div>
+                <div class="id">${esc(a.id)}</div>
+                <div class="name">${esc(a.name)}</div>
+              </div>
+              <span class="badge cat">${esc(m.category || "Other")}</span>
+            </div>
+            <div class="sig">
+              <div class="row"><span class="tag">IN ▸</span><span>${esc(m.entry || "—")}</span></div>
+              <div class="row"><span class="tag">OUT ▸</span><span>${esc(m.exit || "—")}</span></div>
+            </div>
+            <div class="sig" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:2px">${params}${m.single_position === false ? '<span class="tag" style="color:var(--gold)">multi-lot</span>' : ""}<span class="tag">warmup ${esc(m.warmup ?? "?")}</span></div>
+            ${stateBits ? `<div class="sig">${stateBits.map((s) => `<span class="tag">${esc(s)}</span>`).join(" ")}</div>` : ""}
+            <div class="foot">
+              <span class="mini">Eq <b class="num">${fmtUSD(a.equity)}</b></span>
+              <span class="mini ${pctClass(a.returnPct)}">Ret <b class="num">${fmtPct(a.returnPct)}</b></span>
+              <span class="mini">${a.inPosition ? '<span class="badge long">LONG</span>' : '<span class="badge flat">flat</span>'}</span>
+              <span class="mini">Trd <b class="num">${a.tradesCount}</b></span>
+              <span class="mini">Win <b class="num">${a.closedCount ? a.winRate.toFixed(0) + "%" : "—"}</b></span>
+            </div>
+          </div>`;
+        }).join("");
+      }
+
+      function prettyState(obj) {
+        if (!obj || !Object.keys(obj).length) return [];
+        const out = [];
+        for (const [k, v] of Object.entries(obj)) {
+          if (v && typeof v === "object") continue;
+          const val = typeof v === "number" ? fmtNum(v, v > 1000 ? 2 : 4) : String(v).slice(0, 20);
+          out.push(`${k}=${val}`);
+        }
+        return out;
+      }
+
+      document.getElementById("search").addEventListener("input", render);
+      catSel.addEventListener("change", render);
+      document.getElementById("posFilter").addEventListener("change", render);
+      render();
+
+      window.openDetail = function (id) {
+        const a = byId[id];
+        const m = catById[id] || {};
+        const drawer = document.getElementById("drawer");
+        const sheet = document.getElementById("sheet");
+
+        const lots = a.lots.map((l, i) => `
+          <tr><td class="num">${i + 1}</td><td class="r num">${fmtQty(l.qty)}</td><td class="r num">${fmtPrice(l.price)}</td><td class="r num">${fmtUSD(l.fee)}</td></tr>`).join("");
+        const trades = [...a.trades].slice(-40).reverse().map((t) => `
+          <tr>
+            <td class="num">${fmtTs(t.timestamp)}</td>
+            <td><span class="badge ${t.side}">${t.side}</span></td>
+            <td class="r num">${fmtPrice(t.price)}</td>
+            <td class="r num">${fmtQty(t.qty)}</td>
+            <td class="r num">${fmtUSD(t.notional)}</td>
+            <td class="r num">${fmtUSD(t.fee)}</td>
+            <td class="r num ${pctClass(t.pnl)}">${fmtUSD(t.pnl)}</td>
+            <td style="max-width:340px;white-space:normal;color:var(--text-dim)">${esc(t.exit_reason || t.entry_reason || "")}</td>
+          </tr>`).join("");
+
+        const paramsRows = Object.entries(m.params || {}).map(([k, v]) =>
+          `<tr><td class="mono" style="color:var(--text-dim)">${esc(k)}</td><td class="num">${esc(v == null ? "—" : v)}</td></tr>`).join("");
+
+        sheet.innerHTML = `
+          <button class="close" onclick="closeDetail()">✕</button>
+          <div class="id">${esc(a.id)}</div>
+          <h2>${esc(a.name)}</h2>
+          <div style="margin-top:6px"><span class="badge cat">${esc(m.category || "Other")}</span>
+            ${m.single_position === false ? '<span class="badge multi">multi-lot</span>' : '<span class="badge flat">single position</span>'}
+            <span class="badge flat">warmup ${esc(m.warmup ?? "?")} candles</span></div>
+          <div class="sig" style="margin-top:12px">
+            <div class="row"><span class="tag">IN ▸</span><span>${esc(m.entry || "—")}</span></div>
+            <div class="row"><span class="tag">OUT ▸</span><span>${esc(m.exit || "—")}</span></div>
+          </div>
+
+          <div class="kv-grid">
+            ${kv("Equity", fmtUSD(a.equity), "")}
+            ${kv("Return", fmtPct(a.returnPct), pctClass(a.returnPct))}
+            ${kv("Balance", fmtUSD(a.balance), "")}
+            ${kv("Holdings", fmtQty(a.holdings), "")}
+            ${kv("Entry Price", fmtPrice(a.entryPrice), "")}
+            ${kv("Realized PnL", fmtUSD(a.realizedPnl), pctClass(a.realizedPnl))}
+            ${kv("Unrealized PnL", fmtUSD(a.unrealizedPnl), pctClass(a.unrealizedPnl))}
+            ${kv("Fees", fmtUSD(a.totalFees), "")}
+            ${kv("Trades", fmtNum(a.tradesCount), "")}
+            ${kv("Closed", fmtNum(a.closedCount), "")}
+            ${kv("Win Rate", a.closedCount ? a.winRate.toFixed(1) + "%" : "—", "")}
+            ${kv("Best / Worst", fmtUSD(a.best) + " / " + fmtUSD(a.worst), "")}
+          </div>
+
+          <h3 style="margin:6px 0 8px;font-size:13px;color:var(--text-dim)">Parameters</h3>
+          <div class="table-wrap"><table class="data"><thead><tr><th>Param</th><th class="r">Value</th></tr></thead>
+            <tbody>${paramsRows || '<tr><td colspan="2" class="empty">—</td></tr>'}</tbody></table></div>
+
+          <h3 style="margin:16px 0 8px;font-size:13px;color:var(--text-dim)">Open Lots</h3>
+          <div class="table-wrap"><table class="data"><thead><tr><th>#</th><th class="r">Qty</th><th class="r">Price</th><th class="r">Entry fee</th></tr></thead>
+            <tbody>${lots || '<tr><td colspan="4" class="empty">No open lots</td></tr>'}</tbody></table></div>
+
+          <h3 style="margin:16px 0 8px;font-size:13px;color:var(--text-dim)">Indicator State</h3>
+          <pre class="json">${JSON.stringify(a.strategyState, null, 2) || "{}"}</pre>
+
+          <h3 style="margin:16px 0 8px;font-size:13px;color:var(--text-dim)">Recent Trades</h3>
+          <div class="table-wrap"><table class="data"><thead><tr>
+            <th>Time</th><th>Side</th><th class="r">Price</th><th class="r">Qty</th><th class="r">Notional</th><th class="r">Fee</th><th class="r">PnL</th><th>Reason</th>
+          </tr></thead>
+          <tbody>${trades || '<tr><td colspan="8" class="empty">No trades yet</td></tr>'}</tbody></table></div>
+        `;
+        drawer.classList.add("open");
+        drawer.onclick = (e) => { if (e.target === drawer) closeDetail(); };
+      };
+      function kv(k, v, cls) { return `<div class="kv"><div class="k">${k}</div><div class="v num ${cls}">${v}</div></div>`; }
+      window.closeDetail = function () { document.getElementById("drawer").classList.remove("open"); };
+      document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDetail(); });
+    })().catch((e) => {
+      document.body.innerHTML = '<div class="wrap"><div class="empty">Failed to load data: ' + e.message + '</div></div>';
+    });
+  </script>
+</body>
+</html>
