@@ -7,20 +7,10 @@
   <link rel="stylesheet" href="assets/style.css" />
 </head>
 <body>
-  <nav class="nav">
-    <div class="nav-inner">
-      <a class="brand" href="index.html"><span class="logo">₿</span> CryptoTrade</a>
-      <div class="nav-links">
-        <a href="index.html">Dashboard</a>
-        <a href="strategies.html" class="active">Strategies</a>
-        <a href="trades.html">Trades</a>
-      </div>
-      <div class="nav-status">
-        <span class="dot"></span>
-        <span id="navStatus">Loading…</span>
-      </div>
-    </div>
-  </nav>
+  <script src="assets/data.js"></script>
+  <script src="assets/charts.js"></script>
+  <script src="assets/layout.js"></script>
+  <script>renderNav("strategies.html");</script>
 
   <div class="wrap">
     <div class="hero">
@@ -58,11 +48,9 @@
     <div class="sheet" id="sheet"></div>
   </div>
 
-  <script src="assets/data.js"></script>
-  <script src="assets/charts.js"></script>
   <script>
     (async function () {
-      const [state, catalog] = await Promise.all([loadState(), loadCatalog()]);
+      const [state, catalog, history] = await Promise.all([loadState(), loadCatalog(), loadHistory()]);
       const env = enrichState(state);
       const byId = {};
       env.accounts.forEach((a) => (byId[a.id] = a));
@@ -70,8 +58,7 @@
       (catalog || []).forEach((c) => (catById[c.id] = c));
 
       const cats = [...new Set((catalog || []).map((c) => c.category))];
-      document.getElementById("navStatus").textContent =
-        `Live · ${env.meta.symbol || "—"} · updated ${fmtTs(env.meta.updated_at)}`;
+      renderUpdateMessage(env.meta);
       const catSel = document.getElementById("catFilter");
       catSel.innerHTML = '<option value="">All categories</option>' +
         cats.map((c) => `<option>${c}</option>`).join("");
@@ -173,6 +160,11 @@
             <div class="row"><span class="tag">OUT ▸</span><span>${esc(m.exit || "—")}</span></div>
           </div>
 
+          <div class="chart-card">
+            <h3 style="margin:16px 0 8px;font-size:13px;color:var(--text-dim)">Return Over Time <span class="hint" style="font-weight:400">hover for values · drag to zoom</span></h3>
+            <div id="stratChart" class="chart"></div>
+          </div>
+
           <div class="kv-grid">
             ${kv("Equity", fmtUSD(a.equity), "")}
             ${kv("Return", fmtPct(a.returnPct), pctClass(a.returnPct))}
@@ -205,6 +197,21 @@
           </tr></thead>
           <tbody>${trades || '<tr><td colspan="8" class="empty">No trades yet</td></tr>'}</tbody></table></div>
         `;
+        // per-strategy interactive return curve
+        const series = [
+          { name: a.name, color: "#3b82f6", area: true, values: history.map((h) => (h.rets && h.rets[a.id] != null ? h.rets[a.id] : null)) },
+          { name: "Portfolio", color: "#97a1b5", dashed: true, values: history.map((h) => h.return_pct) },
+        ];
+        let zoom = null;
+        const host = sheet.querySelector("#stratChart");
+        const drawStrat = () => {
+          if (!history.length) { host.innerHTML = '<div class="empty">No history recorded yet.</div>'; return; }
+          interactiveLineChart(host, series, history.map((h) => fmtTsShort(h.ts)),
+            { height: 220, yFmt: (v) => v.toFixed(2) + "%", zoom,
+              onZoom: (x, y2) => { zoom = { from: x, to: y2 }; drawStrat(); } });
+        };
+        drawStrat();
+
         drawer.classList.add("open");
         drawer.onclick = (e) => { if (e.target === drawer) closeDetail(); };
       };

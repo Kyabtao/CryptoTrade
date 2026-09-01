@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CryptoTrade — Analytics</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <script src="assets/data.js"></script>
+  <script src="assets/charts.js"></script>
+  <script src="assets/layout.js"></script>
+  <script>renderNav("analytics.html");</script>
+
+  <div class="wrap">
+    <div class="hero">
+      <div>
+        <h1>Analytics</h1>
+        <div class="sub">Cross-sectional performance: who is compounding, who is churning fees</div>
+      </div>
+      <div class="chip">📈 all charts are interactive — hover, toggle, drag to zoom</div>
+    </div>
+
+    <div class="grid kpis" id="kpis"></div>
+
+    <div class="section" style="margin-top:18px">
+      <div class="card">
+        <h3>Strategy Comparison
+          <span class="chart-tools">
+            <select id="picker" multiple size="1" style="display:none"></select>
+            <button class="chip-btn on" data-mode="top">Top 6</button>
+            <button class="chip-btn" data-mode="bottom">Bottom 6</button>
+            <button class="chip-btn" data-mode="spread">Best vs worst</button>
+          </span>
+        </h3>
+        <div class="legend" id="cmpLegend"></div>
+        <div id="cmpChart" class="chart"></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="card">
+        <h3>Return Heatmap <span class="hint">each strategy across recorded ticks · hover a cell</span></h3>
+        <div class="controls">
+          <select id="hmCat"><option value="">All categories</option></select>
+          <span class="spacer"></span>
+          <label class="mini"><input type="checkbox" id="hmValues" /> show values</label>
+        </div>
+        <div id="heatmap"></div>
+      </div>
+    </div>
+
+    <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));">
+      <div class="card">
+        <h3>Return Histogram <span class="hint">distribution across accounts</span></h3>
+        <div id="histChart" class="chart"></div>
+      </div>
+      <div class="card">
+        <h3>Fees vs Realized PnL <span class="hint">is the edge bigger than the cost?</span></h3>
+        <div id="feeScatter" class="chart"></div>
+      </div>
+    </div>
+
+    <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));">
+      <div class="card">
+        <h3>Equity Share by Category <span class="hint">where the capital sits</span></h3>
+        <div id="catDonut" class="chart"></div>
+      </div>
+      <div class="card">
+        <h3>Win Rate by Strategy <span class="hint">closed sells only</span></h3>
+        <div id="winChart" class="chart"></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="card">
+        <h3>Rankings <span class="hint">sortable · click a row to open the ledger</span></h3>
+        <div class="table-wrap">
+          <table class="data" id="rank">
+            <thead><tr>
+              <th>#</th><th class="sortable" data-key="name">Strategy</th>
+              <th class="sortable r" data-key="returnPct">Return</th>
+              <th class="sortable r" data-key="maxDrawdown">Max DD</th>
+              <th class="sortable r" data-key="volatility">Volatility</th>
+              <th class="sortable r" data-key="sharpe">Return/Vol</th>
+              <th class="sortable r" data-key="feeDrag">Fee drag</th>
+              <th class="sortable r" data-key="tradesCount">Trades</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="note">
+      <b>Definitions.</b> <i>Max DD</i> is the deepest peak-to-trough fall of the strategy's recorded return series.
+      <i>Volatility</i> is the standard deviation of tick-to-tick return changes. <i>Return/Vol</i> is a
+      Sharpe-like ratio with a zero risk-free rate. <i>Fee drag</i> is total fees as a share of the $1,000 start.
+    </div>
+    <div class="footer">CryptoTrade · analytics computed in the browser from <code>data.json</code> + <code>history.json</code></div>
+  </div>
+
+  <script>
+    (async function () {
+      const [state, history, catalog] = await Promise.all([loadState(), loadHistory(), loadCatalog()]);
+      const env = enrichState(state);
+      const catById = {};
+      (catalog || []).forEach((c) => (catById[c.id] = c));
+      env.accounts.forEach((a) => (a.category = (catById[a.id] || {}).category || "Other"));
+      const cats = [...new Set(env.accounts.map((a) => a.category))];
+      renderUpdateMessage(env.meta, `${history.length} ticks analysed`);
+
+      /* per-strategy derived stats from the history series */
+      env.accounts.forEach((a) => {
+        const series = history.map((r) => (r.rets && r.rets[a.id] != null ? r.rets[a.id] : null)).filter((v) => v != null);
+        let peak = -Infinity, dd = 0;
+        series.forEach((v) => { peak = Math.max(peak, v); dd = Math.min(dd, v - peak); });
+        const diffs = series.slice(1).map((v, i) => v - series[i]);
+        const mean = diffs.length ? diffs.reduce((s, v) => s + v, 0) / diffs.length : 0;
+        const varr = diffs.length ? diffs.reduce((s, v) => s + (v - mean) ** 2, 0) / diffs.length : 0;
+        a.series = series;
+        a.maxDrawdown = dd;
+        a.volatility = Math.sqrt(varr);
+        a.sharpe = a.volatility > 1e-9 ? a.returnPct / a.volatility : 0;
+        a.feeDrag = (a.totalFees / (env.starting || 1000)) * 100;
+      });
+
+      const best = [...env.accounts].sort((a, b) => b.returnPct - a.returnPct);
+      const totalDd = Math.min(...env.accounts.map((a) => a.maxDrawdown), 0);
+      document.getElementById("kpis").innerHTML = [
+        { label: "Best Strategy", value: fmtPct(best[0].returnPct), sub: best[0].name, cls: pctClass(best[0].returnPct) },
+        { label: "Worst Strategy", value: fmtPct(best[best.length - 1].returnPct), sub: best[best.length - 1].name, cls: pctClass(best[best.length - 1].returnPct) },
+        { label: "Median Return", value: fmtPct(best[Math.floor(best.length / 2)].returnPct), sub: "across " + best.length + " accounts", cls: "" },
+        { label: "Profitable Accounts", value: env.accounts.filter((a) => a.returnPct > 0).length + " / " + env.accounts.length, sub: "return above zero", cls: "" },
+        { label: "Deepest Drawdown", value: fmtPct(totalDd), sub: "worst single account", cls: "neg" },
+        { label: "Fee Drag", value: fmtPct((env.totalFees / (env.accounts.length * env.starting)) * 100), sub: "portfolio-wide", cls: "" },
+      ].map((k) => `<div class="card kpi"><div class="label">${esc(k.label)}</div><div class="value num ${k.cls}">${k.value}</div><div class="sub">${esc(k.sub)}</div></div>`).join("");
+
+      /* ---- comparison chart ---- */
+      const labels = history.map((r) => fmtTsShort(r.ts));
+      let cmpSeries = [], cmpZoom = null;
+      function setMode(mode) {
+        const sorted = [...env.accounts].sort((a, b) => b.returnPct - a.returnPct);
+        let picks;
+        if (mode === "top") picks = sorted.slice(0, 6);
+        else if (mode === "bottom") picks = sorted.slice(-6);
+        else picks = [...sorted.slice(0, 3), ...sorted.slice(-3)];
+        cmpSeries = picks.map((a, i) => ({
+          name: a.name, color: CAT_COLORS[i % CAT_COLORS.length],
+          values: history.map((r) => (r.rets && r.rets[a.id] != null ? r.rets[a.id] : null)),
+        }));
+        cmpSeries.unshift({ name: "Portfolio", color: "#e6eaf2", width: 2.6, dashed: true, values: history.map((r) => r.return_pct) });
+        cmpZoom = null;
+        legend("#cmpLegend", cmpSeries, drawCmp);
+        drawCmp();
+      }
+      function drawCmp() {
+        interactiveLineChart(document.getElementById("cmpChart"),
+          cmpSeries.filter((s) => s.visible !== false), labels,
+          { height: 320, yFmt: (v) => v.toFixed(2) + "%", zoom: cmpZoom, onZoom: (a, b) => { cmpZoom = { from: a, to: b }; drawCmp(); } });
+      }
+      document.querySelectorAll("[data-mode]").forEach((b) => b.addEventListener("click", () => {
+        document.querySelectorAll("[data-mode]").forEach((o) => o.classList.remove("on"));
+        b.classList.add("on");
+        setMode(b.dataset.mode);
+      }));
+      setMode("top");
+
+      /* ---- heatmap ---- */
+      const hmCat = document.getElementById("hmCat");
+      hmCat.innerHTML = '<option value="">All categories</option>' + cats.map((c) => `<option>${c}</option>`).join("");
+      function drawHeat() {
+        const cf = hmCat.value;
+        const rows = env.accounts
+          .filter((a) => !cf || a.category === cf)
+          .map((a) => ({
+            label: a.name,
+            cells: history.map((r) => ({ label: fmtTsShort(r.ts), value: (r.rets && r.rets[a.id]) || 0 })),
+          }));
+        heatmap(document.getElementById("heatmap"), rows, { showValues: document.getElementById("hmValues").checked });
+      }
+      hmCat.addEventListener("change", drawHeat);
+      document.getElementById("hmValues").addEventListener("change", drawHeat);
+      drawHeat();
+
+      /* ---- histogram / scatter / donut / win rate ---- */
+      histogram(document.getElementById("histChart"), env.accounts.map((a) => a.returnPct), { bins: 12 });
+
+      scatterChart(document.getElementById("feeScatter"), env.accounts.map((a) => ({
+        x: a.totalFees, y: a.realizedPnl, label: a.name,
+        color: categoryColor(a.category, cats), href: "trades.html?sid=" + encodeURIComponent(a.id),
+      })), { xLabel: "fees paid ($)", yFmt: (v) => "$" + v.toFixed(2), xFmt: (v) => "$" + v.toFixed(1) });
+
+      const catEq = {};
+      env.accounts.forEach((a) => (catEq[a.category] = (catEq[a.category] || 0) + a.equity));
+      donutChart(document.getElementById("catDonut"),
+        Object.keys(catEq).map((c) => ({ label: c, value: catEq[c], color: categoryColor(c, cats) })),
+        { center: fmtUSD0(env.totalEquity) });
+
+      barChartH(document.getElementById("winChart"),
+        env.accounts.filter((a) => a.closedCount).map((a) => ({
+          label: a.name.slice(0, 26), value: a.winRate - 50, color: a.winRate >= 50 ? "#22c55e" : "#ef4444",
+        })).sort((a, b) => b.value - a.value),
+        { vFmt: (v) => (v + 50).toFixed(0) + "%" });
+      if (!env.accounts.some((a) => a.closedCount)) {
+        document.getElementById("winChart").innerHTML = '<div class="empty">No closed trades yet.</div>';
+      }
+
+      /* ---- rankings ---- */
+      let sortKey = "returnPct", sortDir = -1;
+      const tb = document.querySelector("#rank tbody");
+      function renderRank() {
+        const rows = [...env.accounts].sort((a, b) => {
+          const av = a[sortKey], bv = b[sortKey];
+          if (typeof av === "string") return av.localeCompare(bv) * sortDir;
+          return (av - bv) * sortDir;
+        });
+        tb.innerHTML = rows.map((a, i) => `
+          <tr class="clickable" onclick="location.href='trades.html?sid=${encodeURIComponent(a.id)}'">
+            <td class="num" style="color:var(--text-faint)">${i + 1}</td>
+            <td><div style="font-weight:600">${esc(a.name)}</div><div class="mono" style="color:var(--text-faint);font-size:11px">${esc(a.category)}</div></td>
+            <td class="r num ${pctClass(a.returnPct)}">${fmtPct(a.returnPct)}</td>
+            <td class="r num neg">${fmtPct(a.maxDrawdown)}</td>
+            <td class="r num">${a.volatility.toFixed(3)}</td>
+            <td class="r num ${pctClass(a.sharpe)}">${a.sharpe.toFixed(2)}</td>
+            <td class="r num" style="color:var(--text-faint)">${a.feeDrag.toFixed(3)}%</td>
+            <td class="r num">${a.tradesCount}</td>
+          </tr>`).join("");
+      }
+      document.querySelectorAll("#rank th.sortable").forEach((th) => th.addEventListener("click", () => {
+        const k = th.dataset.key;
+        if (sortKey === k) sortDir *= -1; else { sortKey = k; sortDir = -1; }
+        renderRank();
+      }));
+      renderRank();
+
+      window.addEventListener("resize", () => { drawCmp(); drawHeat(); });
+    })().catch((e) => {
+      document.body.innerHTML = '<div class="wrap"><div class="empty">Failed to load data: ' + e.message + '</div></div>';
+    });
+  </script>
+</body>
+</html>

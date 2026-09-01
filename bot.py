@@ -52,6 +52,13 @@ except ImportError:  # pragma: no cover - dependency guard
 
 __version__ = "1.0.0"
 
+# Public identity of the trading bot. The dashboard shows this name (and the
+# profile page below it) instead of a faceless "CryptoTrade" label, so runs read
+# like the work of a single, consistent paper trader.
+BOT_NAME = "Umair’s Bot"
+BOT_HANDLE = "@umairs_bot"
+BOT_TAGLINE = "Systematic paper trader · 42 strategies, one candle at a time"
+
 # --------------------------------------------------------------------------- #
 # Constants
 # --------------------------------------------------------------------------- #
@@ -3019,6 +3026,32 @@ class Engine:
 
     # -- state management --------------------------------------------------- #
 
+    def _rules_dict(self) -> Dict[str, Any]:
+        """The account rulebook, mirrored into the state file so the dashboard
+        never has to hard-code numbers that live in ``Config``."""
+        cfg = self.cfg
+        return {
+            "exchange": "Kraken (public OHLCV only, no keys, no orders)",
+            "market": cfg.symbol,
+            "timeframe": cfg.timeframe,
+            "mode": "paper trading — simulated fills, no real money",
+            "starting_balance": cfg.starting_balance,
+            "accounts": len(self.strategies),
+            "fee_rate": cfg.fee_rate,
+            "slippage": cfg.slippage,
+            "position_alloc": cfg.position_alloc,
+            "min_notional": cfg.min_notional,
+            "max_trades_per_run": cfg.max_trades_per_run,
+            "stop_loss_pct": cfg.stop_loss_pct,
+            "take_profit_pct": cfg.take_profit_pct,
+            "skip_duplicate_candle": cfg.skip_duplicate_candle,
+            "long_only": True,
+            "leverage": 1,
+            "lot_matching": "FIFO",
+            "candle_limit": cfg.candle_limit,
+            "disabled": list(cfg.disabled),
+        }
+
     def load_state(self, reset: bool = False) -> None:
         raw = {} if reset else self.store.load()
         meta = raw.get("meta", {})
@@ -3038,6 +3071,12 @@ class Engine:
                 "last_candle_ts": meta.get("last_candle_ts"),
                 "prev_candle_ts": meta.get("last_candle_ts"),
                 "bot_version": __version__,
+                "bot_name": BOT_NAME,
+                "bot_handle": BOT_HANDLE,
+                "bot_tagline": BOT_TAGLINE,
+                # Everything the profile page needs to state the account rules
+                # explicitly, straight from the live configuration.
+                "rules": self._rules_dict(),
             },
             "accounts": {},
         }
@@ -3308,7 +3347,7 @@ def format_markdown(summary: Dict[str, Any], price: float, symbol: str, run_coun
     rows = [(sid, s) for sid, s in summary.items() if not s.get("skipped")]
     total = sum(s["equity"] for _, s in rows)
     out = [
-        f"### CryptoTrade paper-trading run #{run_count}",
+        f"### {BOT_NAME} — CryptoTrade paper-trading run #{run_count}",
         "",
         f"**{symbol}** @ `{price:.4f}` — total virtual equity **${total:,.2f}**",
         "",
@@ -3596,8 +3635,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     engine = Engine(cfg, log)
     engine.load_state(reset=args.reset)
 
-    log.info("CryptoTrade v%s | %s %s | fee %.3f%% | state %s | %d strategies",
-             __version__, cfg.symbol, cfg.timeframe, cfg.fee_rate * 100, cfg.state_path, len(engine.strategies))
+    log.info("CryptoTrade v%s | trader %s | %s %s | fee %.3f%% | state %s | %d strategies",
+             __version__, BOT_NAME, cfg.symbol, cfg.timeframe, cfg.fee_rate * 100, cfg.state_path, len(engine.strategies))
 
     try:
         if args.replay:

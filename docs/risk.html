@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CryptoTrade — Risk &amp; Exposure</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <script src="assets/data.js"></script>
+  <script src="assets/charts.js"></script>
+  <script src="assets/layout.js"></script>
+  <script>renderNav("risk.html");</script>
+
+  <div class="wrap">
+    <div class="hero">
+      <div>
+        <h1>Risk &amp; Exposure</h1>
+        <div class="sub">Open positions, drawdowns and how much capital is actually at work</div>
+      </div>
+      <div class="chip">🛡 the risk overlay is configurable — see <a href="profile.html">account rules</a></div>
+    </div>
+
+    <div class="grid kpis" id="kpis"></div>
+
+    <div class="section" style="margin-top:18px">
+      <div class="card">
+        <h3>Portfolio Drawdown <span class="hint">% below the running equity peak · drag to zoom</span></h3>
+        <div class="legend" id="ddLegend"></div>
+        <div id="ddChart" class="chart"></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="card">
+        <h3>Price vs Portfolio Return <span class="hint">are the strategies tracking the market or beating it?</span></h3>
+        <div class="legend" id="mktLegend"></div>
+        <div id="mktChart" class="chart"></div>
+      </div>
+    </div>
+
+    <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));">
+      <div class="card">
+        <h3>Exposure by Account <span class="hint">open notional</span></h3>
+        <div id="expChart" class="chart"></div>
+      </div>
+      <div class="card">
+        <h3>Unrealized PnL <span class="hint">open positions only</span></h3>
+        <div id="upnlChart" class="chart"></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="card">
+        <h3>Open Positions <span class="hint">live lots across all sub-accounts</span></h3>
+        <div class="controls">
+          <input type="text" id="search" placeholder="Search account…" />
+          <span class="spacer"></span>
+          <span class="mini" id="rowCount"></span>
+        </div>
+        <div class="table-wrap">
+          <table class="data" id="pos">
+            <thead><tr>
+              <th>Account</th><th class="r">Qty</th><th class="r">Entry</th><th class="r">Mark</th>
+              <th class="r">Notional</th><th class="r">Unrealized</th><th class="r">Move</th><th class="r">Lots</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="note">
+      <b>Risk model.</b> Every account is long-only, unleveraged and funded with its own $1,000. A losing account
+      cannot draw on another account's cash, so portfolio risk is bounded by the total starting capital.
+    </div>
+    <div class="footer">CryptoTrade · risk view derived from the live state file</div>
+  </div>
+
+  <script>
+    (async function () {
+      const [state, history] = await Promise.all([loadState(), loadHistory()]);
+      const env = enrichState(state);
+      renderUpdateMessage(env.meta, "risk view");
+
+      const exposure = env.accounts.reduce((s, a) => s + a.holdings * env.price, 0);
+      const unreal = env.accounts.reduce((s, a) => s + a.unrealizedPnl, 0);
+
+      /* portfolio drawdown series */
+      let peak = -Infinity;
+      const ddValues = history.map((r) => { peak = Math.max(peak, r.equity); return ((r.equity / peak) - 1) * 100; });
+      const maxDd = ddValues.length ? Math.min(...ddValues) : 0;
+
+      document.getElementById("kpis").innerHTML = [
+        { label: "Open Exposure", value: fmtUSD0(exposure), sub: ((exposure / (env.totalEquity || 1)) * 100).toFixed(1) + "% of equity", cls: exposure ? "gold" : "" },
+        { label: "Accounts In Market", value: env.openCount + " / " + env.accounts.length, sub: "long positions", cls: "" },
+        { label: "Unrealized PnL", value: fmtUSD(unreal), sub: "marked at last price", cls: pctClass(unreal) },
+        { label: "Max Drawdown", value: fmtPct(maxDd), sub: "portfolio, recorded ticks", cls: "neg" },
+        { label: "Capital At Risk Cap", value: fmtUSD0(env.accounts.length * env.starting), sub: "hard ceiling — no leverage", cls: "" },
+        { label: "Largest Position", value: fmtUSD(Math.max(0, ...env.accounts.map((a) => a.holdings * env.price))), sub: "single account", cls: "" },
+      ].map((k) => `<div class="card kpi"><div class="label">${esc(k.label)}</div><div class="value num ${k.cls}">${k.value}</div><div class="sub">${esc(k.sub)}</div></div>`).join("");
+
+      const labels = history.map((r) => fmtTsShort(r.ts));
+      const ddSeries = [{ name: "Drawdown", color: "#ef4444", area: true, fill: "rgba(239,68,68,0.14)", values: ddValues }];
+      let ddZoom = null;
+      function drawDd() {
+        if (!history.length) { document.getElementById("ddChart").innerHTML = '<div class="empty">No history yet.</div>'; return; }
+        interactiveLineChart(document.getElementById("ddChart"), ddSeries, labels,
+          { yFmt: (v) => v.toFixed(2) + "%", zoom: ddZoom, onZoom: (a, b) => { ddZoom = { from: a, to: b }; drawDd(); } });
+      }
+      legend("#ddLegend", ddSeries, drawDd);
+      drawDd();
+
+      /* market vs portfolio — normalise price to % change from the first tick */
+      const p0 = history.length ? history[0].price : 0;
+      const mktSeries = [
+        { name: "Buy & hold " + (env.meta.symbol || ""), color: "#f59e0b", values: history.map((r) => p0 ? (r.price / p0 - 1) * 100 : 0) },
+        { name: "Portfolio", color: "#3b82f6", values: history.map((r) => r.return_pct) },
+      ];
+      let mktZoom = null;
+      function drawMkt() {
+        if (!history.length) { document.getElementById("mktChart").innerHTML = '<div class="empty">No history yet.</div>'; return; }
+        interactiveLineChart(document.getElementById("mktChart"),
+          mktSeries.filter((s) => s.visible !== false), labels,
+          { yFmt: (v) => v.toFixed(2) + "%", zoom: mktZoom, onZoom: (a, b) => { mktZoom = { from: a, to: b }; drawMkt(); } });
+      }
+      legend("#mktLegend", mktSeries, drawMkt);
+      drawMkt();
+
+      const open = env.accounts.filter((a) => a.inPosition);
+      if (open.length) {
+        barChartH(document.getElementById("expChart"),
+          open.map((a) => ({ label: a.name.slice(0, 26), value: a.holdings * env.price, color: "#f59e0b" }))
+            .sort((a, b) => b.value - a.value), { vFmt: (v) => fmtUSD0(v) });
+        barChartH(document.getElementById("upnlChart"),
+          open.map((a) => ({ label: a.name.slice(0, 26), value: a.unrealizedPnl }))
+            .sort((a, b) => b.value - a.value), { vFmt: (v) => fmtUSD(v) });
+      } else {
+        document.getElementById("expChart").innerHTML = '<div class="empty">Every account is flat right now.</div>';
+        document.getElementById("upnlChart").innerHTML = '<div class="empty">No open positions.</div>';
+      }
+
+      const tb = document.querySelector("#pos tbody");
+      function renderPos() {
+        const q = document.getElementById("search").value.toLowerCase();
+        const rows = open.filter((a) => (a.id + " " + a.name).toLowerCase().includes(q));
+        document.getElementById("rowCount").textContent = `${rows.length} open positions`;
+        tb.innerHTML = rows.map((a) => {
+          const move = a.entryPrice ? (env.price / a.entryPrice - 1) * 100 : 0;
+          return `<tr class="clickable" onclick="location.href='trades.html?sid=${encodeURIComponent(a.id)}'">
+            <td><div style="font-weight:600">${esc(a.name)}</div><div class="mono" style="color:var(--text-faint);font-size:11px">${esc(a.id)}</div></td>
+            <td class="r num">${fmtQty(a.holdings)}</td>
+            <td class="r num">${fmtPrice(a.entryPrice)}</td>
+            <td class="r num">${fmtPrice(env.price)}</td>
+            <td class="r num">${fmtUSD(a.holdings * env.price)}</td>
+            <td class="r num ${pctClass(a.unrealizedPnl)}">${fmtUSD(a.unrealizedPnl)}</td>
+            <td class="r num ${pctClass(move)}">${fmtPct(move)}</td>
+            <td class="r num">${a.lots.length}</td>
+          </tr>`;
+        }).join("") || '<tr><td colspan="8" class="empty">No open positions.</td></tr>';
+      }
+      document.getElementById("search").addEventListener("input", renderPos);
+      renderPos();
+
+      window.addEventListener("resize", () => { drawDd(); drawMkt(); });
+    })().catch((e) => {
+      document.body.innerHTML = '<div class="wrap"><div class="empty">Failed to load data: ' + e.message + '</div></div>';
+    });
+  </script>
+</body>
+</html>

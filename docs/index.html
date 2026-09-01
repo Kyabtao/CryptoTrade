@@ -7,26 +7,16 @@
   <link rel="stylesheet" href="assets/style.css" />
 </head>
 <body>
-  <nav class="nav">
-    <div class="nav-inner">
-      <a class="brand" href="index.html"><span class="logo">₿</span> CryptoTrade</a>
-      <div class="nav-links">
-        <a href="index.html" class="active">Dashboard</a>
-        <a href="strategies.html">Strategies</a>
-        <a href="trades.html">Trades</a>
-      </div>
-      <div class="nav-status">
-        <span class="dot"></span>
-        <span id="navStatus">Loading…</span>
-      </div>
-    </div>
-  </nav>
+  <script src="assets/data.js"></script>
+  <script src="assets/charts.js"></script>
+  <script src="assets/layout.js"></script>
+  <script>renderNav("index.html");</script>
 
   <div class="wrap">
     <div class="hero">
       <div>
         <h1>Paper-Trading Dashboard</h1>
-        <div class="sub" id="heroSub">42 virtual sub-accounts · simulated spot fills · 0.1% fee per side</div>
+        <div class="sub" id="heroSub">loading…</div>
       </div>
       <div class="hero-price">
         <div class="big num" id="heroPrice">—</div>
@@ -38,15 +28,23 @@
 
     <div class="section" style="margin-top:18px;">
       <div class="card">
-        <h3>Portfolio Equity <span class="hint" id="eqHint">—</span></h3>
+        <h3>Portfolio Equity
+          <span class="chart-tools">
+            <span class="hint" id="eqHint">—</span>
+            <button class="chip-btn" data-range="25">25</button>
+            <button class="chip-btn" data-range="100">100</button>
+            <button class="chip-btn on" data-range="0">All</button>
+          </span>
+        </h3>
         <div class="legend" id="eqLegend"></div>
         <div id="equityChart" class="chart"></div>
+        <div class="mini" style="margin-top:6px;color:var(--text-faint)">Hover for values · drag to zoom · double-click to reset</div>
       </div>
     </div>
 
     <div class="section">
       <div class="card">
-        <h3>Strategy Return Over Time <span class="hint">top performers vs portfolio</span></h3>
+        <h3>Strategy Return Over Time <span class="hint">click legend entries to toggle · drag to zoom</span></h3>
         <div class="legend" id="retLegend"></div>
         <div id="retChart" class="chart"></div>
       </div>
@@ -60,6 +58,17 @@
       <div class="card">
         <h3>Average Return by Category <span class="hint">latest tick</span></h3>
         <div id="catChart" class="chart"></div>
+      </div>
+    </div>
+
+    <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));">
+      <div class="card">
+        <h3>Capital Deployment <span class="hint">cash vs. open exposure</span></h3>
+        <div id="allocChart" class="chart"></div>
+      </div>
+      <div class="card">
+        <h3>Risk vs. Reward <span class="hint">trades vs. return — click a point</span></h3>
+        <div id="scatterChart" class="chart"></div>
       </div>
     </div>
 
@@ -97,13 +106,12 @@
 
     <div class="note">
       <b>Paper trading only.</b> Fills are simulated against Kraken OHLCV candles with a 0.1% spot fee on both
-      sides; no real orders are ever placed. Results do not transfer to live trading and are not financial advice.
+      sides; no real orders are ever placed. Full account rules live on the
+      <a href="profile.html">bot profile</a>. Results do not transfer to live trading and are not financial advice.
     </div>
-    <div class="footer">CryptoTrade · state updates every 15 minutes via the scheduled tick · page auto-refreshes</div>
+    <div class="footer">CryptoTrade · state updates every 15 minutes via the scheduled tick</div>
   </div>
 
-  <script src="assets/data.js"></script>
-  <script src="assets/charts.js"></script>
   <script>
     (async function () {
       const [state, history, catalog] = await Promise.all([loadState(), loadHistory(), loadCatalog()]);
@@ -114,16 +122,16 @@
       const cats = [...new Set((catalog || []).map((c) => c.category).filter(Boolean))];
       if (!cats.length) cats.push("Other");
 
-      /* ---- header ---- */
-      document.getElementById("navStatus").textContent =
-        `Live · ${env.meta.symbol || "—"} · updated ${fmtTs(env.meta.updated_at)}`;
+      /* ---- update message (was previously crammed into the nav) ---- */
+      renderUpdateMessage(env.meta, `${env.accounts.length} sub-accounts · ${history.length} recorded ticks`);
+
       document.getElementById("heroSub").textContent =
-        `${env.accounts.length} virtual sub-accounts · ${env.meta.timeframe || "—"} candles · run #${env.meta.run_count} · bot v${env.meta.bot_version || "?"}`;
+        `${env.accounts.length} virtual sub-accounts · ${env.meta.timeframe || "—"} candles · traded by ${BOT.name}`;
       const hp = document.getElementById("heroPrice");
       hp.textContent = fmtPrice(env.price);
       hp.className = "big num " + pctClass(env.totalReturnPct);
       document.getElementById("heroPriceMeta").textContent =
-        `${env.meta.symbol || "—"} · last candle ${fmtTs(msToLocal(env.meta.last_candle_ts))}`;
+        `${env.meta.symbol || "—"} · portfolio ${fmtPct(env.totalReturnPct)}`;
 
       /* ---- KPIs ---- */
       const kpis = [
@@ -138,58 +146,97 @@
         `<div class="card kpi"><div class="label">${esc(k.label)}</div><div class="value num ${k.cls}">${k.value}</div><div class="sub">${esc(k.sub)}</div></div>`
       ).join("");
 
-      /* ---- charts ---- */
-      const eqSeries = [];
-      if (history.length) {
-        eqSeries.push({ name: "Total portfolio", color: "#3b82f6", values: history.map((r) => r.equity), area: true });
-        const xLabels = history.map((r) => fmtTsShort(r.ts));
-        drawLineChart("#equityChart", eqSeries, xLabels, (v) => "$" + v.toLocaleString("en-US", { maximumFractionDigits: 0 }));
-        document.getElementById("eqHint").textContent =
-          `${history.length} ticks · first ${fmtTs(history[0].ts)} → last ${fmtTs(history[history.length - 1].ts)}`;
-      } else {
-        document.getElementById("equityChart").innerHTML = '<div class="empty">No history yet — run the bot once to start recording.</div>';
-      }
+      /* ---- equity chart (interactive, zoomable, range chips) ---- */
+      const eqLabels = history.map((r) => fmtTsShort(r.ts));
+      const eqSeries = [
+        { name: "Total equity", color: "#3b82f6", area: true, values: history.map((r) => r.equity) },
+        { name: "Baseline", color: "#5f6b82", dashed: true, width: 1.4, visible: false,
+          values: history.map(() => env.accounts.length * env.starting) },
+      ];
+      let eqZoom = null;
 
-      // top performers for the return-over-time chart
+      function drawEquity() {
+        if (!history.length) {
+          document.getElementById("equityChart").innerHTML =
+            '<div class="empty">No history yet — run the bot once to start recording.</div>';
+          return;
+        }
+        interactiveLineChart(
+          document.getElementById("equityChart"),
+          eqSeries.filter((s) => s.visible !== false),
+          eqLabels,
+          { zoom: eqZoom, yFmt: (v) => "$" + v.toLocaleString("en-US", { maximumFractionDigits: 0 }),
+            onZoom: (a, b) => { eqZoom = { from: a, to: b }; drawEquity(); } }
+        );
+      }
+      legend("#eqLegend", eqSeries, drawEquity);
+      drawEquity();
+      if (history.length) {
+        document.getElementById("eqHint").textContent = `${history.length} ticks`;
+      }
+      document.querySelectorAll("[data-range]").forEach((b) => b.addEventListener("click", () => {
+        document.querySelectorAll("[data-range]").forEach((o) => o.classList.remove("on"));
+        b.classList.add("on");
+        const n = +b.dataset.range;
+        eqZoom = n && history.length > n ? { from: history.length - n, to: history.length - 1 } : null;
+        drawEquity();
+      }));
+
+      /* ---- return over time ---- */
       const top = [...env.accounts].sort((a, b) => Math.abs(b.returnPct) - Math.abs(a.returnPct)).slice(0, 6);
       const retSeries = [
-        { name: "Portfolio", color: "#e6eaf2", visible: true, values: history.map((r) => r.return_pct) },
-        ...top.map((a, i) => ({ name: a.id, color: CAT_COLORS[i], visible: true, values: history.map((r) => (r.rets && r.rets[a.id] != null ? r.rets[a.id] : null)) })),
+        { name: "Portfolio", color: "#e6eaf2", width: 2.6, values: history.map((r) => r.return_pct) },
+        ...top.map((a, i) => ({ name: a.name, color: CAT_COLORS[i], values: history.map((r) => (r.rets && r.rets[a.id] != null ? r.rets[a.id] : null)) })),
       ];
-      buildLegend("#retLegend", retSeries, () => drawReturnChart());
-      drawReturnChart();
-
-      function drawReturnChart() {
-        const active = retSeries.filter((s) => s.visible !== false);
-        const labels = history.map((r) => fmtTsShort(r.ts));
-        lineChart(document.getElementById("retChart"), active, labels, { yFmt: (v) => v.toFixed(1) + "%" });
+      let retZoom = null;
+      function drawRet() {
+        interactiveLineChart(
+          document.getElementById("retChart"),
+          retSeries.filter((s) => s.visible !== false),
+          history.map((r) => fmtTsShort(r.ts)),
+          { yFmt: (v) => v.toFixed(2) + "%", zoom: retZoom, onZoom: (a, b) => { retZoom = { from: a, to: b }; drawRet(); } }
+        );
       }
+      legend("#retLegend", retSeries, drawRet);
+      drawRet();
 
-      /* return distribution */
+      /* ---- distribution + categories ---- */
       const dist = env.accounts
         .map((a) => ({ label: a.id, value: a.returnPct, color: a.returnPct >= 0 ? "#22c55e" : "#ef4444" }))
         .sort((a, b) => b.value - a.value);
       barChartH(document.getElementById("distChart"), dist, {});
 
-      /* category performance */
       const catAgg = {};
-      cats.forEach((c) => (catAgg[c] = { n: 0, sum: 0 }));
       env.accounts.forEach((a) => {
         const c = a.category || "Other";
-        if (!catAgg[c]) catAgg[c] = { n: 0, sum: 0 };
+        (catAgg[c] = catAgg[c] || { n: 0, sum: 0 });
         catAgg[c].n++; catAgg[c].sum += a.returnPct;
       });
-      const catItems = Object.keys(catAgg).map((c) => ({
+      barChartV(document.getElementById("catChart"), Object.keys(catAgg).map((c) => ({
         label: c.length > 18 ? c.slice(0, 18) + "…" : c,
-        value: catAgg[c].n ? catAgg[c].sum / catAgg[c].n : 0,
+        value: catAgg[c].sum / catAgg[c].n,
         color: categoryColor(c, cats),
-      }));
-      barChartV(document.getElementById("catChart"), catItems, { yFmt: (v) => v.toFixed(1) + "%" });
+      })), { yFmt: (v) => v.toFixed(2) + "%" });
+
+      /* ---- allocation donut ---- */
+      const cash = env.accounts.reduce((s, a) => s + a.balance, 0);
+      const exposure = env.accounts.reduce((s, a) => s + a.holdings * env.price, 0);
+      donutChart(document.getElementById("allocChart"), [
+        { label: "Idle cash (USDT)", value: cash, color: "#3b82f6" },
+        { label: "Open exposure (BTC)", value: exposure, color: "#f59e0b" },
+        { label: "Fees paid", value: env.totalFees, color: "#ef4444" },
+      ], { center: ((exposure / (cash + exposure || 1)) * 100).toFixed(1) + "%" });
+
+      /* ---- scatter: activity vs return ---- */
+      scatterChart(document.getElementById("scatterChart"), env.accounts.map((a) => ({
+        x: a.tradesCount, y: a.returnPct, label: a.name,
+        color: categoryColor(a.category, cats),
+        href: "trades.html?sid=" + encodeURIComponent(a.id),
+      })), { xLabel: "trades executed", yFmt: (v) => v.toFixed(2) + "%", xFmt: (v) => v.toFixed(0) });
 
       /* ---- leaderboard ---- */
       const catSel = document.getElementById("catFilter");
-      catSel.innerHTML = '<option value="">All categories</option>' +
-        cats.map((c) => `<option>${c}</option>`).join("");
+      catSel.innerHTML = '<option value="">All categories</option>' + cats.map((c) => `<option>${c}</option>`).join("");
 
       let sortKey = "returnPct", sortDir = -1;
       const tb = document.getElementById("leaderboard").querySelector("tbody");
@@ -214,12 +261,12 @@
             <td class="r num">${fmtUSD(a.equity)}</td>
             <td class="r num ${pctClass(a.returnPct)}">${fmtPct(a.returnPct)}</td>
             <td class="c">${a.inPosition ? '<span class="badge long">LONG</span>' : '<span class="badge flat">flat</span>'}</td>
-            <td class="r num">${fmtNum(a.tradesCount)}</td>
+            <td class="r num">${a.tradesCount}</td>
             <td class="r num">${a.closedCount ? a.winRate.toFixed(0) + "%" : "—"}</td>
             <td class="r num ${pctClass(a.realizedPnl)}">${fmtUSD(a.realizedPnl)}</td>
             <td class="r num ${pctClass(a.unrealizedPnl)}">${fmtUSD(a.unrealizedPnl)}</td>
             <td class="r num" style="color:var(--text-faint)">${fmtUSD(a.totalFees)}</td>
-          </tr>`).join("");
+          </tr>`).join("") || '<tr><td colspan="11" class="empty">Nothing matches.</td></tr>';
       }
 
       document.getElementById("search").addEventListener("input", renderTable);
@@ -228,34 +275,16 @@
         th.addEventListener("click", () => {
           const k = th.dataset.key;
           if (sortKey === k) sortDir *= -1; else { sortKey = k; sortDir = -1; }
-          document.querySelectorAll("#leaderboard th.sortable .arrow").forEach((s) => (s.textContent = ""));
-          th.innerHTML = th.innerHTML.replace(' <span class="arrow"></span>', "") + ` <span class="arrow">${sortDir === 1 ? "▲" : "▼"}</span>`;
+          document.querySelectorAll("#leaderboard th.sortable .arrow").forEach((s) => s.remove());
+          th.insertAdjacentHTML("beforeend", ` <span class="arrow">${sortDir === 1 ? "▲" : "▼"}</span>`);
           renderTable();
         });
       });
       renderTable();
 
-      function msToLocal(ms) { return ms ? new Date(ms).toISOString() : null; }
-      function buildLegend(id, series, onChange) {
-        const box = document.getElementById(id.replace(/^#/, ""));
-        box.innerHTML = series.map((s, i) =>
-          `<div class="item" data-i="${i}"><span class="swatch" style="background:${s.color}"></span>${s.name}</div>`
-        ).join("");
-        box.querySelectorAll(".item").forEach((node) => {
-          node.addEventListener("click", () => {
-            const i = +node.dataset.i;
-            series[i].visible = series[i].visible === false;
-            node.style.opacity = series[i].visible === false ? 0.35 : 1;
-            onChange();
-          });
-        });
-      }
-      function drawLineChart(sel, series, labels, yFmt) {
-        lineChart(document.querySelector(sel), series, labels, { yFmt });
-      }
+      window.addEventListener("resize", () => { drawEquity(); drawRet(); });
     })().catch((e) => {
-      document.body.innerHTML = '<div class="wrap"><div class="empty">Failed to load data: ' + e.message +
-        '<br/>Serve this folder over HTTP (e.g. <code>python -m http.server</code> in <code>docs/</code>) so the JSON files can load.</div></div>';
+      document.body.innerHTML = '<div class="wrap"><div class="empty">Failed to load data: ' + e.message + '</div></div>';
     });
   </script>
 </body>
