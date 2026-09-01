@@ -1592,10 +1592,20 @@ class TestCli:
         assert r.returncode == 0, r.stderr
         assert "04_triple_moving_average" not in json.load(open(state))["accounts"]
 
-    def test_live_path_fails_cleanly_without_network(self, tmp_path):
-        """A network failure must not corrupt or overwrite the state file."""
+    def test_live_path_fails_cleanly_without_network(self, tmp_path, monkeypatch):
+        """A network failure must not corrupt or overwrite the state file.
+
+        The failure is simulated rather than relying on the runner having no
+        network, so the test behaves identically on GitHub-hosted runners
+        (which *can* reach the exchange) and offline machines alike.
+        """
         state = tmp_path / "data.json"
         state.write_text(json.dumps({"meta": {"run_count": 7}, "accounts": {}}), encoding="utf-8")
+
+        def _network_down(self, exchange=None):
+            raise RuntimeError("simulated network failure")
+
+        monkeypatch.setattr(botmod.Engine, "fetch_live", _network_down)
         rc = botmod.main(["--state", str(state)])
         assert rc == 1
         assert json.load(open(state))["meta"]["run_count"] == 7, "state was clobbered on failure"

@@ -30,6 +30,44 @@ cron or GitHub Actions.
 
 ---
 
+## Dashboard (HTML)
+
+A static, dependency-free web dashboard lives in [`docs/`](docs/). It reads the
+JSON the bot writes, so it always reflects the latest scheduled tick with no
+build step and no server-side code:
+
+| Page | What it shows |
+|---|---|
+| [`docs/index.html`](docs/index.html) | KPIs, portfolio equity curve, per-strategy return curve, return distribution, category performance and a sortable/filterable leaderboard |
+| [`docs/strategies.html`](docs/strategies.html) | All 42 strategies with their entry/exit logic, parameters, warm-up and live state; click any card for its indicator state, open lots and trade history |
+| [`docs/trades.html`](docs/trades.html) | Every simulated fill across all accounts, filterable by account/side/reason and paginated |
+
+Run it locally:
+
+```bash
+cd docs && python -m http.server 8000
+# open http://localhost:8000
+```
+
+Deploy it for free by enabling **GitHub Pages → source: `main` / `docs`**; the
+scheduled workflow only has to commit the JSON, and the pages refresh themselves.
+
+The dashboard is fed by two files, both written by the bot and committed by the
+scheduled workflow:
+
+* `docs/data.json` — the current portfolio snapshot (see [State file](#state-file)).
+* `docs/history.json` — a compact per-run time series (run counter, candle
+  timestamp, price, total equity/return and one return % per account) that the
+  equity charts are drawn from. One row is appended per tick (re-runs of the
+  same candle refresh the last row), pruned to the most recent ~2,016 rows.
+
+`scripts/generate_strategy_catalog.py` regenerates
+[`docs/assets/strategies.json`](docs/assets/strategies.json) — the entry/exit
+descriptions, categories and parameter defaults shown on the strategy pages —
+straight from the classes in `bot.py`, so the docs never drift from the code.
+
+---
+
 ## The 42 strategies
 
 ### Momentum & Trend Following
@@ -230,7 +268,7 @@ Two workflows live in [`ci/workflows/`](ci/workflows):
 
 | File | Trigger | Purpose |
 |---|---|---|
-| `paper-trade.yml` | `*/15 * * * *` + manual dispatch | run a tick, commit `docs/data.json` back, publish a summary table and an artifact |
+| `paper-trade.yml` | `*/15 * * * *` + manual dispatch | run a tick, commit `docs/data.json` + `docs/history.json` back (which updates the dashboard), publish a summary table and an artifact |
 | `tests.yml` | push / PR | run the offline test-suite on Python 3.10–3.12 |
 
 They are kept out of `.github/workflows/` in the repository because committing

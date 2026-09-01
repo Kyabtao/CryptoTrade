@@ -66,6 +66,13 @@ MIN_QTY_STEP = 1e-8  # quantities below this are treated as flat
 # broker simulation, mirroring the per-market minimums real exchanges enforce.
 DEFAULT_MIN_NOTIONAL = 10.0
 
+# Per-run history snapshot for the HTML dashboard. One compact row is appended
+# per tick (kept next to the state file) so the dashboard can draw equity and
+# return curves without re-reading every historical candle. Older rows are
+# pruned to keep the file bounded.
+HISTORY_FILENAME = "history.json"
+HISTORY_MAX_ENTRIES = 2016   # ~3 weeks of 15m ticks
+
 
 def utcnow_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -3043,12 +3050,18 @@ class Engine:
                 self.accounts[strategy.id] = _fresh_account(strategy, self.cfg)
                 self.log.info("Initialised new account %s with %.2f USDT", strategy.id, self.cfg.starting_balance)
 
-    def persist(self) -> None:
+    def snapshot_state(self) -> Dict[str, Any]:
+        """Fill ``state["accounts"]`` from the live account objects without
+        writing anything, so callers (replay history tracking) can read a
+        consistent snapshot of the current portfolio."""
         self.state["meta"]["updated_at"] = utcnow_iso()
         self.state["accounts"] = {
             strategy.id: self.accounts[strategy.id].to_dict() for strategy in self.strategies
         }
-        self.store.save(self.state)
+        return self.state
+
+    def persist(self) -> None:
+        self.store.save(self.snapshot_state())
 
     # -- market data -------------------------------------------------------- #
 
@@ -3323,6 +3336,80 @@ def write_github_summary(markdown: str) -> None:
         pass
 
 
+def history_path(state_path: str) -> str:
+    """Where the per-run history snapshot lives, next to the state file."""
+    directory = os.path.dirname(os.path.abspath(state_path))
+    return os.path.join(directory, HISTORY_FILENAME)
+
+
+def append_history(state: Dict[str, Any], state_path: str,
+                   max_entries: int = HISTORY_MAX_ENTRIES) -> None:
+    """Append (or refresh) a compact per-run snapshot for the dashboard.
+
+    Each row stores the run counter, candle timestamp, reference price, total
+    virtual equity/return and one return percentage per account. Per-account
+    returns are sufficient to rebuild every equity curve because all accounts
+    share the same starting balance. This never raises: a dashboard file should
+    not be able to fail a trading tick.
+    """
+    log = logging.getLogger("bot")
+    meta = state.get("meta", {})
+    accounts = state.get("accounts", {})
+    price = float(meta.get("last_price") or 0.0)
+    candle_ts = meta.get("last_candle_ts")
+
+    starting = float(meta.get("starting_balance") or 0.0)
+    rets: Dict[str, float] = {}
+    equity = 0.0
+    for sid, acc in accounts.items():
+        bal = float(acc.get("balance_usd", 0.0))
+        hold = float(acc.get("crypto_holdings", 0.0))
+        eq = bal + hold * price
+        equity += eq
+        base = float(acc.get("starting_balance", starting)) or starting
+        rets[sid] = round((eq / base - 1.0) * 100.0, 4) if base else 0.0
+    total_base = len(accounts) * starting if starting else 0.0
+    total_return = round((equity / total_base - 1.0) * 100.0, 4) if total_base else 0.0
+
+    entry = {
+        "run": int(meta.get("run_count", 0)),
+        "ts": meta.get("updated_at") or utcnow_iso(),
+        "candle_ts": candle_ts,
+        "price": round(price, 4),
+        "equity": round(equity, 2),
+        "return_pct": total_return,
+        "trades": int(meta.get("total_trades", 0)),
+        "rets": rets,
+    }
+
+    path = history_path(state_path)
+    try:
+        rows: List[Dict[str, Any]] = []
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as fh:
+                    loaded = json.load(fh)
+                if isinstance(loaded, list):
+                    rows = loaded
+            except (json.JSONDecodeError, ValueError, OSError):
+                rows = []
+        # A re-run of the same candle refreshes the last row instead of adding a
+        # duplicate point, so the chart stays one point per candle.
+        if rows and rows[-1].get("candle_ts") == candle_ts:
+            rows[-1] = entry
+        else:
+            rows.append(entry)
+        if len(rows) > max_entries:
+            rows = rows[-max_entries:]
+        directory = os.path.dirname(path)
+        os.makedirs(directory, exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(rows, fh, separators=(",", ":"))
+            fh.write("\n")
+    except OSError as exc:
+        log.warning("Could not write history snapshot %s: %s", path, exc)
+
+
 # --------------------------------------------------------------------------- #
 # Data sources
 # --------------------------------------------------------------------------- #
@@ -3350,12 +3437,16 @@ def load_replay_csv(path: str) -> List[Candle]:
     return candles
 
 
-def run_replay(engine: Engine, candles: List[Candle], limit: int) -> Dict[str, Any]:
+def run_replay(engine: Engine, candles: List[Candle], limit: int,
+               record_history: bool = False) -> Dict[str, Any]:
     """Drive the real engine one candle at a time from a static series.
 
     The window handed to the engine always ends with an "in-progress" bar, so
     replay exercises exactly the same code path (including the drop of the
     live candle) as a scheduled live run.
+
+    With ``record_history`` set, one history snapshot is appended per candle so
+    the HTML dashboard can draw the equity curve of the whole backtest.
     """
     summary: Dict[str, Any] = {}
     n = len(candles)
@@ -3368,6 +3459,8 @@ def run_replay(engine: Engine, candles: List[Candle], limit: int) -> Dict[str, A
             continue
         md = MarketData(engine.cfg.symbol, engine.cfg.timeframe, window)
         summary = engine.process_market(md)
+        if record_history:
+            append_history(engine.snapshot_state(), engine.cfg.state_path)
     return summary
 
 
@@ -3515,7 +3608,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             candles = load_replay_csv(args.replay)
             limit = max(cfg.candle_limit, engine.required_candles())
             log.info("Replay mode: %d candles from %s (window %d)", len(candles), args.replay, limit)
-            summary = run_replay(engine, candles, limit)
+            summary = run_replay(engine, candles, limit, record_history=not args.dry_run)
             md_price = engine.state["meta"].get("last_price", 0.0)
         else:
             md = engine.fetch_live()
@@ -3539,6 +3632,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         print(f"[dry-run] evaluated {engine.state['meta']['run_count']} run(s); state file not written.")
     else:
         engine.persist()
+        append_history(engine.state, cfg.state_path)
         log.info("State saved to %s", cfg.state_path)
 
     return 0
