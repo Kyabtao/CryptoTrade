@@ -38,9 +38,25 @@ build step and no server-side code:
 
 | Page | What it shows |
 |---|---|
-| [`docs/index.html`](docs/index.html) | KPIs, portfolio equity curve, per-strategy return curve, return distribution, category performance and a sortable/filterable leaderboard |
-| [`docs/strategies.html`](docs/strategies.html) | All 42 strategies with their entry/exit logic, parameters, warm-up and live state; click any card for its indicator state, open lots and trade history |
-| [`docs/trades.html`](docs/trades.html) | Every simulated fill across all accounts, filterable by account/side/reason and paginated |
+| [`docs/index.html`](docs/index.html) | KPIs, zoomable portfolio equity curve, per-strategy return curve, return distribution, category performance, capital-deployment donut, risk/reward scatter and a sortable/filterable leaderboard |
+| [`docs/analytics.html`](docs/analytics.html) | Cross-sectional analysis: strategy comparison chart (top/bottom/spread), return heatmap across ticks, histogram, fees-vs-PnL scatter, equity share by category and a rankings table with max drawdown, volatility and return/vol |
+| [`docs/strategies.html`](docs/strategies.html) | All 42 strategies with their entry/exit logic, parameters, warm-up and live state; click any card for its return curve, indicator state, open lots and trade history |
+| [`docs/trades.html`](docs/trades.html) | Every simulated fill, plus a cumulative realized-PnL curve, fill-size histogram and buy/sell split; filterable by account/side/reason and paginated |
+| [`docs/risk.html`](docs/risk.html) | Portfolio drawdown, buy-and-hold vs. portfolio return, exposure and unrealized PnL per account, and the live open-position table |
+| [`docs/profile.html`](docs/profile.html) | The bot's profile — who it is, its full account rulebook, live configuration, trading record, equity curve and sub-account register |
+
+Every chart is interactive: hover for a crosshair tooltip, click legend entries
+to toggle series, drag across a chart to zoom into a range and double-click to
+reset. The "last update" details are shown as a dismissible message strip at the
+top of each page rather than inside the navigation bar.
+
+### The bot's identity
+
+The bot trades under a single persona, **Umair’s Bot** (`BOT_NAME` in
+[`bot.py`](bot.py)). The name, handle and the complete account rulebook are
+written into `docs/data.json` on every run under `meta.bot_name` and
+`meta.rules`, and rendered on [`docs/profile.html`](docs/profile.html) — so the
+published rules can never drift from the configuration the engine actually used.
 
 Run it locally:
 

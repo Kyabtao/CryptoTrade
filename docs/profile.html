@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Umair’s Bot — Bot Profile &amp; Account Rules</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <script src="assets/data.js"></script>
+  <script src="assets/charts.js"></script>
+  <script src="assets/layout.js"></script>
+  <script>renderNav("profile.html");</script>
+
+  <div class="wrap">
+    <div class="profile-head">
+      <div class="avatar-lg" id="avatar">UB</div>
+      <div>
+        <h1 id="botName">Umair’s Bot</h1>
+        <div class="handle" id="botHandle">@umairs_bot</div>
+        <div class="tagline" id="botTagline">Systematic paper trader</div>
+        <div style="margin-top:8px" id="badges"></div>
+      </div>
+    </div>
+
+    <div class="grid kpis" id="kpis"></div>
+
+    <div class="section" style="margin-top:18px">
+      <div class="card">
+        <h3>About This Bot</h3>
+        <p style="margin:0;color:var(--text-dim);font-size:13.5px" id="about"></p>
+      </div>
+    </div>
+
+    <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));">
+      <div class="card">
+        <h3>Account Rules <span class="hint">enforced by the engine on every tick</span></h3>
+        <div class="rules" id="rulesList"></div>
+      </div>
+      <div class="card">
+        <h3>Live Account Configuration <span class="hint">read from the state file</span></h3>
+        <div class="table-wrap">
+          <table class="data" id="cfgTable">
+            <thead><tr><th>Setting</th><th class="r">Value</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));">
+      <div class="card">
+        <h3>Execution Rules</h3>
+        <div class="rules" id="execRules"></div>
+      </div>
+      <div class="card">
+        <h3>Risk Rules</h3>
+        <div class="rules" id="riskRules"></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="card">
+        <h3>Trading Record <span class="hint">since ${created}</span></h3>
+        <div class="kv-grid" id="record"></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="card">
+        <h3>Equity Curve <span class="hint">the bot's whole track record · hover / drag to zoom</span></h3>
+        <div id="curve" class="chart"></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="card">
+        <h3>Sub-Account Register <span class="hint">every account this bot operates</span></h3>
+        <div class="controls">
+          <input type="text" id="search" placeholder="Search account…" />
+          <span class="spacer"></span>
+          <span class="mini" id="rowCount"></span>
+        </div>
+        <div class="table-wrap">
+          <table class="data" id="reg">
+            <thead><tr>
+              <th>Account ID</th><th>Strategy</th><th class="r">Funded</th><th class="r">Equity</th>
+              <th class="r">Return</th><th class="c">Status</th><th class="r">Trades</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="note" id="disclaimer"></div>
+    <div class="footer">CryptoTrade · profile and rules are generated from the bot's own configuration</div>
+  </div>
+
+  <script>
+    (async function () {
+      const [state, history, catalog] = await Promise.all([loadState(), loadHistory(), loadCatalog()]);
+      const env = enrichState(state);
+      const m = env.meta;
+      const r = m.rules || {};
+      renderUpdateMessage(m, "profile");
+
+      const name = m.bot_name || BOT.name;
+      const initials = name.split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+      document.getElementById("botName").textContent = name;
+      document.getElementById("avatar").textContent = initials;
+      document.getElementById("botHandle").textContent = m.bot_handle || BOT.handle;
+      document.getElementById("botTagline").textContent = m.bot_tagline || BOT.tagline;
+      document.title = name + " — Bot Profile & Account Rules";
+
+      document.getElementById("badges").innerHTML = [
+        `<span class="badge cat">Paper trading</span>`,
+        `<span class="badge flat">v${esc(m.bot_version || "?")}</span>`,
+        `<span class="badge flat">${esc(m.symbol || "—")} ${esc(m.timeframe || "")}</span>`,
+        `<span class="badge long">${env.accounts.length} sub-accounts</span>`,
+        `<span class="badge multi">long only · 1x</span>`,
+      ].join(" ");
+
+      document.getElementById("about").innerHTML =
+        `<b>${esc(name)}</b> is the paper-trading persona behind this dashboard. Every 15 minutes the bot pulls the ` +
+        `latest closed ${esc(m.timeframe || "")} candle for <b>${esc(m.symbol || "—")}</b> from Kraken's public API and lets ` +
+        `<b>${env.accounts.length}</b> independent strategies each decide, on their own $${fmtNum(env.starting)} sub-account, whether ` +
+        `to buy, sell or stay flat. No API keys are configured, no orders reach an exchange, and no account can ever ` +
+        `borrow from another. The point is a fair, side-by-side comparison of the strategies under identical costs and fills.`;
+
+      const created = m.created_at ? fmtTs(m.created_at) : "—";
+      document.querySelectorAll(".hint").forEach((h) => (h.textContent = h.textContent.replace("${created}", created)));
+
+      /* ---- KPI strip ---- */
+      document.getElementById("kpis").innerHTML = [
+        { label: "Managed Equity", value: fmtUSD0(env.totalEquity), sub: "virtual", cls: "" },
+        { label: "Lifetime Return", value: fmtPct(env.totalReturnPct), sub: "since " + created, cls: pctClass(env.totalReturnPct) },
+        { label: "Runs Completed", value: fmtNum(m.run_count), sub: fmtNum(m.candles_processed) + " candles", cls: "" },
+        { label: "Trades Executed", value: fmtNum(env.totalTrades), sub: "all simulated", cls: "" },
+        { label: "Fees Paid", value: fmtUSD(env.totalFees), sub: ((r.fee_rate ?? 0.001) * 100).toFixed(2) + "% per side", cls: "" },
+        { label: "Open Positions", value: fmtNum(env.openCount), sub: "long only", cls: env.openCount ? "gold" : "" },
+      ].map((k) => `<div class="card kpi"><div class="label">${esc(k.label)}</div><div class="value num ${k.cls}">${k.value}</div><div class="sub">${esc(k.sub)}</div></div>`).join("");
+
+      /* ---- rule lists ---- */
+      const money = (v) => "$" + fmtNum(v, 2);
+      const pct = (v) => (v * 100).toFixed(2) + "%";
+      function rules(host, items) {
+        document.getElementById(host).innerHTML = items.map((t, i) =>
+          `<div class="rule"><span class="n">${i + 1}</span><span>${t}</span></div>`).join("");
+      }
+
+      rules("rulesList", [
+        `<b>Paper only.</b> ${esc(r.mode || "Simulated fills")} — no exchange keys exist and no real order is ever sent.`,
+        `<b>One market.</b> The bot trades <b>${esc(r.market || m.symbol)}</b> exclusively, on <b>${esc(r.timeframe || m.timeframe)}</b> candles from ${esc(r.exchange || "Kraken public data")}.`,
+        `<b>Equal funding.</b> Each of the <b>${r.accounts ?? env.accounts.length}</b> sub-accounts starts with <b>${money(r.starting_balance ?? env.starting)}</b> and is settled independently.`,
+        `<b>No cross-funding.</b> Accounts never lend to one another; a blown account simply stops trading.`,
+        `<b>Long only, no leverage.</b> Shorting and margin are disabled — maximum exposure is ${r.leverage ?? 1}x the account's own cash.`,
+        `<b>Position sizing.</b> A single-position buy deploys <b>${pct(r.position_alloc ?? 0.95)}</b> of available cash; the remainder is kept as a fee buffer.`,
+        `<b>Minimum order size.</b> Orders below <b>${money(r.min_notional ?? 10)}</b> notional are rejected, mirroring exchange minimums.`,
+        `<b>FIFO accounting.</b> Sells are matched against open lots in <b>${esc(r.lot_matching || "FIFO")}</b> order for realized PnL.`,
+        `<b>One decision per candle.</b> ${r.skip_duplicate_candle === false ? "Duplicate candles are re-processed." : "A candle already processed is skipped, so re-running the bot cannot double-trade."}`,
+        `<b>Circuit breaker.</b> At most <b>${r.max_trades_per_run ?? 25}</b> fills may execute in a single tick across all accounts.`,
+      ]);
+
+      rules("execRules", [
+        `Fills are simulated on the <b>close of the last fully closed candle</b> — no intra-candle or look-ahead pricing.`,
+        `A fee of <b>${pct(r.fee_rate ?? m.fee_rate ?? 0.001)}</b> of notional is charged on <b>every buy and every sell</b>.`,
+        `Slippage of <b>${pct(r.slippage ?? 0)}</b> is applied adversely to each fill.`,
+        `Incomplete or malformed candles returned by the exchange are dropped before any strategy sees them.`,
+        `Each strategy must clear its own warm-up period (see <a href="strategies.html">Strategies</a>) before it may signal.`,
+        `Up to <b>${r.candle_limit ?? 100}</b> candles of context are fetched per run for indicator calculation.`,
+      ]);
+
+      rules("riskRules", [
+        `Global stop-loss: <b>${r.stop_loss_pct == null ? "disabled — strategies own their exits" : r.stop_loss_pct + "%"}</b>.`,
+        `Global take-profit: <b>${r.take_profit_pct == null ? "disabled — strategies own their exits" : r.take_profit_pct + "%"}</b>.`,
+        `Maximum portfolio loss is bounded by total funded capital: <b>${money((r.accounts ?? env.accounts.length) * (r.starting_balance ?? env.starting))}</b>.`,
+        `No averaging into losers unless the strategy is explicitly multi-lot (marked on its card).`,
+        `Disabled strategies: <b>${(r.disabled && r.disabled.length) ? r.disabled.map(esc).join(", ") : "none"}</b>.`,
+        `State is written atomically after each tick, so a crashed run cannot corrupt the ledger.`,
+      ]);
+
+      /* ---- config table ---- */
+      const cfgRows = [
+        ["Trader", name], ["Handle", m.bot_handle || BOT.handle], ["Bot version", m.bot_version],
+        ["Exchange / data source", r.exchange || "Kraken public OHLCV"],
+        ["Market", r.market || m.symbol], ["Timeframe", r.timeframe || m.timeframe],
+        ["Mode", r.mode || "paper trading"],
+        ["Sub-accounts", r.accounts ?? env.accounts.length],
+        ["Starting balance per account", money(r.starting_balance ?? env.starting)],
+        ["Total funded capital", money((r.accounts ?? env.accounts.length) * (r.starting_balance ?? env.starting))],
+        ["Fee rate (per side)", pct(r.fee_rate ?? m.fee_rate ?? 0.001)],
+        ["Slippage", pct(r.slippage ?? 0)],
+        ["Position allocation", pct(r.position_alloc ?? 0.95)],
+        ["Minimum notional", money(r.min_notional ?? 10)],
+        ["Max trades per run", r.max_trades_per_run ?? 25],
+        ["Stop-loss overlay", r.stop_loss_pct == null ? "disabled" : r.stop_loss_pct + "%"],
+        ["Take-profit overlay", r.take_profit_pct == null ? "disabled" : r.take_profit_pct + "%"],
+        ["Duplicate-candle guard", r.skip_duplicate_candle === false ? "off" : "on"],
+        ["Direction", "long only"], ["Leverage", (r.leverage ?? 1) + "x"],
+        ["Lot matching", r.lot_matching || "FIFO"],
+        ["Candles per fetch", r.candle_limit ?? 100],
+        ["Account opened", created],
+        ["Last update", fmtTs(m.updated_at)],
+      ];
+      document.querySelector("#cfgTable tbody").innerHTML = cfgRows.map(([k, v]) =>
+        `<tr><td style="color:var(--text-dim)">${esc(k)}</td><td class="r num">${esc(v == null ? "—" : v)}</td></tr>`).join("");
+
+      /* ---- record ---- */
+      const closed = env.accounts.reduce((s, a) => s + a.closedCount, 0);
+      const wins = env.accounts.reduce((s, a) => s + a.wins, 0);
+      const kv = (k, v, cls) => `<div class="kv"><div class="k">${esc(k)}</div><div class="v num ${cls || ""}">${v}</div></div>`;
+      document.getElementById("record").innerHTML = [
+        kv("Runs", fmtNum(m.run_count)),
+        kv("Candles processed", fmtNum(m.candles_processed)),
+        kv("Fills", fmtNum(env.totalTrades)),
+        kv("Closed trades", fmtNum(closed)),
+        kv("Win rate", closed ? ((wins / closed) * 100).toFixed(1) + "%" : "—"),
+        kv("Realized PnL", fmtUSD(env.accounts.reduce((s, a) => s + a.realizedPnl, 0)), pctClass(env.accounts.reduce((s, a) => s + a.realizedPnl, 0))),
+        kv("Unrealized PnL", fmtUSD(env.accounts.reduce((s, a) => s + a.unrealizedPnl, 0))),
+        kv("Fees paid", fmtUSD(env.totalFees)),
+        kv("Profitable accounts", env.accounts.filter((a) => a.returnPct > 0).length + " / " + env.accounts.length),
+        kv("Currently long", env.openCount + " / " + env.accounts.length),
+      ].join("");
+
+      /* ---- equity curve ---- */
+      if (history.length) {
+        const s = [{ name: "Managed equity", color: "#22c55e", area: true, fill: "rgba(34,197,94,0.12)", values: history.map((h) => h.equity) }];
+        let z = null;
+        const draw = () => interactiveLineChart(document.getElementById("curve"), s, history.map((h) => fmtTsShort(h.ts)),
+          { yFmt: (v) => "$" + v.toLocaleString("en-US", { maximumFractionDigits: 0 }), zoom: z, onZoom: (a, b) => { z = { from: a, to: b }; draw(); } });
+        draw();
+        window.addEventListener("resize", draw);
+      } else {
+        document.getElementById("curve").innerHTML = '<div class="empty">No history recorded yet.</div>';
+      }
+
+      /* ---- register ---- */
+      const tb = document.querySelector("#reg tbody");
+      function renderReg() {
+        const q = document.getElementById("search").value.toLowerCase();
+        const rows = env.accounts.filter((a) => (a.id + " " + a.name).toLowerCase().includes(q));
+        document.getElementById("rowCount").textContent = `${rows.length} accounts`;
+        tb.innerHTML = rows.map((a) => `
+          <tr class="clickable" onclick="location.href='trades.html?sid=${encodeURIComponent(a.id)}'">
+            <td class="mono" style="font-size:11.5px;color:var(--text-dim)">${esc(a.id)}</td>
+            <td style="font-weight:600">${esc(a.name)}</td>
+            <td class="r num">${fmtUSD0(a.raw.starting_balance || env.starting)}</td>
+            <td class="r num">${fmtUSD(a.equity)}</td>
+            <td class="r num ${pctClass(a.returnPct)}">${fmtPct(a.returnPct)}</td>
+            <td class="c">${a.inPosition ? '<span class="badge long">LONG</span>' : '<span class="badge flat">flat</span>'}</td>
+            <td class="r num">${a.tradesCount}</td>
+          </tr>`).join("");
+      }
+      document.getElementById("search").addEventListener("input", renderReg);
+      renderReg();
+
+      document.getElementById("disclaimer").innerHTML =
+        `<b>Disclaimer.</b> ${esc(name)} is an automated paper-trading bot. Everything shown here is simulated: ` +
+        `balances are virtual, fills are modelled against historical candles, and no real capital is at risk. ` +
+        `Simulated results ignore real-world slippage, latency, partial fills and order-book depth, and do not ` +
+        `transfer to live trading. Nothing on this site is financial advice.`;
+    })().catch((e) => {
+      document.body.innerHTML = '<div class="wrap"><div class="empty">Failed to load data: ' + e.message + '</div></div>';
+    });
+  </script>
+</body>
+</html>

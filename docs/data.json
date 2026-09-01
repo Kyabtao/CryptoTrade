@@ -13,7 +13,31 @@
     "prev_candle_ts": 1788286500000,
     "bot_version": "1.0.0",
     "last_price": 77051.6,
-    "total_trades": 11
+    "total_trades": 11,
+    "bot_name": "Umair\u2019s Bot",
+    "bot_handle": "@umairs_bot",
+    "bot_tagline": "Systematic paper trader \u00b7 42 strategies, one candle at a time",
+    "rules": {
+      "exchange": "Kraken (public OHLCV only, no keys, no orders)",
+      "market": "BTC/USDT",
+      "timeframe": "15m",
+      "mode": "paper trading \u2014 simulated fills, no real money",
+      "starting_balance": 1000.0,
+      "accounts": 42,
+      "fee_rate": 0.001,
+      "slippage": 0.0,
+      "position_alloc": 0.95,
+      "min_notional": 10.0,
+      "max_trades_per_run": 25,
+      "stop_loss_pct": null,
+      "take_profit_pct": null,
+      "skip_duplicate_candle": true,
+      "long_only": true,
+      "leverage": 1,
+      "lot_matching": "FIFO",
+      "candle_limit": 100,
+      "disabled": []
+    }
   },
   "accounts": {
     "01_rsi_mean_reversion": {

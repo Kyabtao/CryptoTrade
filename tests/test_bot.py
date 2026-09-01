@@ -1618,7 +1618,8 @@ class TestCli:
                           "--reset", "--yes"])
         assert rc == 0
         text = summary_file.read_text()
-        assert "### CryptoTrade paper-trading run" in text
+        assert "CryptoTrade paper-trading run" in text
+        assert botmod.BOT_NAME in text
         assert "| Strategy |" in text
 
 

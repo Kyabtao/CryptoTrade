@@ -7,20 +7,10 @@
   <link rel="stylesheet" href="assets/style.css" />
 </head>
 <body>
-  <nav class="nav">
-    <div class="nav-inner">
-      <a class="brand" href="index.html"><span class="logo">₿</span> CryptoTrade</a>
-      <div class="nav-links">
-        <a href="index.html">Dashboard</a>
-        <a href="strategies.html">Strategies</a>
-        <a href="trades.html" class="active">Trades</a>
-      </div>
-      <div class="nav-status">
-        <span class="dot"></span>
-        <span id="navStatus">Loading…</span>
-      </div>
-    </div>
-  </nav>
+  <script src="assets/data.js"></script>
+  <script src="assets/charts.js"></script>
+  <script src="assets/layout.js"></script>
+  <script>renderNav("trades.html");</script>
 
   <div class="wrap">
     <div class="hero">
@@ -33,6 +23,25 @@
     <div class="grid kpis" id="kpis"></div>
 
     <div class="section" style="margin-top:18px;">
+      <div class="card">
+        <h3>Cumulative Realized PnL <span class="hint">every closed sell, in order · hover / drag to zoom</span></h3>
+        <div class="legend" id="pnlLegend"></div>
+        <div id="pnlChart" class="chart"></div>
+      </div>
+    </div>
+
+    <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));">
+      <div class="card">
+        <h3>Fill Sizes <span class="hint">notional per fill</span></h3>
+        <div id="sizeChart" class="chart"></div>
+      </div>
+      <div class="card">
+        <h3>Buys vs Sells <span class="hint">by count</span></h3>
+        <div id="sideChart" class="chart"></div>
+      </div>
+    </div>
+
+    <div class="section">
       <div class="card">
         <h3>All Trades</h3>
         <div class="controls">
@@ -80,13 +89,11 @@
     <div class="footer">CryptoTrade · reconstructed from <code>docs/data.json</code> on every page load</div>
   </div>
 
-  <script src="assets/data.js"></script>
   <script>
     (async function () {
       const state = await loadState();
       const env = enrichState(state);
-      document.getElementById("navStatus").textContent =
-        `Live · ${env.meta.symbol || "—"} · updated ${fmtTs(env.meta.updated_at)}`;
+      renderUpdateMessage(env.meta);
 
       /* flatten all trades */
       let all = [];
@@ -111,6 +118,40 @@
         { label: "Accounts Traded", value: fmtNum(new Set(all.map((t) => t.account)).size), sub: "of " + env.accounts.length, cls: "" },
         { label: "Last Fill", value: all.length ? fmtTs(all[0].timestamp) : "—", sub: all.length ? all[0].account : "no trades yet", cls: "" },
       ].map((k) => `<div class="card kpi"><div class="label">${esc(k.label)}</div><div class="value num ${k.cls}">${k.value}</div><div class="sub">${esc(k.sub)}</div></div>`).join("");
+
+      /* ---- charts ---- */
+      const chrono = [...all].reverse();
+      const sellsChrono = chrono.filter((t) => t.side === "sell");
+      let cum = 0, cumGross = 0;
+      const cumSeries = [
+        { name: "Net PnL", color: "#22c55e", area: true, fill: "rgba(34,197,94,0.12)",
+          values: sellsChrono.map((t) => (cum += t.pnl || 0)) },
+        { name: "Gross PnL", color: "#a78bfa", dashed: true,
+          values: sellsChrono.map((t) => (cumGross += t.gross_pnl || 0)) },
+      ];
+      const cumLabels = sellsChrono.map((t) => fmtTsShort(t.timestamp));
+      let pnlZoom = null;
+      function drawPnl() {
+        if (!sellsChrono.length) {
+          document.getElementById("pnlChart").innerHTML = '<div class="empty">No closed trades yet.</div>';
+          return;
+        }
+        interactiveLineChart(document.getElementById("pnlChart"),
+          cumSeries.filter((s) => s.visible !== false), cumLabels,
+          { yFmt: (v) => fmtUSD(v), zoom: pnlZoom, onZoom: (a, b) => { pnlZoom = { from: a, to: b }; drawPnl(); } });
+      }
+      legend("#pnlLegend", cumSeries, drawPnl);
+      drawPnl();
+
+      histogram(document.getElementById("sizeChart"), all.map((t) => t.notional || 0),
+        { bins: 10, fmt: (v) => "$" + v.toFixed(0) });
+
+      donutChart(document.getElementById("sideChart"), [
+        { label: "Buys", value: buys.length, color: "#22c55e" },
+        { label: "Sells", value: sells.length, color: "#ef4444" },
+      ], { center: all.length + " fills" });
+
+      window.addEventListener("resize", drawPnl);
 
       /* filters */
       const acctSel = document.getElementById("acctFilter");
