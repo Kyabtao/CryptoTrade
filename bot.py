@@ -160,7 +160,8 @@ class Candle:
 class MarketData:
     """Immutable view over a series of *closed* candles plus cached arrays."""
 
-    __slots__ = ("symbol", "timeframe", "candles", "_closes", "_highs", "_lows", "_volumes")
+    __slots__ = ("symbol", "timeframe", "candles", "_closes", "_highs", "_lows",
+                 "_volumes", "_cache")
 
     def __init__(self, symbol: str, timeframe: str, candles: Sequence[Candle]):
         self.symbol = symbol
@@ -176,6 +177,15 @@ class MarketData:
         self._highs = [c.high for c in self.candles]
         self._lows = [c.low for c in self.candles]
         self._volumes = [c.volume for c in self.candles]
+        # Per-candle memo. Every account is evaluated against the same window,
+        # so shared indicators are computed once instead of once per strategy.
+        self._cache: Dict[str, Any] = {}
+
+    def cached(self, key: str, build: Callable[[], Any]) -> Any:
+        """Memoize an indicator series for the lifetime of this candle window."""
+        if key not in self._cache:
+            self._cache[key] = build()
+        return self._cache[key]
 
     def __len__(self) -> int:
         return len(self.candles)
@@ -266,6 +276,35 @@ def ema(values: Sequence[Optional[float]], period: int) -> List[Optional[float]]
         v = values[i]
         if v is None:
             out[i] = None
+            continue
+        prev = v * k + prev * (1 - k)
+        out[i] = prev
+    return out
+
+
+def ema_over_valid(values: Sequence[Optional[float]], period: int) -> List[Optional[float]]:
+    """EMA that starts at the first run of ``period`` non-``None`` values.
+
+    Unlike :func:`ema`, this tolerates a warm-up region of ``None`` at the head
+    of the series, which is what chained indicators (TRIX, MACD signal) produce.
+    """
+    n = len(values)
+    out: List[Optional[float]] = [None] * n
+    if period <= 0:
+        return out
+    start = None
+    for i in range(n - period + 1):
+        if all(v is not None for v in values[i : i + period]):
+            start = i
+            break
+    if start is None:
+        return out
+    k = 2.0 / (period + 1)
+    prev = sum(values[start : start + period]) / period  # type: ignore[arg-type]
+    out[start + period - 1] = prev
+    for i in range(start + period, n):
+        v = values[i]
+        if v is None:
             continue
         prev = v * k + prev * (1 - k)
         out[i] = prev
@@ -533,6 +572,469 @@ def crossed_below(prev: Optional[float], cur: Optional[float], ref_prev: Optiona
     return prev >= ref_prev and cur < ref_cur  # type: ignore[operator]
 
 
+def adx_dmi(
+    highs: Sequence[float],
+    lows: Sequence[float],
+    closes: Sequence[float],
+    period: int = 14,
+) -> Tuple[List[Optional[float]], List[Optional[float]], List[Optional[float]]]:
+    """Wilder's ADX with +DI / -DI. Returns ``(adx, plus_di, minus_di)``."""
+    n = len(closes)
+    adx: List[Optional[float]] = [None] * n
+    plus: List[Optional[float]] = [None] * n
+    minus: List[Optional[float]] = [None] * n
+    if n < 2 * period + 1 or period <= 0:
+        return adx, plus, minus
+
+    tr_list: List[float] = [0.0]
+    pdm: List[float] = [0.0]
+    mdm: List[float] = [0.0]
+    for i in range(1, n):
+        up = highs[i] - highs[i - 1]
+        down = lows[i - 1] - lows[i]
+        tr_list.append(max(highs[i] - lows[i], abs(highs[i] - closes[i - 1]), abs(lows[i] - closes[i - 1])))
+        pdm.append(up if (up > down and up > 0) else 0.0)
+        mdm.append(down if (down > up and down > 0) else 0.0)
+
+    atr_s = sum(tr_list[1 : period + 1])
+    pdm_s = sum(pdm[1 : period + 1])
+    mdm_s = sum(mdm[1 : period + 1])
+
+    dx: List[Optional[float]] = [None] * n
+
+    def _di(smooth_dm: float) -> float:
+        return 100.0 * smooth_dm / atr_s if atr_s > EPS else 0.0
+
+    plus[period] = _di(pdm_s)
+    minus[period] = _di(mdm_s)
+    s = plus[period] + minus[period]
+    dx[period] = 100.0 * abs(plus[period] - minus[period]) / s if s > EPS else 0.0
+
+    for i in range(period + 1, n):
+        atr_s = atr_s - atr_s / period + tr_list[i]
+        pdm_s = pdm_s - pdm_s / period + pdm[i]
+        mdm_s = mdm_s - mdm_s / period + mdm[i]
+        plus[i] = _di(pdm_s)
+        minus[i] = _di(mdm_s)
+        s = plus[i] + minus[i]
+        dx[i] = 100.0 * abs(plus[i] - minus[i]) / s if s > EPS else 0.0
+
+    # ADX = Wilder smoothing of DX, seeded with the SMA of the first `period` DX values.
+    start = 2 * period
+    if start >= n:
+        return adx, plus, minus
+    window = [dx[i] for i in range(period, start) if dx[i] is not None]
+    if len(window) < period:
+        return adx, plus, minus
+    prev = sum(window) / period
+    adx[start - 1] = prev
+    for i in range(start, n):
+        if dx[i] is None:
+            continue
+        prev = (prev * (period - 1) + dx[i]) / period
+        adx[i] = prev
+    return adx, plus, minus
+
+
+def ichimoku(
+    highs: Sequence[float],
+    lows: Sequence[float],
+    closes: Sequence[float],
+    tenkan: int = 9,
+    kijun: int = 26,
+    senkou_b: int = 52,
+    displacement: int = 26,
+) -> Dict[str, List[Optional[float]]]:
+    """Ichimoku Kinko Hyo.
+
+    The cloud returned at index ``i`` is the one *visible* at that bar, i.e. it
+    was computed ``displacement`` bars earlier. That avoids look-ahead.
+    """
+    n = len(closes)
+    out = {
+        "tenkan": [None] * n,
+        "kijun": [None] * n,
+        "senkou_a": [None] * n,
+        "senkou_b": [None] * n,
+        "cloud_top": [None] * n,
+        "cloud_bottom": [None] * n,
+    }
+
+    def _midline(period: int) -> List[Optional[float]]:
+        res: List[Optional[float]] = [None] * n
+        for i in range(period - 1, n):
+            res[i] = (max(highs[i - period + 1 : i + 1]) + min(lows[i - period + 1 : i + 1])) / 2.0
+        return res
+
+    t = _midline(tenkan)
+    k = _midline(kijun)
+    sb_raw = _midline(senkou_b)
+    out["tenkan"], out["kijun"] = t, k
+
+    for i in range(n):
+        if t[i] is None or k[i] is None:
+            continue
+        j = i + displacement
+        if j < n:
+            out["senkou_a"][j] = (t[i] + k[i]) / 2.0
+        if sb_raw[i] is not None and j < n:
+            out["senkou_b"][j] = sb_raw[i]
+
+    for i in range(n):
+        a, b = out["senkou_a"][i], out["senkou_b"][i]
+        if a is not None and b is not None:
+            out["cloud_top"][i] = max(a, b)
+            out["cloud_bottom"][i] = min(a, b)
+    return out
+
+
+def parabolic_sar(
+    highs: Sequence[float],
+    lows: Sequence[float],
+    step: float = 0.02,
+    maximum: float = 0.2,
+) -> List[Optional[float]]:
+    """Wilder's Parabolic SAR. Values sit *below* price in an uptrend."""
+    n = len(highs)
+    sar: List[Optional[float]] = [None] * n
+    if n < 3:
+        return sar
+
+    bull = highs[1] + lows[1] >= highs[0] + lows[0]
+    sar[0] = lows[0] if bull else highs[0]
+    af = step
+    ep = highs[0] if bull else lows[0]
+
+    for i in range(1, n):
+        prev = sar[i - 1]
+        cur = prev + af * (ep - prev)
+        if bull:
+            cur = min(cur, lows[i - 1], lows[i - 2] if i >= 2 else lows[i - 1])
+            if lows[i] < cur:                       # reverse to downtrend
+                bull = False
+                cur = ep
+                ep = lows[i]
+                af = step
+            elif highs[i] > ep:
+                ep = highs[i]
+                af = min(af + step, maximum)
+        else:
+            cur = max(cur, highs[i - 1], highs[i - 2] if i >= 2 else highs[i - 1])
+            if highs[i] > cur:                      # reverse to uptrend
+                bull = True
+                cur = ep
+                ep = highs[i]
+                af = step
+            elif lows[i] < ep:
+                ep = lows[i]
+                af = min(af + step, maximum)
+        sar[i] = cur
+    return sar
+
+
+def roc(values: Sequence[Optional[float]], period: int = 12) -> List[Optional[float]]:
+    """Rate of change, in percent."""
+    out: List[Optional[float]] = [None] * len(values)
+    for i in range(period, len(values)):
+        a, b = values[i - period], values[i]
+        if a is None or b is None or abs(a) <= EPS:
+            continue
+        out[i] = (b - a) / a * 100.0
+    return out
+
+
+def aroon(highs: Sequence[float], lows: Sequence[float], period: int = 25):
+    """Aroon Up / Down: bars since the extreme, scaled to 0-100."""
+    n = len(highs)
+    up: List[Optional[float]] = [None] * n
+    down: List[Optional[float]] = [None] * n
+    for i in range(period, n):
+        window_h = highs[i - period : i + 1]
+        window_l = lows[i - period : i + 1]
+        up[i] = 100.0 * (period - window_h[::-1].index(max(window_h))) / period
+        down[i] = 100.0 * (period - window_l[::-1].index(min(window_l))) / period
+    return up, down
+
+
+def heikin_ashi(candles: Sequence["Candle"]) -> List[Tuple[float, float, float, float]]:
+    """Heikin-Ashi (open, high, low, close) tuples."""
+    out: List[Tuple[float, float, float, float]] = []
+    prev_o = prev_c = None
+    for c in candles:
+        ha_c = (c.open + c.high + c.low + c.close) / 4.0
+        ha_o = c.open if prev_o is None else (prev_o + prev_c) / 2.0
+        ha_h = max(c.high, ha_o, ha_c)
+        ha_l = min(c.low, ha_o, ha_c)
+        out.append((ha_o, ha_h, ha_l, ha_c))
+        prev_o, prev_c = ha_o, ha_c
+    return out
+
+
+def trix(values: Sequence[Optional[float]], period: int = 15, signal: int = 9):
+    """TRIX: 1% rate of change of a triple-smoothed EMA, plus its signal line."""
+    e1 = ema(values, period)
+    e2 = ema_over_valid(e1, period)
+    e3 = ema_over_valid(e2, period)
+    line = roc(e3, 1)
+    n = len(values)
+    sig: List[Optional[float]] = [None] * n
+    idx = [i for i, v in enumerate(line) if v is not None]
+    if len(idx) >= signal:
+        sub = [line[i] for i in idx]
+        es = ema(sub, signal)
+        for j, i in enumerate(idx):
+            sig[i] = es[j]
+    return line, sig
+
+
+def williams_r(highs: Sequence[float], lows: Sequence[float], closes: Sequence[float],
+               period: int = 14) -> List[Optional[float]]:
+    """Williams %R, ranging -100 (lowest) to 0 (highest)."""
+    n = len(closes)
+    out: List[Optional[float]] = [None] * n
+    for i in range(period - 1, n):
+        hh = max(highs[i - period + 1 : i + 1])
+        ll = min(lows[i - period + 1 : i + 1])
+        if hh - ll <= EPS:
+            continue
+        out[i] = (hh - closes[i]) / (hh - ll) * -100.0
+    return out
+
+
+def cci(highs: Sequence[float], lows: Sequence[float], closes: Sequence[float],
+        period: int = 20) -> List[Optional[float]]:
+    """Commodity Channel Index."""
+    n = len(closes)
+    out: List[Optional[float]] = [None] * n
+    tp = [(highs[i] + lows[i] + closes[i]) / 3.0 for i in range(n)]
+    for i in range(period - 1, n):
+        window = tp[i - period + 1 : i + 1]
+        mean = sum(window) / period
+        mean_dev = sum(abs(x - mean) for x in window) / period
+        if mean_dev <= EPS:
+            continue
+        out[i] = (tp[i] - mean) / (0.015 * mean_dev)
+    return out
+
+
+def percent_rank(values: Sequence[Optional[float]], period: int = 100) -> List[Optional[float]]:
+    """Percentile rank of the latest value within its trailing window (0-100)."""
+    out: List[Optional[float]] = [None] * len(values)
+    for i in range(period, len(values)):
+        window = [v for v in values[i - period : i] if v is not None]
+        cur = values[i]
+        if cur is None or len(window) < period // 2:
+            continue
+        below = sum(1 for v in window if v < cur)
+        out[i] = 100.0 * below / len(window)
+    return out
+
+
+def up_down_streak(closes: Sequence[float]) -> List[float]:
+    """Signed count of consecutive up (+) or down (-) closes."""
+    out: List[float] = [0.0] * len(closes)
+    for i in range(1, len(closes)):
+        if closes[i] > closes[i - 1]:
+            out[i] = out[i - 1] + 1 if out[i - 1] > 0 else 1.0
+        elif closes[i] < closes[i - 1]:
+            out[i] = out[i - 1] - 1 if out[i - 1] < 0 else -1.0
+        else:
+            out[i] = out[i - 1]
+    return out
+
+
+def connors_rsi(closes: Sequence[float], rsi_period: int = 3, streak_period: int = 2,
+                rank_period: int = 100) -> List[Optional[float]]:
+    """Connors RSI: mean of RSI(price), RSI(streak) and the ROC percent rank."""
+    n = len(closes)
+    price_rsi = rsi(closes, rsi_period)
+    streak_vals = up_down_streak(closes)
+    streak_rsi = rsi([float(v) for v in streak_vals], streak_period)
+    roc_vals = roc(closes, 1)
+    pr = percent_rank(roc_vals, rank_period)
+    out: List[Optional[float]] = [None] * n
+    for i in range(n):
+        parts = [price_rsi[i], streak_rsi[i], pr[i]]
+        if any(p is None for p in parts):
+            continue
+        out[i] = sum(parts) / 3.0  # type: ignore[arg-type]
+    return out
+
+
+def zscore(values: Sequence[Optional[float]], period: int = 20) -> List[Optional[float]]:
+    sd = stdev(values, period)
+    mid = sma(values, period)
+    out: List[Optional[float]] = [None] * len(values)
+    for i in range(len(values)):
+        if sd[i] is None or mid[i] is None or sd[i] <= EPS or values[i] is None:
+            continue
+        out[i] = (values[i] - mid[i]) / sd[i]  # type: ignore[operator]
+    return out
+
+
+def mfi(highs: Sequence[float], lows: Sequence[float], closes: Sequence[float],
+        volumes: Sequence[float], period: int = 14) -> List[Optional[float]]:
+    """Money Flow Index: volume-weighted RSI."""
+    n = len(closes)
+    out: List[Optional[float]] = [None] * n
+    tp = [(highs[i] + lows[i] + closes[i]) / 3.0 for i in range(n)]
+    for i in range(period, n):
+        pos = neg = 0.0
+        for j in range(i - period + 1, i + 1):
+            flow = tp[j] * volumes[j]
+            if tp[j] > tp[j - 1]:
+                pos += flow
+            elif tp[j] < tp[j - 1]:
+                neg += flow
+        if neg <= EPS:
+            out[i] = 100.0 if pos > EPS else 50.0
+        else:
+            out[i] = 100.0 - 100.0 / (1.0 + pos / neg)
+    return out
+
+
+def chande_momentum(closes: Sequence[float], period: int = 20) -> List[Optional[float]]:
+    """Chande Momentum Oscillator, -100 to +100."""
+    n = len(closes)
+    out: List[Optional[float]] = [None] * n
+    for i in range(period, n):
+        gains = losses = 0.0
+        for j in range(i - period + 1, i + 1):
+            d = closes[j] - closes[j - 1]
+            if d > 0:
+                gains += d
+            else:
+                losses -= d
+        total = gains + losses
+        out[i] = 100.0 * (gains - losses) / total if total > EPS else 0.0
+    return out
+
+
+def obv(closes: Sequence[float], volumes: Sequence[float]) -> List[float]:
+    """On-Balance Volume, cumulative."""
+    out: List[float] = [0.0] * len(closes)
+    for i in range(1, len(closes)):
+        if closes[i] > closes[i - 1]:
+            out[i] = out[i - 1] + volumes[i]
+        elif closes[i] < closes[i - 1]:
+            out[i] = out[i - 1] - volumes[i]
+        else:
+            out[i] = out[i - 1]
+    return out
+
+
+def elder_ray(highs: Sequence[float], lows: Sequence[float], closes: Sequence[Optional[float]],
+               period: int = 13):
+    """Elder-Ray bull power (high - EMA) and bear power (low - EMA)."""
+    mid = ema(closes, period)
+    bull: List[Optional[float]] = [None] * len(closes)
+    bear: List[Optional[float]] = [None] * len(closes)
+    for i in range(len(closes)):
+        if mid[i] is None:
+            continue
+        bull[i] = highs[i] - mid[i]  # type: ignore[operator]
+        bear[i] = lows[i] - mid[i]   # type: ignore[operator]
+    return bull, bear
+
+
+def chandelier_exit(highs: Sequence[float], lows: Sequence[float], closes: Sequence[float],
+                    period: int = 22, multiplier: float = 3.0):
+    """Chandelier long/short exits, hung from the extreme of the lookback."""
+    n = len(closes)
+    a = atr(highs, lows, closes, period)
+    long_exit: List[Optional[float]] = [None] * n
+    short_exit: List[Optional[float]] = [None] * n
+    for i in range(period - 1, n):
+        if a[i] is None:
+            continue
+        long_exit[i] = max(highs[i - period + 1 : i + 1]) - multiplier * a[i]  # type: ignore[operator]
+        short_exit[i] = min(lows[i - period + 1 : i + 1]) + multiplier * a[i]  # type: ignore[operator]
+    return long_exit, short_exit
+
+
+def fibonacci_levels(high: float, low: float) -> Dict[str, float]:
+    """Retracement levels of a swing, keyed by ratio."""
+    span = high - low
+    return {
+        "0.236": high - 0.236 * span,
+        "0.382": high - 0.382 * span,
+        "0.500": high - 0.500 * span,
+        "0.618": high - 0.618 * span,
+        "0.786": high - 0.786 * span,
+    }
+
+
+def pivot_points(high: float, low: float, close: float) -> Dict[str, float]:
+    """Classic floor-trader pivots from the prior session."""
+    p = (high + low + close) / 3.0
+    return {
+        "r2": p + (high - low),
+        "r1": 2 * p - low,
+        "p": p,
+        "s1": 2 * p - high,
+        "s2": p - (high - low),
+    }
+
+
+def prior_session_hlc(candles: Sequence["Candle"]) -> Optional[Tuple[float, float, float]]:
+    """High/low/close of the UTC session *before* the latest candle's session."""
+    if not candles:
+        return None
+
+    def _day(ts: int) -> int:
+        return ts // 86_400_000
+
+    last_day = _day(candles[-1].ts)
+    prev = [c for c in candles if _day(c.ts) == last_day - 1]
+    if not prev:
+        return None
+    return max(c.high for c in prev), min(c.low for c in prev), prev[-1].close
+
+
+def opening_range(candles: Sequence["Candle"], minutes: int = 60) -> Optional[Tuple[float, float, int]]:
+    """High/low of the first ``minutes`` of the current UTC session, plus the
+    number of candles that have elapsed since the session opened."""
+    if not candles:
+        return None
+    last = candles[-1]
+    day_start_ms = (last.ts // 86_400_000) * 86_400_000
+    cutoff = day_start_ms + minutes * 60_000
+    or_candles = [c for c in candles if day_start_ms <= c.ts < cutoff]
+    elapsed = sum(1 for c in candles if c.ts >= day_start_ms)
+    if not or_candles:
+        return None
+    return max(c.high for c in or_candles), min(c.low for c in or_candles), elapsed
+
+
+def atr_percentile(atr_series: Sequence[Optional[float]], lookback: int = 100) -> List[Optional[float]]:
+    """Percentile rank of the current ATR within its trailing window (0-100)."""
+    return percent_rank(list(atr_series), lookback)
+
+
+def is_bullish_engulfing(prev: "Candle", cur: "Candle") -> bool:
+    return (prev.close < prev.open          # prior bar red
+            and cur.close > cur.open        # current bar green
+            and cur.close >= prev.open      # body engulfs
+            and cur.open <= prev.close)
+
+
+def is_bearish_engulfing(prev: "Candle", cur: "Candle") -> bool:
+    return (prev.close > prev.open
+            and cur.close < cur.open
+            and cur.open >= prev.close
+            and cur.close <= prev.open)
+
+
+def squeeze_on(
+    bb_upper: Optional[float], bb_lower: Optional[float],
+    kc_upper: Optional[float], kc_lower: Optional[float],
+) -> bool:
+    """TTM Squeeze: Bollinger Bands nested inside the Keltner Channel."""
+    if None in (bb_upper, bb_lower, kc_upper, kc_lower):
+        return False
+    return bb_upper < kc_upper and bb_lower > kc_lower  # type: ignore[operator]
+
+
 # --------------------------------------------------------------------------- #
 # Trading primitives
 # --------------------------------------------------------------------------- #
@@ -594,6 +1096,7 @@ class Account:
         self.strategy_state: Dict[str, Any] = {}
         self.last_candle_ts: Optional[int] = None
         self.rejections: List[str] = []
+        self.errors: List[str] = []
         self.rejection_repeats: Dict[str, int] = {}
         # Transient order queue for multi-position strategies (grid). Never
         # persisted: it is drained within the same candle it is created.
@@ -894,12 +1397,18 @@ class Strategy:
 
     # -- entry point -------------------------------------------------------- #
 
-    def decide(self, acc: Account, md: MarketData, cfg: Config) -> Decision:
+    def decide(self, acc: Account, md: MarketData, cfg: Config,
+               portfolio: Optional[Dict[str, Any]] = None) -> Decision:
         if not md.warmup_ok(self.warmup):
             return self.hold(f"warmup {len(md)}/{self.warmup}")
         try:
-            decision = self.evaluate(acc, md, cfg)
+            decision = self.evaluate(acc, md, cfg, portfolio)
         except Exception as exc:  # never let one strategy kill the run
+            # Recorded, not just logged: a strategy that raises on every candle
+            # would otherwise look identical to one that simply never signals.
+            note = f"{type(exc).__name__}: {exc}"
+            if note not in acc.errors:
+                acc.errors.append(note)
             logging.exception("[%s] evaluation failed: %s", self.id, exc)
             return self.hold(f"error: {exc}")
 
@@ -909,7 +1418,8 @@ class Strategy:
             return self.hold("no position to close")
         return decision
 
-    def evaluate(self, acc: Account, md: MarketData, cfg: Config) -> Decision:  # pragma: no cover
+    def evaluate(self, acc: Account, md: MarketData, cfg: Config,
+                 portfolio: Optional[Dict[str, Any]] = None) -> Decision:  # pragma: no cover
         raise NotImplementedError
 
 
@@ -923,7 +1433,7 @@ class RsiMeanReversion(Strategy):
     warmup = 20
     params = {"rsi_period": 14, "rsi_buy": 30.0, "rsi_sell": 70.0, "alloc": None}
 
-    def evaluate(self, acc, md, cfg):
+    def evaluate(self, acc, md, cfg, portfolio=None):
         r = rsi(md.closes, int(self.p["rsi_period"]))
         cur = r[-1]
         if cur is None:
@@ -945,7 +1455,7 @@ class DualEmaCrossover(Strategy):
     warmup = 30
     params = {"fast": 9, "slow": 21, "alloc": None}
 
-    def evaluate(self, acc, md, cfg):
+    def evaluate(self, acc, md, cfg, portfolio=None):
         f = ema(md.closes, int(self.p["fast"]))
         s = ema(md.closes, int(self.p["slow"]))
         if crossed_above(f[-2], f[-1], s[-2], s[-1]):
@@ -965,7 +1475,7 @@ class MacdHistogramReversal(Strategy):
     warmup = 45
     params = {"fast": 12, "slow": 26, "signal": 9, "alloc": None}
 
-    def evaluate(self, acc, md, cfg):
+    def evaluate(self, acc, md, cfg, portfolio=None):
         line, sig, hist = macd(md.closes, int(self.p["fast"]), int(self.p["slow"]), int(self.p["signal"]))
         if hist[-1] is None or hist[-2] is None:
             return self.hold("MACD warming up")
@@ -986,7 +1496,7 @@ class TripleMovingAverage(Strategy):
     warmup = 200
     params = {"fast": 20, "mid": 50, "slow": 200, "alloc": None}
 
-    def evaluate(self, acc, md, cfg):
+    def evaluate(self, acc, md, cfg, portfolio=None):
         s_fast = sma(md.closes, int(self.p["fast"]))
         s_mid = sma(md.closes, int(self.p["mid"]))
         s_slow = sma(md.closes, int(self.p["slow"]))
@@ -1021,7 +1531,7 @@ class SupertrendAtr(Strategy):
     warmup = 25
     params = {"atr_period": 10, "multiplier": 3.0, "alloc": None}
 
-    def evaluate(self, acc, md, cfg):
+    def evaluate(self, acc, md, cfg, portfolio=None):
         line, direction = supertrend(md.highs, md.lows, md.closes, int(self.p["atr_period"]), float(self.p["multiplier"]))
         d_cur, d_prev = direction[-1], direction[-2]
         if d_cur is None or d_prev is None:
@@ -1049,7 +1559,7 @@ class BollingerMeanReversion(Strategy):
     warmup = 25
     params = {"period": 20, "mult": 2.0, "alloc": None}
 
-    def evaluate(self, acc, md, cfg):
+    def evaluate(self, acc, md, cfg, portfolio=None):
         upper, mid, lower = bollinger(md.closes, int(self.p["period"]), float(self.p["mult"]))
         if None in (upper[-1], mid[-1], lower[-1]):
             return self.hold("Bollinger warming up")
@@ -1071,7 +1581,7 @@ class KeltnerBreakout(Strategy):
     warmup = 25
     params = {"period": 20, "mult": 2.0, "alloc": None}
 
-    def evaluate(self, acc, md, cfg):
+    def evaluate(self, acc, md, cfg, portfolio=None):
         upper, mid, lower = keltner(md.highs, md.lows, md.closes, int(self.p["period"]), float(self.p["mult"]))
         if None in (upper[-1], mid[-1]):
             return self.hold("Keltner warming up")
@@ -1101,7 +1611,7 @@ class StochRsiReversal(Strategy):
         "alloc": None,
     }
 
-    def evaluate(self, acc, md, cfg):
+    def evaluate(self, acc, md, cfg, portfolio=None):
         k, d = stoch_rsi(
             md.closes,
             int(self.p["rsi_period"]),
@@ -1132,7 +1642,7 @@ class VwapPullback(Strategy):
     warmup = 20
     params = {"rsi_period": 14, "rsi_min": 40.0, "extension_pct": 1.5, "min_session_candles": 2, "alloc": None}
 
-    def evaluate(self, acc, md, cfg):
+    def evaluate(self, acc, md, cfg, portfolio=None):
         vwap, n_session = session_vwap(md.candles)
         acc.strategy_state["vwap"] = vwap
         if n_session < int(self.p["min_session_candles"]):
@@ -1164,7 +1674,7 @@ class DonchianBreakout(Strategy):
     warmup = 25
     params = {"entry_period": 20, "exit_period": 10, "alloc": None}
 
-    def evaluate(self, acc, md, cfg):
+    def evaluate(self, acc, md, cfg, portfolio=None):
         upper, mid, lower = donchian(md.highs, md.lows, int(self.p["entry_period"]), int(self.p["exit_period"]))
         if upper[-1] is None or lower[-1] is None:
             return self.hold("Donchian warming up")
@@ -1197,7 +1707,7 @@ class DynamicDca(Strategy):
         "take_profit_pct": None,     # optional: exit whole stack at +X%
     }
 
-    def evaluate(self, acc, md, cfg):
+    def evaluate(self, acc, md, cfg, portfolio=None):
         st = acc.strategy_state
         runs = int(st.get("runs", 0)) + 1
         st["runs"] = runs
@@ -1292,7 +1802,7 @@ class ArithmeticGrid(Strategy):
             "rebuilt": acc.strategy_state.get("grid", {}).get("rebuilt", 0),
         }
 
-    def evaluate(self, acc, md, cfg):
+    def evaluate(self, acc, md, cfg, portfolio=None):
         grid = acc.strategy_state.get("grid")
         price = md.price
         if not grid:
@@ -1373,19 +1883,1038 @@ class ArithmeticGrid(Strategy):
         )
 
 
+# ---- 13. ADX / DMI Trend Strength ------------------------------------------ #
+
+
+class AdxDmiTrend(Strategy):
+    id = "13_adx_dmi_trend"
+    name = "ADX DMI Trend Strength"
+    category = "Momentum & Trend Following"
+    warmup = 35
+    params = {"period": 14, "adx_min": 25.0, "alloc": None}
+
+    def evaluate(self, acc, md, cfg, portfolio=None):
+        key = f"adx{self.p['period']}"
+        adx, pdi, mdi = md.cached(
+            key, lambda: adx_dmi(md.highs, md.lows, md.closes, int(self.p["period"]))
+        )
+        if None in (adx[-1], adx[-2], pdi[-1], pdi[-2], mdi[-1], mdi[-2]):
+            return self.hold("ADX warming up")
+        strong = adx[-1] >= self.p["adx_min"]
+        up_cross = pdi[-2] <= mdi[-2] and pdi[-1] > mdi[-1]
+        down_cross = pdi[-2] >= mdi[-2] and pdi[-1] < mdi[-1]
+
+        if up_cross and strong:
+            return self.buy(self.size_notional(acc, cfg),
+                            reason=f"+DI crossed above -DI with ADX {adx[-1]:.1f} >= {self.p['adx_min']:.0f}")
+        if acc.in_position and (down_cross or adx[-1] < self.p["adx_min"] * 0.8):
+            why = "-DI crossed above +DI" if down_cross else f"ADX faded to {adx[-1]:.1f}"
+            return self.sell(why)
+        return self.hold(f"ADX={adx[-1]:.1f} +DI={pdi[-1]:.1f} -DI={mdi[-1]:.1f}")
+
+
+# ---- 14. Ichimoku Cloud ----------------------------------------------------- #
+
+
+class IchimokuCloud(Strategy):
+    id = "14_ichimoku_cloud"
+    name = "Ichimoku Cloud Breakout"
+    category = "Momentum & Trend Following"
+    warmup = 80
+    params = {"tenkan": 9, "kijun": 26, "senkou_b": 52, "displacement": 26, "alloc": None}
+
+    def evaluate(self, acc, md, cfg, portfolio=None):
+        key = f"ichi{self.p['tenkan']}-{self.p['kijun']}-{self.p['senkou_b']}"
+        ichi = md.cached(key, lambda: ichimoku(
+            md.highs, md.lows, md.closes,
+            int(self.p["tenkan"]), int(self.p["kijun"]),
+            int(self.p["senkou_b"]), int(self.p["displacement"]),
+        ))
+        top, bottom = ichi["cloud_top"][-1], ichi["cloud_bottom"][-1]
+        t, k = ichi["tenkan"][-1], ichi["kijun"][-1]
+        if None in (top, bottom, t, k):
+            return self.hold("Ichimoku warming up")
+        close = md.price
+
+        if close > top and t > k:
+            return self.buy(self.size_notional(acc, cfg),
+                            reason=f"close {close:.2f} above cloud top {top:.2f}, tenkan > kijun")
+        if acc.in_position and (close < bottom or t < k):
+            why = f"close fell below cloud bottom {bottom:.2f}" if close < bottom else "tenkan crossed below kijun"
+            return self.sell(why)
+        return self.hold(f"inside cloud ({bottom:.2f}-{top:.2f})" if bottom <= close <= top
+                         else f"close {close:.2f} outside cloud, tenkan-kijun {t - k:+.2f}")
+
+
+# ---- 15. Parabolic SAR ------------------------------------------------------ #
+
+
+class ParabolicSarFlip(Strategy):
+    id = "15_parabolic_sar"
+    name = "Parabolic SAR Flip"
+    category = "Momentum & Trend Following"
+    warmup = 15
+    params = {"step": 0.02, "maximum": 0.2, "alloc": None}
+
+    def evaluate(self, acc, md, cfg, portfolio=None):
+        key = f"sar{self.p['step']}-{self.p['maximum']}"
+        sar = md.cached(key, lambda: parabolic_sar(md.highs, md.lows, float(self.p["step"]), float(self.p["maximum"])))
+        if sar[-1] is None or sar[-2] is None:
+            return self.hold("SAR warming up")
+        below_now = md.closes[-1] > sar[-1]
+        below_prev = md.closes[-2] > sar[-2]
+
+        if below_now and not below_prev:
+            return self.buy(self.size_notional(acc, cfg), reason=f"SAR flipped below price (stop {sar[-1]:.2f})")
+        if acc.in_position and not below_now:
+            return self.sell(f"SAR flipped above price (stop {sar[-1]:.2f})")
+        return self.hold(f"SAR {sar[-1]:.2f} {'below' if below_now else 'above'} close {md.price:.2f}")
+
+
+# ---- 16. ROC Momentum ------------------------------------------------------- #
+
+
+class RocMomentum(Strategy):
+    id = "16_roc_momentum"
+    name = "ROC Momentum Burst"
+    category = "Momentum & Trend Following"
+    warmup = 20
+    params = {"period": 12, "entry_pct": 2.0, "exit_pct": 0.0, "alloc": None}
+
+    def evaluate(self, acc, md, cfg, portfolio=None):
+        key = f"roc{self.p['period']}"
+        r = md.cached(key, lambda: roc(md.closes, int(self.p["period"])))
+        if r[-1] is None:
+            return self.hold("ROC warming up")
+        if r[-1] >= self.p["entry_pct"]:
+            return self.buy(self.size_notional(acc, cfg),
+                            reason=f"ROC({self.p['period']})={r[-1]:+.2f}% >= {self.p['entry_pct']:.1f}%")
+        if acc.in_position and r[-1] <= self.p["exit_pct"]:
+            return self.sell(f"ROC({self.p['period']})={r[-1]:+.2f}% lost momentum")
+        return self.hold(f"ROC={r[-1]:+.2f}%")
+
+
+# ---- 17. Aroon -------------------------------------------------------------- #
+
+
+class AroonTrend(Strategy):
+    id = "17_aroon_trend"
+    name = "Aroon Trend"
+    category = "Momentum & Trend Following"
+    warmup = 30
+    params = {"period": 25, "strong": 70.0, "alloc": None}
+
+    def evaluate(self, acc, md, cfg, portfolio=None):
+        key = f"aroon{self.p['period']}"
+        up, down = md.cached(key, lambda: aroon(md.highs, md.lows, int(self.p["period"])))
+        if None in (up[-1], up[-2], down[-1], down[-2]):
+            return self.hold("Aroon warming up")
+        up_cross = up[-2] <= down[-2] and up[-1] > down[-1]
+        down_cross = up[-2] >= down[-2] and up[-1] < down[-1]
+
+        if up_cross and up[-1] >= self.p["strong"]:
+            return self.buy(self.size_notional(acc, cfg),
+                            reason=f"Aroon Up crossed above Down at {up[-1]:.0f} (fresh high)")
+        if acc.in_position and down_cross:
+            return self.sell(f"Aroon Down crossed above Up at {down[-1]:.0f} (fresh low)")
+        return self.hold(f"Aroon up={up[-1]:.0f} down={down[-1]:.0f}")
+
+
+# ---- 18. Heikin-Ashi -------------------------------------------------------- #
+
+
+class HeikinAshiTrend(Strategy):
+    id = "18_heikin_ashi_trend"
+    name = "Heikin-Ashi Trend"
+    category = "Momentum & Trend Following"
+    warmup = 12
+    params = {"confirm_bars": 3, "alloc": None}
+
+    def evaluate(self, acc, md, cfg, portfolio=None):
+        ha = md.cached("heikin_ashi", lambda: heikin_ashi(md.candles))
+        need = int(self.p["confirm_bars"])
+        if len(ha) < need + 1:
+            return self.hold("Heikin-Ashi warming up")
+        last = ha[-need:]
+
+        # A clean bullish HA bar has no lower wick: open == low.
+        bullish = all(c > o and abs(o - l) <= EPS for o, h, l, c in last)
+        bearish = all(c < o and abs(h - o) <= EPS for o, h, l, c in last)
+
+        if bullish:
+            return self.buy(self.size_notional(acc, cfg),
+                            reason=f"{need} consecutive lower-wick-free bullish Heikin-Ashi bars")
+        if acc.in_position and bearish:
+            return self.sell(f"{need} consecutive upper-wick-free bearish Heikin-Ashi bars")
+        return self.hold(f"HA close {ha[-1][3]:.2f}, no {need}-bar run")
+
+
+# ---- 19. TRIX --------------------------------------------------------------- #
+
+
+class TrixMomentum(Strategy):
+    id = "19_trix_momentum"
+    name = "TRIX Signal Crossover"
+    category = "Momentum & Trend Following"
+    warmup = 60
+    params = {"period": 15, "signal": 9, "alloc": None}
+
+    def evaluate(self, acc, md, cfg, portfolio=None):
+        key = f"trix{self.p['period']}-{self.p['signal']}"
+        line, sig = md.cached(key, lambda: trix(md.closes, int(self.p["period"]), int(self.p["signal"])))
+        if None in (line[-1], line[-2], sig[-1], sig[-2]):
+            return self.hold("TRIX warming up")
+        if line[-2] <= sig[-2] and line[-1] > sig[-1]:
+            return self.buy(self.size_notional(acc, cfg), reason=f"TRIX crossed above signal ({line[-1]:+.4f})")
+        if acc.in_position and line[-2] >= sig[-2] and line[-1] < sig[-1]:
+            return self.sell(f"TRIX crossed below signal ({line[-1]:+.4f})")
+        return self.hold(f"TRIX {line[-1]:+.4f} vs signal {sig[-1]:+.4f}")
+
+
+# ---- 20. EMA Ribbon --------------------------------------------------------- #
+
+
+class EmaRibbonConsensus(Strategy):
+    id = "20_ema_ribbon_consensus"
+    name = "EMA Ribbon Consensus"
+    category = "Momentum & Trend Following"
+    warmup = 60
+    params = {"periods": "8,13,21,34,55", "alloc": None}
+
+    def _series(self, md):
+        periods = [int(p) for p in str(self.p["periods"]).split(",")]
+        out = []
+        for p in periods:
+            out.append(md.cached(f"ema{p}", lambda p=p: ema(md.closes, p))[-1])
+        return periods, out
+
+    def evaluate(self, acc, md, cfg, portfolio=None):
+        periods, vals = self._series(md)
+        if any(v is None for v in vals):
+            return self.hold("ribbon warming up")
+        bullish = all(vals[i] > vals[i + 1] for i in range(len(vals) - 1))
+        bearish = all(vals[i] < vals[i + 1] for i in range(len(vals) - 1))
+
+        if bullish:
+            return self.buy(self.size_notional(acc, cfg),
+                            reason=f"EMA ribbon aligned bullish ({self.p['periods']})")
+        if acc.in_position and bearish:
+            return self.sell(f"EMA ribbon aligned bearish ({self.p['periods']})")
+        return self.hold("ribbon tangled")
+
+
+# ---- 21. Williams %R -------------------------------------------------------- #
+
+
+class WilliamsRReversal(Strategy):
+    id = "21_williams_r_reversal"
+    name = "Williams %R Reversal"
+    category = "Mean Reversion & Oscillators"
+    warmup = 20
+    params = {"period": 14, "oversold": -80.0, "overbought": -20.0, "alloc": None}
+
+    def evaluate(self, acc, md, cfg, portfolio=None):
+        key = f"wr{self.p['period']}"
+        wr = md.cached(key, lambda: williams_r(md.highs, md.lows, md.closes, int(self.p["period"])))
+        if wr[-1] is None or wr[-2] is None:
+            return self.hold("Williams %R warming up")
+        # Enter on the turn out of the zone, not on the way in.
+        if wr[-2] <= self.p["oversold"] and wr[-1] > self.p["oversold"]:
+            return self.buy(self.size_notional(acc, cfg),
+                            reason=f"Williams %R turned up out of oversold ({wr[-1]:.1f})")
+        if acc.in_position and wr[-1] >= self.p["overbought"]:
+            return self.sell(f"Williams %R reached overbought ({wr[-1]:.1f})")
+        return self.hold(f"Williams %R={wr[-1]:.1f}")
+
+
+# ---- 22. CCI ---------------------------------------------------------------- #
+
+
+class CciMeanReversion(Strategy):
+    id = "22_cci_mean_reversion"
+    name = "CCI Mean Reversion"
+    category = "Mean Reversion & Oscillators"
+    warmup = 25
+    params = {"period": 20, "lower": -100.0, "upper": 100.0, "alloc": None}
+
+    def evaluate(self, acc, md, cfg, portfolio=None):
+        key = f"cci{self.p['period']}"
+        v = md.cached(key, lambda: cci(md.highs, md.lows, md.closes, int(self.p["period"])))
+        if v[-1] is None or v[-2] is None:
+            return self.hold("CCI warming up")
+        if v[-2] <= self.p["lower"] and v[-1] > self.p["lower"]:
+            return self.buy(self.size_notional(acc, cfg),
+                            reason=f"CCI turned up through {self.p['lower']:.0f} ({v[-1]:+.0f})")
+        if acc.in_position and v[-2] >= self.p["upper"] and v[-1] < self.p["upper"]:
+            return self.sell(f"CCI turned down through {self.p['upper']:.0f} ({v[-1]:+.0f})")
+        return self.hold(f"CCI={v[-1]:+.0f}")
+
+
+# ---- 23. Connors RSI -------------------------------------------------------- #
+
+
+class ConnorsRsiPullback(Strategy):
+    id = "23_connors_rsi_pullback"
+    name = "Connors RSI(2) Pullback"
+    category = "Mean Reversion & Oscillators"
+    warmup = 110
+    params = {"rsi_period": 3, "streak_period": 2, "rank_period": 100,
+              "buy_below": 10.0, "sell_above": 90.0, "alloc": None}
+
+    def evaluate(self, acc, md, cfg, portfolio=None):
+        key = f"crsi{self.p['rsi_period']}-{self.p['streak_period']}-{self.p['rank_period']}"
+        v = md.cached(key, lambda: connors_rsi(
+            md.closes, int(self.p["rsi_period"]), int(self.p["streak_period"]), int(self.p["rank_period"])
+        ))
+        if v[-1] is None:
+            return self.hold("Connors RSI warming up")
+        if v[-1] <= self.p["buy_below"]:
+            return self.buy(self.size_notional(acc, cfg), reason=f"Connors RSI {v[-1]:.1f} <= {self.p['buy_below']:.0f}")
+        if acc.in_position and v[-1] >= self.p["sell_above"]:
+            return self.sell(f"Connors RSI {v[-1]:.1f} >= {self.p['sell_above']:.0f}")
+        return self.hold(f"Connors RSI={v[-1]:.1f}")
+
+
+# ---- 24. Z-Score ------------------------------------------------------------ #
+
+
+class ZScoreMeanReversion(Strategy):
+    id = "24_zscore_mean_reversion"
+    name = "Z-Score Mean Reversion"
+    category = "Mean Reversion & Oscillators"
+    warmup = 25
+    params = {"period": 20, "entry_z": -2.0, "exit_z": 0.0, "alloc": None}
+
+    def evaluate(self, acc, md, cfg, portfolio=None):
+        key = f"z{self.p['period']}"
+        z = md.cached(key, lambda: zscore(md.closes, int(self.p["period"])))
+        if z[-1] is None:
+            return self.hold("z-score warming up (flat window)")
+        if z[-1] <= self.p["entry_z"]:
+            return self.buy(self.size_notional(acc, cfg),
+                            reason=f"z-score {z[-1]:+.2f} <= {self.p['entry_z']:.1f} (stretched below mean)")
+        if acc.in_position and z[-1] >= self.p["exit_z"]:
+            return self.sell(f"z-score reverted to {z[-1]:+.2f}")
+        return self.hold(f"z-score={z[-1]:+.2f}")
+
+
+# ---- 25. MFI ---------------------------------------------------------------- #
+
+
+class MfiFlowReversal(Strategy):
+    id = "25_mfi_flow_reversal"
+    name = "Money Flow Index Reversal"
+    category = "Mean Reversion & Oscillators"
+    warmup = 20
+    params = {"period": 14, "oversold": 20.0, "overbought": 80.0, "alloc": None}
+
+    def evaluate(self, acc, md, cfg, portfolio=None):
+        key = f"mfi{self.p['period']}"
+        v = md.cached(key, lambda: mfi(md.highs, md.lows, md.closes, md.volumes, int(self.p["period"])))
+        if v[-1] is None:
+            return self.hold("MFI warming up")
+        if v[-1] <= self.p["oversold"]:
+            return self.buy(self.size_notional(acc, cfg), reason=f"MFI {v[-1]:.1f} <= {self.p['oversold']:.0f}")
+        if acc.in_position and v[-1] >= self.p["overbought"]:
+            return self.sell(f"MFI {v[-1]:.1f} >= {self.p['overbought']:.0f}")
+        return self.hold(f"MFI={v[-1]:.1f}")
+
+
+# ---- 26. Chande Momentum ---------------------------------------------------- #
+
+
+class ChandeMomentum(Strategy):
+    id = "26_chande_momentum"
+    name = "Chande Momentum Oscillator"
+    category = "Mean Reversion & Oscillators"
+    warmup = 25
+    params = {"period": 20, "entry": -50.0, "exit": 50.0, "alloc": None}
+
+    def evaluate(self, acc, md, cfg, portfolio=None):
+        key = f"cmo{self.p['period']}"
+        v = md.cached(key, lambda: chande_momentum(md.closes, int(self.p["period"])))
+        if v[-1] is None or v[-2] is None:
+            return self.hold("CMO warming up")
+        if v[-2] <= self.p["entry"] and v[-1] > self.p["entry"]:
+            return self.buy(self.size_notional(acc, cfg), reason=f"CMO turned up through {self.p['entry']:.0f} ({v[-1]:+.0f})")
+        if acc.in_position and v[-2] >= self.p["exit"] and v[-1] < self.p["exit"]:
+            return self.sell(f"CMO turned down through {self.p['exit']:.0f} ({v[-1]:+.0f})")
+        return self.hold(f"CMO={v[-1]:+.0f}")
+
+
+# ---- 27. OBV ---------------------------------------------------------------- #
+
+
+class ObvTrendBreakout(Strategy):
+    id = "27_obv_trend_breakout"
+    name = "OBV Trend Breakout"
+    category = "Volume & Volatility"
+    warmup = 25
+    params = {"lookback": 20, "alloc": None}
+
+    def evaluate(self, acc, md, cfg, portfolio=None):
+        o = md.cached("obv", lambda: obv(md.closes, md.volumes))
+        n = int(self.p["lookback"])
+        if len(o) < n + 2:
+            return self.hold("OBV warming up")
+        prior = o[-n - 1 : -1]                      # strictly prior window
+        new_high = o[-1] > max(prior)
+        new_low = o[-1] < min(prior)
+
+        if new_high and md.closes[-1] > max(md.closes[-n - 1 : -1]):
+            return self.buy(self.size_notional(acc, cfg),
+                            reason=f"OBV made a {n}-candle high with price confirming")
+        if acc.in_position and new_low:
+            return self.sell(f"OBV made a {n}-candle low (distribution)")
+        return self.hold(f"OBV inside its {n}-candle range")
+
+
+# ---- 28. Volume Spike Breakout ---------------------------------------------- #
+
+
+class VolumeSpikeBreakout(Strategy):
+    id = "28_volume_spike_breakout"
+    name = "Volume Spike Breakout"
+    category = "Volume & Volatility"
+    warmup = 25
+    params = {"lookback": 20, "volume_mult": 2.0, "exit_lookback": 10, "alloc": None}
+
+    def evaluate(self, acc, md, cfg, portfolio=None):
+        n = int(self.p["lookback"])
+        vols = md.volumes[-n - 1 : -1]
+        avg_vol = sum(vols) / len(vols) if vols else 0.0
+        spike = avg_vol > EPS and md.volumes[-1] >= avg_vol * float(self.p["volume_mult"])
+        prior_high = max(md.highs[-n - 1 : -1])
+        exit_low = min(md.lows[-int(self.p["exit_lookback"]) - 1 : -1])
+
+        if spike and md.closes[-1] > prior_high:
+            return self.buy(self.size_notional(acc, cfg),
+                            reason=f"volume {md.volumes[-1] / avg_vol:.1f}x average with a close above the {n}-candle high")
+        if acc.in_position and md.closes[-1] < exit_low:
+            return self.sell(f"close broke the {self.p['exit_lookback']}-candle low")
+        return self.hold(f"volume {md.volumes[-1] / avg_vol:.2f}x average" if avg_vol > EPS else "no volume history")
+
+
+# ---- 29. Volatility Squeeze -------------------------------------------------- #
+
+
+class VolatilitySqueezeBreakout(Strategy):
+    id = "29_volatility_squeeze"
+    name = "Volatility Squeeze Breakout"
+    category = "Volume & Volatility"
+    warmup = 25
+    params = {"bb_period": 20, "bb_mult": 2.0, "kc_period": 20, "kc_mult": 1.5, "alloc": None}
+
+    def _bands(self, md):
+        """Bollinger and Keltner bands as full series (computed once per candle)."""
+        key = f"squeeze{self.p['bb_period']}-{self.p['kc_period']}"
+        return md.cached(key, lambda: (
+            bollinger(md.closes, int(self.p["bb_period"]), float(self.p["bb_mult"])),
+            keltner(md.highs, md.lows, md.closes, int(self.p["kc_period"]), float(self.p["kc_mult"])),
+        ))
+
+    def evaluate(self, acc, md, cfg, portfolio=None):
+        (bu_s, bm_s, bl_s), (ku_s, _, kl_s) = self._bands(md)
+        bu, bm, bl = bu_s[-1], bm_s[-1], bl_s[-1]
+        ku, kl = ku_s[-1], kl_s[-1]
+        if None in (bu, bm, bl, ku, kl, bu_s[-2], bl_s[-2], ku_s[-2], kl_s[-2]):
+            return self.hold("squeeze bands warming up")
+
+        was_squeezed = squeeze_on(bu_s[-2], bl_s[-2], ku_s[-2], kl_s[-2])
+        now_squeezed = squeeze_on(bu, bl, ku, kl)
+
+        # TTM fires on the *release*, taking the direction from momentum
+        # (close vs the middle band) rather than demanding a band break on the
+        # very same candle, which almost never coincides.
+        if was_squeezed and not now_squeezed and md.closes[-1] > bm:
+            return self.buy(self.size_notional(acc, cfg),
+                            reason="volatility squeeze released upward: bands expanded with close above the middle band")
+        if acc.in_position and md.closes[-1] < bm:
+            return self.sell(f"close fell back below the middle band {bm:.2f}")
+        return self.hold("squeezed" if now_squeezed else "no squeeze")
+
+
+# ---- 30. Elder-Ray ----------------------------------------------------------- #
+
+
+class ElderRayPower(Strategy):
+    id = "30_elder_ray_power"
+    name = "Elder-Ray Power Shift"
+    category = "Volume & Volatility"
+    warmup = 20
+    params = {"period": 13, "alloc": None}
+
+    def evaluate(self, acc, md, cfg, portfolio=None):
+        key = f"elder{self.p['period']}"
+        bull, bear = md.cached(key, lambda: elder_ray(md.highs, md.lows, md.closes, int(self.p["period"])))
+        if None in (bull[-1], bull[-2], bear[-1], bear[-2]):
+            return self.hold("Elder-Ray warming up")
+        # Bears lose control when bear power lifts back through zero.
+        if bear[-2] <= 0 < bear[-1] and bull[-1] > 0:
+            return self.buy(self.size_notional(acc, cfg),
+                            reason=f"bear power lifted to {bear[-1]:+.2f} with bull power {bull[-1]:+.2f}")
+        if acc.in_position and bull[-2] >= 0 > bull[-1]:
+            return self.sell(f"bull power fell to {bull[-1]:+.2f}")
+        return self.hold(f"bull={bull[-1]:+.2f} bear={bear[-1]:+.2f}")
+
+
+# ---- 31. Candlestick Engulfing ---------------------------------------------- #
+
+
+class EngulfingReversal(Strategy):
+    id = "31_engulfing_reversal"
+    name = "Engulfing Candle Reversal"
+    category = "Price Action"
+    warmup = 25
+    params = {"trend_lookback": 10, "trend_pct": 1.0, "alloc": None}
+
+    def evaluate(self, acc, md, cfg, portfolio=None):
+        prev, cur = md.candles[-2], md.candles[-1]
+        n = int(self.p["trend_lookback"])
+        pct = float(self.p["trend_pct"])
+        before = md.closes[-n - 2]
+        downtrend = before > EPS and (prev.close - before) / before * 100.0 <= -pct
+        uptrend = before > EPS and (prev.close - before) / before * 100.0 >= pct
+
+        if downtrend and is_bullish_engulfing(prev, cur):
+            return self.buy(self.size_notional(acc, cfg),
+                            reason=f"bullish engulfing after a {n}-candle downtrend")
+        if acc.in_position and uptrend and is_bearish_engulfing(prev, cur):
+            return self.sell(f"bearish engulfing after a {n}-candle uptrend")
+        return self.hold("no engulfing reversal")
+
+
+# ---- 32. Fibonacci Retracement ---------------------------------------------- #
+
+
+class FibonacciPullback(Strategy):
+    id = "32_fibonacci_pullback"
+    name = "Fibonacci Retracement Pullback"
+    category = "Price Action"
+    warmup = 55
+    params = {"swing_lookback": 50, "entry_level": "0.618", "exit_level": "0.236", "alloc": None}
+
+    def evaluate(self, acc, md, cfg, portfolio=None):
+        n = int(self.p["swing_lookback"])
+        swing_high = max(md.highs[-n - 1 : -1])
+        swing_low = min(md.lows[-n - 1 : -1])
+        if swing_high - swing_low <= EPS:
+            return self.hold("no swing range")
+        uptrend = md.closes[-2] > md.closes[-n - 1]
+        levels = fibonacci_levels(swing_high, swing_low)
+        entry = levels[str(self.p["entry_level"])]
+        exit_lv = levels[str(self.p["exit_level"])]
+
+        if uptrend and md.closes[-2] > entry and md.closes[-1] <= entry:
+            return self.buy(self.size_notional(acc, cfg),
+                            reason=f"pullback to the {self.p['entry_level']} retracement at {entry:.2f}")
+        if acc.in_position and md.price >= exit_lv:
+            return self.sell(f"rallied back to the {self.p['exit_level']} retracement at {exit_lv:.2f}")
+        return self.hold(f"close {md.price:.2f} vs {self.p['entry_level']} level {entry:.2f}")
+
+
+# ---- 33. Pivot Points -------------------------------------------------------- #
+
+
+class PivotPointBounce(Strategy):
+    id = "33_pivot_point_bounce"
+    name = "Pivot Point Bounce"
+    category = "Price Action"
+    warmup = 5
+    params = {"alloc": None}
+
+    def evaluate(self, acc, md, cfg, portfolio=None):
+        hlc = prior_session_hlc(md.candles)
+        if hlc is None:
+            return self.hold("no prior session for pivots")
+        p = pivot_points(*hlc)
+        acc.strategy_state["pivots"] = {k: round(v, 4) for k, v in p.items()}
+        prev_close, close = md.closes[-2], md.closes[-1]
+
+        # Bounce: dipped to or below S1 on the prior candle, then reclaimed it.
+        if prev_close <= p["s1"] < close:
+            return self.buy(self.size_notional(acc, cfg), reason=f"reclaimed S1 at {p['s1']:.2f}")
+        if acc.in_position and close >= p["r1"]:
+            return self.sell(f"reached R1 at {p['r1']:.2f}")
+        return self.hold(f"close {close:.2f} vs pivot {p['p']:.2f}")
+
+
+# ---- 34. Opening Range Breakout ---------------------------------------------- #
+
+
+class OpeningRangeBreakout(Strategy):
+    id = "34_opening_range_breakout"
+    name = "Opening Range Breakout"
+    category = "Price Action"
+    warmup = 10
+    params = {"minutes": 60, "alloc": None}
+
+    def evaluate(self, acc, md, cfg, portfolio=None):
+        rng = opening_range(md.candles, int(self.p["minutes"]))
+        if rng is None:
+            return self.hold("no opening range yet")
+        hi, lo, elapsed = rng
+        if elapsed <= int(self.p["minutes"]) // 15:
+            return self.hold(f"opening range still forming ({elapsed} candles)")
+        acc.strategy_state["opening_range"] = {"high": hi, "low": lo}
+
+        if md.closes[-2] <= hi and md.closes[-1] > hi:
+            return self.buy(self.size_notional(acc, cfg),
+                            reason=f"broke above the opening range high {hi:.2f}")
+        if acc.in_position and md.closes[-1] < lo:
+            return self.sell(f"broke below the opening range low {lo:.2f}")
+        return self.hold(f"inside opening range {lo:.2f}-{hi:.2f}")
+
+
+# ---- 35. Chandelier Exit ----------------------------------------------------- #
+
+
+class ChandelierTrendRide(Strategy):
+    id = "35_chandelier_trend_ride"
+    name = "Chandelier Exit Trend Ride"
+    category = "Risk & Trailing"
+    warmup = 60
+    params = {"trend_period": 50, "atr_period": 22, "multiplier": 3.0, "alloc": None}
+
+    def evaluate(self, acc, md, cfg, portfolio=None):
+        trend_s = md.cached(f"ema{self.p['trend_period']}",
+                            lambda: ema(md.closes, int(self.p["trend_period"])))
+        key = f"chand{self.p['atr_period']}-{self.p['multiplier']}"
+        long_x, _ = md.cached(key, lambda: chandelier_exit(
+            md.highs, md.lows, md.closes, int(self.p["atr_period"]), float(self.p["multiplier"])
+        ))
+        if trend_s[-1] is None or trend_s[-2] is None or long_x[-1] is None:
+            return self.hold("chandelier warming up")
+        trend = trend_s[-1]
+        acc.strategy_state["chandelier_stop"] = long_x[-1]
+
+        if md.closes[-2] <= trend_s[-2] and md.price > trend:
+            return self.buy(self.size_notional(acc, cfg),
+                            reason=f"close crossed above EMA{self.p['trend_period']} ({trend:.2f})")
+        if acc.in_position and md.price < long_x[-1]:
+            return self.sell(f"chandelier trailing stop breached at {long_x[-1]:.2f}")
+        return self.hold(f"stop {long_x[-1]:.2f}, close {md.price:.2f}")
+
+
+# ---- 36. Martingale Dip Accumulator ------------------------------------------- #
+
+
+class MartingaleDipAccumulator(Strategy):
+    """Buys each successive dip with a doubled order, capped by a multiplier
+    limit and by available cash. Accumulates; never sells by default."""
+
+    id = "36_martingale_dip"
+    name = "Martingale Dip Accumulator"
+    category = "Execution-Based & Portfolio"
+    single_position = False
+    warmup = 5
+    params = {
+        "dip_pct": 2.0,            # buy again after each 2% drop
+        "base_notional": 100.0,
+        "multiplier": 2.0,
+        "max_steps": 4,            # cap the doubling so the account cannot blow up
+        "take_profit_pct": None,
+    }
+
+    def evaluate(self, acc, md, cfg, portfolio=None):
+        st = acc.strategy_state
+        price = md.price
+
+        tp = self.p.get("take_profit_pct")
+        if tp and acc.in_position and acc.entry_price:
+            gain = (price - acc.entry_price) / acc.entry_price * 100.0
+            if gain >= float(tp):
+                st["steps"] = 0
+                st["anchor_price"] = price
+                return self.sell(f"martingale stack take-profit at +{gain:.2f}%")
+
+        # Before the first fill the reference tracks the running peak, so the
+        # strategy measures a dip from recent price action rather than waiting
+        # for price to fall below the very first candle it ever saw.
+        anchor = st.get("anchor_price")
+        if anchor is None:
+            st["anchor_price"] = price
+            st["steps"] = 0
+            return self.hold(f"martingale anchored at {price:.2f}")
+        if int(st.get("steps", 0)) == 0 and price > anchor:
+            st["anchor_price"] = price
+            anchor = price
+
+        drop_pct = (price - anchor) / anchor * 100.0
+        steps = int(st.get("steps", 0))
+        if drop_pct > -float(self.p["dip_pct"]):
+            return self.hold(f"{drop_pct:+.2f}% from anchor {anchor:.2f}")
+        if steps >= int(self.p["max_steps"]):
+            return self.hold(f"max {self.p['max_steps']} martingale steps reached")
+
+        notional = float(self.p["base_notional"]) * (float(self.p["multiplier"]) ** steps)
+        affordable = acc.balance_usd / (1.0 + cfg.fee_rate) if cfg.fee_rate > 0 else acc.balance_usd
+        if notional > affordable:
+            return self.hold(f"martingale step {steps} needs {notional:.2f}, only {affordable:.2f} available")
+
+        st["steps"] = steps + 1
+        st["anchor_price"] = price
+        return self.buy(notional=notional,
+                        reason=f"martingale step {steps + 1} after a {drop_pct:.2f}% dip")
+
+
+# ---- 37. Anti-Martingale Pyramid ---------------------------------------------- #
+
+
+class AntiMartingalePyramid(Strategy):
+    """Adds to a winning position on each new leg up and trails the whole stack
+    below the peak. The opposite of the martingale: it presses winners."""
+
+    id = "37_anti_martingale_pyramid"
+    name = "Anti-Martingale Pyramid"
+    category = "Execution-Based & Portfolio"
+    single_position = False
+    warmup = 25
+    params = {
+        "entry_lookback": 20,     # initial entry on a new N-candle high
+        "add_pct": 2.0,           # add again after each further 2% rise
+        "max_adds": 3,
+        "trail_pct": 3.0,         # exit the whole stack 3% below the peak
+        "size_pct": 0.30,         # fraction of starting balance per leg
+    }
+
+    def evaluate(self, acc, md, cfg, portfolio=None):
+        st = acc.strategy_state
+        price = md.price
+        n = int(self.p["entry_lookback"])
+        prior_high = max(md.highs[-n - 1 : -1])
+        leg_notional = acc.starting_balance * float(self.p["size_pct"])
+
+        if not acc.in_position:
+            if md.closes[-2] <= prior_high and price > prior_high:
+                st["adds"] = 0
+                st["last_add_price"] = price
+                st["peak_price"] = price
+                affordable = acc.balance_usd / (1.0 + cfg.fee_rate) if cfg.fee_rate > 0 else acc.balance_usd
+                notional = min(leg_notional, affordable)
+                if notional <= 0:
+                    return self.hold("no cash for the pyramid entry")
+                return self.buy(notional=notional,
+                                reason=f"pyramid entry on a new {n}-candle high {prior_high:.2f}")
+            return self.hold(f"no {n}-candle high breakout")
+
+        st["peak_price"] = max(float(st.get("peak_price", price)), price)
+        peak = float(st["peak_price"])
+        adds = int(st.get("adds", 0))
+
+        if price <= peak * (1.0 - float(self.p["trail_pct"]) / 100.0):
+            st["adds"] = 0
+            st.pop("peak_price", None)
+            st.pop("last_add_price", None)
+            drawdown = (price - peak) / peak * 100.0
+            return self.sell(reason=f"pyramid trail hit {drawdown:.2f}% below peak {peak:.2f}")
+
+        last_add = float(st.get("last_add_price", price))
+        if adds < int(self.p["max_adds"]) and price >= last_add * (1.0 + float(self.p["add_pct"]) / 100.0):
+            affordable = acc.balance_usd / (1.0 + cfg.fee_rate) if cfg.fee_rate > 0 else acc.balance_usd
+            notional = min(leg_notional, affordable)
+            if notional > cfg.min_notional:
+                st["adds"] = adds + 1
+                st["last_add_price"] = price
+                return self.buy(notional=notional, reason=f"pyramid add #{adds + 1} at +{self.p['add_pct']}%")
+        return self.hold(f"pyramid: {adds} adds, peak {peak:.2f}")
+
+
+# ---- 38. Kelly Fraction Sizer -------------------------------------------------- #
+
+
+class KellyFractionSizer(Strategy):
+    """Enters on a Donchian breakout but sizes the position with the Kelly
+    criterion estimated from this account's own closed-trade history."""
+
+    id = "38_kelly_fraction_sizer"
+    name = "Kelly Fraction Position Sizing"
+    category = "Execution-Based & Portfolio"
+    warmup = 25
+    params = {
+        "entry_period": 20,
+        "exit_period": 10,
+        "min_trades": 10,       # history needed before Kelly is trusted
+        "default_fraction": 0.10,
+        "max_fraction": 0.50,   # fractional Kelly cap
+        "kelly_fraction": 0.5,  # half-Kelly: less variance for the same edge
+    }
+
+    def _kelly(self, acc: Account) -> Tuple[float, str]:
+        closed = [t for t in acc.trades if t["side"] == "sell"]
+        wins = [t["pnl"] for t in closed if t["pnl"] > 0]
+        losses = [-t["pnl"] for t in closed if t["pnl"] <= 0]
+        if len(closed) < int(self.p["min_trades"]) or not wins or not losses:
+            return float(self.p["default_fraction"]), f"history {len(closed)}<{self.p['min_trades']}, default"
+        p = len(wins) / len(closed)
+        avg_win = sum(wins) / len(wins)
+        avg_loss = sum(losses) / len(losses)
+        if avg_loss <= EPS:
+            return float(self.p["default_fraction"]), "no losses recorded, default"
+        b = avg_win / avg_loss
+        full = p - (1.0 - p) / b
+        if full <= 0:
+            return 0.0, f"negative edge (p={p:.2f}, b={b:.2f}) -> stand aside"
+        frac = min(full * float(self.p["kelly_fraction"]), float(self.p["max_fraction"]))
+        return frac, f"p={p:.2f} b={b:.2f} full-Kelly={full:.2f}"
+
+    def evaluate(self, acc, md, cfg, portfolio=None):
+        upper, _, lower = donchian(md.highs, md.lows, int(self.p["entry_period"]), int(self.p["exit_period"]))
+        if upper[-1] is None or lower[-1] is None:
+            return self.hold("Donchian warming up")
+
+        if md.price > upper[-1]:
+            frac, why = self._kelly(acc)
+            acc.strategy_state["kelly"] = {"fraction": frac, "detail": why}
+            if frac <= 0:
+                return self.hold(f"Kelly says no bet: {why}")
+            notional = acc.balance_usd * frac
+            return self.buy(notional=notional, reason=f"breakout, Kelly fraction {frac:.1%} ({why})")
+        if acc.in_position and md.price < lower[-1]:
+            return self.sell(f"close broke the {self.p['exit_period']}-candle low")
+        return self.hold(f"inside channel, Kelly={acc.strategy_state.get('kelly', {}).get('fraction')}")
+
+
+# ---- 39. Multi-Indicator Consensus --------------------------------------------- #
+
+
+class MultiIndicatorConsensus(Strategy):
+    """Hybrid: casts one vote per indicator and trades only on a majority.
+
+    A blended signal trades far less often than any single component, which is
+    the point -- it filters the whipsaw each individual oscillator produces.
+    """
+
+    id = "39_multi_indicator_consensus"
+    name = "Multi-Indicator Consensus Vote"
+    category = "Composite & Hybrid"
+    warmup = 45
+    params = {"threshold": 3, "alloc": None}
+
+    def _votes(self, md):
+        votes = {}
+        r = md.cached("rsi14", lambda: rsi(md.closes, 14))[-1]
+        if r is not None:
+            votes["rsi"] = 1 if r < 40 else (-1 if r > 60 else 0)
+
+        f = md.cached("ema9", lambda: ema(md.closes, 9))
+        s = md.cached("ema21", lambda: ema(md.closes, 21))
+        if f[-1] is not None and s[-1] is not None:
+            votes["ema_cross"] = 1 if f[-1] > s[-1] else -1
+
+        _, _, hist = md.cached("macd", lambda: macd(md.closes, 12, 26, 9))
+        if hist[-1] is not None:
+            votes["macd"] = 1 if hist[-1] > 0 else -1
+
+        _, mid, _ = md.cached("bb", lambda: bollinger(md.closes, 20, 2.0))
+        if mid[-1] is not None:
+            votes["bollinger"] = 1 if md.price < mid[-1] else -1
+
+        k, d = md.cached("stochrsi", lambda: stoch_rsi(md.closes, 14, 14, 3, 3))
+        if k[-1] is not None and d[-1] is not None:
+            votes["stoch_rsi"] = 1 if k[-1] > d[-1] else -1
+        return votes
+
+    def evaluate(self, acc, md, cfg, portfolio=None):
+        votes = self._votes(md)
+        if len(votes) < 5:
+            return self.hold(f"only {len(votes)}/5 indicators ready")
+        score = sum(votes.values())
+        acc.strategy_state["consensus"] = {"votes": votes, "score": score}
+        threshold = int(self.p["threshold"])
+
+        if score >= threshold:
+            return self.buy(self.size_notional(acc, cfg),
+                            reason=f"{score}/5 indicators bullish {sorted(k for k, v in votes.items() if v > 0)}")
+        if acc.in_position and score <= -threshold:
+            return self.sell(f"{score}/5 indicators bearish {sorted(k for k, v in votes.items() if v < 0)}")
+        return self.hold(f"consensus {score:+d}/5 (threshold +/-{threshold})")
+
+
+# ---- 40. Trend + Pullback Confluence -------------------------------------------- #
+
+
+class TrendPullbackConfluence(Strategy):
+    """Hybrid: a long-term trend filter gates a short-term mean-reversion entry.
+
+    Buys dips only while the higher timeframe agrees, which is the classic fix
+    for a naked RSI strategy that keeps catching falling knives.
+    """
+
+    id = "40_trend_pullback_confluence"
+    name = "Trend + Pullback Confluence"
+    category = "Composite & Hybrid"
+    warmup = 200
+    params = {"trend_period": 200, "mid_period": 50, "rsi_period": 14,
+              "rsi_buy": 35.0, "rsi_sell": 65.0, "alloc": None}
+
+    def evaluate(self, acc, md, cfg, portfolio=None):
+        slow = md.cached(f"sma{self.p['trend_period']}",
+                         lambda: sma(md.closes, int(self.p["trend_period"])))[-1]
+        mid = md.cached(f"sma{self.p['mid_period']}",
+                        lambda: sma(md.closes, int(self.p["mid_period"])))[-1]
+        r = md.cached(f"rsi{self.p['rsi_period']}",
+                      lambda: rsi(md.closes, int(self.p["rsi_period"])))[-1]
+        if None in (slow, mid, r):
+            return self.hold("confluence warming up")
+
+        uptrend = md.price > slow and mid > slow
+        if uptrend and r < self.p["rsi_buy"]:
+            return self.buy(self.size_notional(acc, cfg),
+                            reason=f"pullback RSI {r:.1f} < {self.p['rsi_buy']:.0f} inside an uptrend above SMA{self.p['trend_period']}")
+        if acc.in_position and (r > self.p["rsi_sell"] or md.price < mid):
+            why = f"RSI recovered to {r:.1f}" if r > self.p["rsi_sell"] else f"lost SMA{self.p['mid_period']}"
+            return self.sell(why)
+        return self.hold(f"trend={'up' if uptrend else 'down'}, RSI {r:.1f}")
+
+
+# ---- 41. Volatility Regime Switcher ---------------------------------------------- #
+
+
+class VolatilityRegimeSwitcher(Strategy):
+    """Hybrid: the ATR percentile picks which sub-strategy runs.
+
+    High volatility favours mean reversion (Bollinger); low volatility favours
+    breakout (Donchian). One account, two behaviours, chosen by regime.
+    """
+
+    id = "41_volatility_regime_switcher"
+    name = "Volatility Regime Switcher"
+    category = "Composite & Hybrid"
+    warmup = 120
+    params = {"atr_period": 14, "percentile_lookback": 100, "high_vol": 70.0,
+              "low_vol": 30.0, "bb_period": 20, "bb_mult": 2.0,
+              "entry_period": 20, "exit_period": 10, "alloc": None}
+
+    def evaluate(self, acc, md, cfg, portfolio=None):
+        a = md.cached(f"atr{self.p['atr_period']}",
+                      lambda: atr(md.highs, md.lows, md.closes, int(self.p["atr_period"])))
+        pr = atr_percentile(a, int(self.p["percentile_lookback"]))[-1]
+        if pr is None:
+            return self.hold("ATR percentile warming up")
+        acc.strategy_state["atr_percentile"] = pr
+
+        if pr >= self.p["high_vol"]:
+            regime = "mean-reversion"
+            _, mid, lower = bollinger(md.closes, int(self.p["bb_period"]), float(self.p["bb_mult"]))
+            if lower[-1] is not None and md.price < lower[-1]:
+                return self.buy(self.size_notional(acc, cfg),
+                                reason=f"[{regime}] ATR pct {pr:.0f} -> close below lower band {lower[-1]:.2f}")
+            if acc.in_position and mid[-1] is not None and md.price >= mid[-1]:
+                return self.sell(f"[{regime}] reverted to the middle band")
+            return self.hold(f"[{regime}] ATR pct {pr:.0f}")
+
+        if pr <= self.p["low_vol"]:
+            regime = "breakout"
+            upper, _, lower = donchian(md.highs, md.lows, int(self.p["entry_period"]), int(self.p["exit_period"]))
+            if upper[-1] is not None and md.price > upper[-1]:
+                return self.buy(self.size_notional(acc, cfg),
+                                reason=f"[{regime}] ATR pct {pr:.0f} -> broke the {self.p['entry_period']}-candle high")
+            if acc.in_position and lower[-1] is not None and md.price < lower[-1]:
+                return self.sell(f"[{regime}] broke the {self.p['exit_period']}-candle low")
+            return self.hold(f"[{regime}] ATR pct {pr:.0f}")
+
+        return self.hold(f"neutral regime (ATR pct {pr:.0f})")
+
+
+# ---- 42. Sibling Performance Allocator -------------------------------------------- #
+
+
+class SiblingPerformanceAllocator(Strategy):
+    """Meta-strategy: allocates based on how the *other* accounts are doing.
+
+    When the ensemble of sibling strategies is collectively beating cash the
+    market is tradeable, so this account participates; when the median sibling
+    is underwater it stands aside.
+
+    NOTE: this is the one deliberate exception to account isolation. It reads
+    (never writes) a snapshot of the other accounts' equity.
+    """
+
+    id = "42_sibling_performance_allocator"
+    name = "Sibling Performance Allocator"
+    category = "Composite & Hybrid"
+    warmup = 25
+    params = {"momentum_lookback": 20, "median_floor_pct": 0.0, "alloc": None}
+
+    def evaluate(self, acc, md, cfg, portfolio=None):
+        if not portfolio:
+            return self.hold("no portfolio snapshot available")
+        peers = {sid: v for sid, v in portfolio.items() if sid != acc.id}
+        if not peers:
+            return self.hold("no sibling accounts to read")
+
+        returns = sorted(v["return_pct"] for v in peers.values())
+        n = len(returns)
+        median = returns[n // 2] if n % 2 else (returns[n // 2 - 1] + returns[n // 2]) / 2.0
+        best = max(peers.items(), key=lambda kv: kv[1]["return_pct"])
+        acc.strategy_state["ensemble"] = {
+            "median_return_pct": median,
+            "peer_count": n,
+            "leader": best[0],
+            "leader_return_pct": best[1]["return_pct"],
+        }
+
+        # Ride the leader's signal only while the ensemble is healthy.
+        healthy = median >= float(self.p["median_floor_pct"])
+        if healthy and not acc.in_position:
+            return self.buy(self.size_notional(acc, cfg),
+                            reason=f"ensemble median {median:+.2f}% (leader {best[0]}) -> participate")
+        if acc.in_position and not healthy:
+            return self.sell(f"ensemble median {median:+.2f}% fell below {self.p['median_floor_pct']:.1f}% -> stand aside")
+        return self.hold(f"ensemble median {median:+.2f}%, leader {best[0]}")
+
+
 STRATEGY_CLASSES: List[type] = [
+    # Momentum & Trend Following
     RsiMeanReversion,
     DualEmaCrossover,
     MacdHistogramReversal,
     TripleMovingAverage,
     SupertrendAtr,
+    AdxDmiTrend,
+    IchimokuCloud,
+    ParabolicSarFlip,
+    RocMomentum,
+    AroonTrend,
+    HeikinAshiTrend,
+    TrixMomentum,
+    EmaRibbonConsensus,
+    # Mean Reversion & Oscillators
     BollingerMeanReversion,
     KeltnerBreakout,
     StochRsiReversal,
+    WilliamsRReversal,
+    CciMeanReversion,
+    ConnorsRsiPullback,
+    ZScoreMeanReversion,
+    MfiFlowReversal,
+    ChandeMomentum,
+    # Volume & Volatility
     VwapPullback,
     DonchianBreakout,
+    ObvTrendBreakout,
+    VolumeSpikeBreakout,
+    VolatilitySqueezeBreakout,
+    ElderRayPower,
+    # Price Action
+    EngulfingReversal,
+    FibonacciPullback,
+    PivotPointBounce,
+    OpeningRangeBreakout,
+    # Risk & Trailing
+    ChandelierTrendRide,
+    # Execution-Based & Portfolio
     DynamicDca,
     ArithmeticGrid,
+    MartingaleDipAccumulator,
+    AntiMartingalePyramid,
+    KellyFractionSizer,
+    # Composite & Hybrid
+    MultiIndicatorConsensus,
+    TrendPullbackConfluence,
+    VolatilityRegimeSwitcher,
+    SiblingPerformanceAllocator,
 ]
 
 
@@ -1617,9 +3146,25 @@ class Engine:
         total_executed = 0
         summary: Dict[str, Any] = {}
 
+        # Read-only cross-account snapshot, rebuilt each candle. Only the
+        # portfolio meta-strategy consults it; every other account stays
+        # strictly isolated.
+        portfolio: Dict[str, Any] = {}
+        for sid, acc in self.accounts.items():
+            eq = acc.equity(md.price)
+            portfolio[sid] = {
+                "equity": eq,
+                "return_pct": (eq / acc.starting_balance - 1.0) * 100.0 if acc.starting_balance else 0.0,
+                "trades": len(acc.trades),
+                "in_position": acc.in_position,
+            }
+
         for strategy in self.strategies:
             acc = self.accounts[strategy.id]
             acc.rejections = []
+            if acc.errors:
+                self.log.error("[%s] %d evaluation error(s): %s",
+                               strategy.id, len(acc.errors), "; ".join(acc.errors[:3]))
             acc.rejection_repeats = {}
 
             if duplicate:
@@ -1634,7 +3179,7 @@ class Engine:
                 continue
 
             self.log.info("[%s] %s", strategy.id, strategy.name)
-            decision = strategy.decide(acc, md, self.cfg)
+            decision = strategy.decide(acc, md, self.cfg, portfolio)
             decision = self._apply_risk_overlay(acc, md, decision)
 
             if total_executed >= self.cfg.max_trades_per_run:
@@ -1683,6 +3228,7 @@ class Engine:
                 "trades": len(acc.trades),
                 "action": decision.action,
                 "reason": decision.reason,
+                "errors": list(acc.errors),
                 "rejections": [
                     f"{r} (x{acc.rejection_repeats[r]})" if acc.rejection_repeats.get(r, 1) > 1 else r
                     for r in acc.rejections

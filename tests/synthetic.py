@@ -21,15 +21,24 @@ FIFTEEN_MIN_MS = 15 * 60 * 1000
 EPOCH_MS = 1704067200000
 
 
-def ohlc_from_closes(closes: Sequence[float], spread: float = 0.0015, volume: float = 100.0,
-                     start_ms: int = EPOCH_MS) -> List[Candle]:
-    """Build OHLCV candles from a close path, placing open at the prior close."""
+def ohlc_from_closes(closes: Sequence[float], spread: float = 0.004, volume: float = 100.0,
+                     start_ms: int = EPOCH_MS, volume_spikes: bool = False,
+                     spike_chance: float = 0.04, spike_mult: float = 3.5) -> List[Candle]:
+    """Build OHLCV candles from a close path, placing open at the prior close.
+
+    ``volume_spikes`` injects occasional high-volume bars. Real markets have
+    them; a flat volume profile silently starves any volume-triggered strategy.
+    """
     candles: List[Candle] = []
     prev_close = closes[0]
+    spike_rng = random.Random(777)
     for i, close in enumerate(closes):
         rng = random.Random(1000 + i)
         lo = min(prev_close, close) * (1 - spread * rng.random())
         hi = max(prev_close, close) * (1 + spread * rng.random())
+        vol = volume * (0.6 + 0.8 * rng.random())
+        if volume_spikes and spike_rng.random() < spike_chance:
+            vol *= spike_mult
         candles.append(
             Candle(
                 ts=start_ms + i * FIFTEEN_MIN_MS,
@@ -37,7 +46,7 @@ def ohlc_from_closes(closes: Sequence[float], spread: float = 0.0015, volume: fl
                 high=max(hi, prev_close, close),
                 low=min(lo, prev_close, close),
                 close=close,
-                volume=volume * (0.6 + 0.8 * rng.random()),
+                volume=vol,
             )
         )
         prev_close = close

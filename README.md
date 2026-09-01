@@ -1,6 +1,6 @@
 # CryptoTrade
 
-A **paper-trading** engine that runs **12 isolated virtual sub-accounts**, each
+A **paper-trading** engine that runs **42 isolated virtual sub-accounts**, each
 executing a different trading strategy against the same BTC/USDT (or ETH/USDT)
 candle stream. Every account starts with **$1,000** of virtual capital and is
 tracked independently in [`docs/data.json`](docs/data.json).
@@ -25,33 +25,101 @@ python bot.py --dry-run                  # evaluate, print, write nothing
 ```
 
 Each invocation is a single, stateless tick: read state → fetch candles →
-evaluate all 12 strategies → write state back. That makes it safe to run from
+evaluate all 42 strategies → write state back. That makes it safe to run from
 cron or GitHub Actions.
 
 ---
 
-## The 12 strategies
+## The 42 strategies
+
+### Momentum & Trend Following
 
 | # | Account id | Strategy | Entry | Exit |
 |---|---|---|---|---|
 | 1 | `01_rsi_mean_reversion` | RSI Mean Reversion | RSI(14) < 30 | RSI(14) > 70 |
-| 2 | `02_dual_ema_crossover` | Dual EMA Crossover | EMA9 crosses above EMA21 | EMA9 crosses below EMA21 |
+| 2 | `02_dual_ema_crossover` | Dual EMA Crossover (9/21) | EMA9 crosses above EMA21 | EMA9 crosses below EMA21 |
 | 3 | `03_macd_histogram_reversal` | MACD Signal Crossover | MACD crosses above Signal | MACD crosses below Signal |
-| 4 | `04_triple_moving_average` | Triple MA Trend | SMA20 > SMA50 > SMA200 | SMA20 < SMA50 |
-| 5 | `05_supertrend_atr` | Supertrend Trailing Stop | ATR(10, ×3) flips bullish | flips bearish / stop breached |
-| 6 | `06_bollinger_mean_reversion` | Bollinger Mean Reversion | close < Lower Band (20, 2) | close reaches Middle Band |
-| 7 | `07_keltner_breakout` | Keltner Breakout | close > EMA20 + 2·ATR | close falls below EMA20 |
-| 8 | `08_stoch_rsi_reversal` | Stochastic RSI | %K crosses above %D below 20 | %K crosses below %D above 80 |
-| 9 | `09_vwap_pullback` | Session VWAP Pullback | close < VWAP and RSI > 40 | close ≥ VWAP + 1.5% |
-| 10 | `10_donchian_breakout` | Donchian Turtle | close breaks the 20-candle high | close breaks the 10-candle low |
-| 11 | `11_dynamic_dca` | Dynamic DCA | every 4th candle, ×2 if 24h is red | *(accumulates; optional take-profit)* |
-| 12 | `12_arithmetic_grid` | Fixed-Step Arithmetic Grid | limit buys each 1% step down | take-profit one step up |
+| 4 | `04_triple_moving_average` | Triple MA Trend (20/50/200) | SMA20 > SMA50 > SMA200 | SMA20 < SMA50 |
+| 5 | `05_supertrend_atr` | Supertrend ATR Trailing Stop | ATR(10, ×3) flips bullish | flips bearish / stop breached |
+| 6 | `13_adx_dmi_trend` | ADX DMI Trend Strength | ADX(14) > 25 and +DI > −DI | ADX < 20 or −DI takes the lead |
+| 7 | `14_ichimoku_cloud` | Ichimoku Cloud Breakout | TK cross above the cloud, cloud green | close re-enters the cloud |
+| 8 | `15_parabolic_sar` | Parabolic SAR Flip | SAR dot flips below price | SAR dot flips above price |
+| 9 | `16_roc_momentum` | ROC Momentum Burst | ROC(12) crosses above 0 | ROC(12) crosses below 0 |
+| 10 | `17_aroon_trend` | Aroon Trend | Aroon Up > 70 and Up > Down | Aroon Down > 70 or Down > Up |
+| 11 | `18_heikin_ashi_trend` | Heikin-Ashi Trend | 3 wick-free HA candles, colour flip | HA candle flips colour |
+| 12 | `19_trix_momentum` | TRIX Signal Crossover | TRIX(15) crosses above its 9 signal | TRIX crosses below its signal |
+| 13 | `20_ema_ribbon_consensus` | EMA Ribbon Consensus | EMA 8/13/21/34/55 fully aligned up | any ribbon crossover down |
 
-Strategies 1–10 follow a **single-position model**: a buy is refused while a
-position is open. Strategies 11 and 12 are the documented exceptions and may
-hold many lots at once (tracked FIFO).
+### Mean Reversion & Channels
 
----
+| # | Account id | Strategy | Entry | Exit |
+|---|---|---|---|---|
+| 14 | `06_bollinger_mean_reversion` | Bollinger Bands Mean Reversion | close < Lower Band (20, 2) | close reaches Middle Band |
+| 15 | `07_keltner_breakout` | Keltner Channel Breakout | close > EMA20 + 2·ATR | close falls below EMA20 |
+| 16 | `08_stoch_rsi_reversal` | Stochastic RSI Reversal | %K crosses above %D below 20 | %K crosses below %D above 80 |
+
+### Mean Reversion & Oscillators
+
+| # | Account id | Strategy | Entry | Exit |
+|---|---|---|---|---|
+| 17 | `21_williams_r_reversal` | Williams %R Reversal | %R turns up out of < −80 | %R turns down out of > −20 |
+| 18 | `22_cci_mean_reversion` | CCI Mean Reversion | CCI(20) crosses up through −100 | CCI crosses down through +100 |
+| 19 | `23_connors_rsi_pullback` | Connors RSI(2) Pullback | Connors RSI(3,2,100) < 10 | Connors RSI > 90 |
+| 20 | `24_zscore_mean_reversion` | Z-Score Mean Reversion | z-score(20) < −2 | z-score returns to 0 |
+| 21 | `25_mfi_flow_reversal` | Money Flow Index Reversal | MFI(14) crosses up out of < 20 | MFI crosses down out of > 80 |
+| 22 | `26_chande_momentum` | Chande Momentum Oscillator | CMO(20) crosses up through −50 | CMO crosses down through +50 |
+
+### Volume & Volatility
+
+| # | Account id | Strategy | Entry | Exit |
+|---|---|---|---|---|
+| 23 | `09_vwap_pullback` | Session VWAP Pullback | close < VWAP and RSI > 40 | close ≥ VWAP + 1.5% |
+| 24 | `10_donchian_breakout` | Donchian Turtle Breakout (20/10) | close breaks the 20-candle high | close breaks the 10-candle low |
+| 25 | `27_obv_trend_breakout` | OBV Trend Breakout | OBV breaks its 20-candle high, close up | OBV breaks its 20-candle low |
+| 26 | `28_volume_spike_breakout` | Volume Spike Breakout | volume > 2× SMA20 with a 20-candle high break | close breaks the 10-candle low |
+| 27 | `29_volatility_squeeze` | Volatility Squeeze Breakout | TTM squeeze releases, close > mid band | close falls below the middle band |
+| 28 | `30_elder_ray_power` | Elder-Ray Power Shift | bear power lifts toward 0, bull power > 0 | bull power rolls over |
+
+### Price Action
+
+| # | Account id | Strategy | Entry | Exit |
+|---|---|---|---|---|
+| 29 | `31_engulfing_reversal` | Engulfing Candle Reversal | bullish engulfing at a 20-candle low | bearish engulfing or stop |
+| 30 | `32_fibonacci_pullback` | Fibonacci Retracement Pullback | pullback into the 0.382–0.618 retracement | new swing high taken or stop |
+| 31 | `33_pivot_point_bounce` | Pivot Point Bounce | bounce off prior-session S1 or the pivot | prior-session R1 reached |
+| 32 | `34_opening_range_breakout` | Opening Range Breakout | UTC open + 1h range broken upward | back inside the opening range |
+
+### Risk & Trailing
+
+| # | Account id | Strategy | Entry | Exit |
+|---|---|---|---|---|
+| 33 | `35_chandelier_trend_ride` | Chandelier Exit Trend Ride | uptrend confirmed, entry on a pullback | 3×ATR chandelier stop |
+
+### Execution-Based & Portfolio
+
+| # | Account id | Strategy | Entry | Exit |
+|---|---|---|---|---|
+| 34 | `11_dynamic_dca` | Dynamic DCA (Dip Multiplier) ‡ | every 4th candle, ×2 if 24h is red | *(accumulates; optional take-profit)* |
+| 35 | `12_arithmetic_grid` | Fixed-Step Arithmetic Grid ‡ | limit buys each 1% step down | take-profit one step up |
+| 36 | `36_martingale_dip` | Martingale Dip Accumulator ‡ | each −2% dip, size doubles (max 4 steps) | *(accumulates; optional take-profit)* |
+| 37 | `37_anti_martingale_pyramid` | Anti-Martingale Pyramid ‡ | 20-candle high breakout, adds at each +2% leg | 3% trail below the tracked peak |
+| 38 | `38_kelly_fraction_sizer` | Kelly Fraction Position Sizing | Donchian(20) breakout, sized by half-Kelly | close breaks the 10-candle low |
+
+### Composite & Hybrid
+
+| # | Account id | Strategy | Entry | Exit |
+|---|---|---|---|---|
+| 39 | `39_multi_indicator_consensus` | Multi-Indicator Consensus Vote | ≥3 of 5 independent votes agree | ≥3 votes turn the other way |
+| 40 | `40_trend_pullback_confluence` | Trend + Pullback Confluence | RSI(14) < 35 **and** close > SMA200 > SMA50 | RSI > 60 or trend breaks |
+| 41 | `41_volatility_regime_switcher` | Volatility Regime Switcher | ATR percentile ≥ 70 → fade, ≤ 30 → break out | per the active sub-regime |
+| 42 | `42_sibling_performance_allocator` | Sibling Performance Allocator | peers' median return ≥ 0 (else stands aside) | median return turns negative |
+
+‡ These 4 accounts are exempt from the one-position-per-account rule and may hold several concurrent lots: `11_dynamic_dca`, `12_arithmetic_grid`, `36_martingale_dip`, `37_anti_martingale_pyramid`.
+
+Strategy `42` is the one account that is **not** fully isolated: it reads a read-only snapshot of
+every sibling's return to decide whether to participate at all. It never writes to another
+account, and there is a test asserting that observing a peer leaves it unmutated. Every other
+account is completely independent — its own cash, its own lots, its own indicator state.
 
 ## State file
 
@@ -102,7 +170,7 @@ Writes are **atomic** (temp file + `os.replace`) and keep a rotating
 | **Min order size** | Orders under 10 USDT notional are refused, mirroring Binance spot. |
 | **Position sizing** | 95% of free cash per entry (`--alloc`), leaving room for the fee. |
 | **Double runs** | Re-running inside the same candle is a no-op unless `--force` is passed. |
-| **Candle count** | `--limit 100` by default. Because strategy 4 needs SMA(200), the fetch is automatically widened to 205 with a logged warning when that strategy is enabled. |
+| **Candle count** | `--limit 100` by default. Because strategies 4 and 40 need SMA(200), the fetch is automatically widened to 205 with a logged warning when either is enabled. |
 
 The engine maintains a hard accounting invariant, asserted by the test-suite:
 
