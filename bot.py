@@ -62,8 +62,8 @@ DEFAULT_STATE_PATH = os.path.join("docs", "data.json")
 EPS = 1e-12          # float comparison guard for quantities / balances
 MIN_QTY_STEP = 1e-8  # quantities below this are treated as flat
 
-# Binance spot minimum order notional (USDT). Orders smaller than this are
-# rejected by the broker simulation, mirroring real exchange behaviour.
+# Minimum order notional (USDT). Orders smaller than this are rejected by the
+# broker simulation, mirroring the per-market minimums real exchanges enforce.
 DEFAULT_MIN_NOTIONAL = 10.0
 
 
@@ -2977,6 +2977,24 @@ def _fresh_account(strategy: Strategy, cfg: Config) -> Account:
 # --------------------------------------------------------------------------- #
 
 
+def build_exchange() -> Any:
+    """Construct the market-data client.
+
+    Kraken rather than Binance: ``api.binance.com`` returns HTTP 451 to United
+    States IP addresses, and GitHub-hosted runners are US-based, so a scheduled
+    tick there would die at the data-fetch step. Kraken serves ``*/USDT`` spot
+    from ``api.kraken.com`` with no such restriction and supports the 15m
+    timeframe this bot runs on.
+
+    The engine only ever calls ``fetch_ohlcv`` on this object, so it is trivial
+    to swap: pass your own client to ``Engine.fetch_live(exchange=...)``.
+    """
+    if ccxt is None:
+        raise RuntimeError("ccxt is not installed. Run: pip install ccxt")
+    # Kraken is spot-only in ccxt, so no defaultType option is required.
+    return ccxt.kraken({"enableRateLimit": True, "timeout": 30000})
+
+
 class Engine:
     def __init__(self, cfg: Config, log: logging.Logger):
         self.cfg = cfg
@@ -3040,9 +3058,7 @@ class Engine:
         return max(warmups) + 5
 
     def fetch_live(self, exchange=None) -> MarketData:
-        if ccxt is None:
-            raise RuntimeError("ccxt is not installed. Run: pip install ccxt")
-        ex = exchange or ccxt.binance({"enableRateLimit": True, "timeout": 30000, "options": {"defaultType": "spot"}})
+        ex = exchange or build_exchange()
 
         limit = max(self.cfg.candle_limit, self.required_candles())
         if limit > self.cfg.candle_limit:

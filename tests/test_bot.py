@@ -695,6 +695,102 @@ class TestStrategyHealthAcrossTheWholeBook:
         assert n > 500
 
 
+class FakeExchange:
+    """Stand-in for a ccxt client, recording how it was called."""
+
+    id = "fake"
+
+    def __init__(self, rows, fail_times=0):
+        self.rows = rows
+        self.fail_times = fail_times
+        self.calls = []
+
+    def fetch_ohlcv(self, symbol, timeframe=None, limit=None, since=None):
+        self.calls.append({"symbol": symbol, "timeframe": timeframe, "limit": limit})
+        if len(self.calls) <= self.fail_times:
+            raise RuntimeError("simulated network failure")
+        return self.rows
+
+
+def _rows(n, start=50000.0):
+    """n raw ccxt OHLCV rows: [ts, o, h, l, c, v]."""
+    return [[syn.EPOCH_MS + i * syn.FIFTEEN_MIN_MS, start + i, start + i + 5,
+             start + i - 5, start + i + 2, 10.0] for i in range(n)]
+
+
+class TestLiveDataPath:
+    """The one path the offline suite never touched: fetching from an exchange."""
+
+    def _engine(self, tmp_path):
+        log = logging.getLogger("bot")
+        log.setLevel(logging.ERROR)
+        log.addHandler(logging.NullHandler())
+        return Engine(Config(state_path=str(tmp_path / "data.json")), log)
+
+    def test_build_exchange_is_kraken_with_rate_limiting(self):
+        """Kraken, not Binance: api.binance.com returns HTTP 451 to US IPs and
+        GitHub-hosted runners are US-based."""
+        ex = botmod.build_exchange()
+        assert ex.id == "kraken"
+        assert ex.enableRateLimit is True, "a cron job without rate limiting will get throttled"
+        assert "15m" in ex.timeframes, "kraken must serve the 15m timeframe this bot runs on"
+        assert ex.has["fetchOHLCV"]
+
+    def test_fetch_live_parses_rows_into_candles(self, tmp_path):
+        ex = FakeExchange(_rows(10))
+        md = self._engine(tmp_path).fetch_live(exchange=ex)
+        assert len(md) == 10
+        assert md.symbol == "BTC/USDT" and md.timeframe == "15m"
+        first = md.candles[0]
+        assert (first.ts, first.open, first.high, first.low, first.close, first.volume) == (
+            syn.EPOCH_MS, 50000.0, 50005.0, 49995.0, 50002.0, 10.0)
+
+    def test_fetch_live_requests_the_widened_limit(self, tmp_path):
+        """The workflow passes no --limit, so the fetch must widen 100 -> 205 or
+        the SMA200 strategies never warm up."""
+        engine = self._engine(tmp_path)
+        assert engine.cfg.candle_limit == 100
+        ex = FakeExchange(_rows(205))
+        engine.fetch_live(exchange=ex)
+        assert ex.calls[0]["limit"] == 205
+        assert ex.calls[0]["symbol"] == "BTC/USDT"
+        assert ex.calls[0]["timeframe"] == "15m"
+
+    def test_fetch_live_retries_a_transient_failure(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(botmod.time, "sleep", lambda s: None)  # don't wait 2s/4s
+        ex = FakeExchange(_rows(205), fail_times=2)
+        md = self._engine(tmp_path).fetch_live(exchange=ex)
+        assert len(md) == 205
+        assert len(ex.calls) == 3, "should have retried twice then succeeded"
+
+    def test_fetch_live_gives_up_after_three_attempts(self, tmp_path, monkeypatch):
+        slept = []
+        monkeypatch.setattr(botmod.time, "sleep", slept.append)
+        ex = FakeExchange(_rows(205), fail_times=99)
+        with pytest.raises(RuntimeError, match="after 3 attempts"):
+            self._engine(tmp_path).fetch_live(exchange=ex)
+        assert len(ex.calls) == 3
+        assert slept == [2.0, 4.0, 6.0], "backoff should grow with each attempt"
+
+    def test_fetch_live_rejects_a_truncated_response(self, tmp_path):
+        with pytest.raises(RuntimeError, match="only 1 candles"):
+            self._engine(tmp_path).fetch_live(exchange=FakeExchange(_rows(1)))
+
+    def test_the_whole_tick_runs_against_a_fake_exchange(self, tmp_path):
+        """Checkout -> fetch -> evaluate all 42 -> save, with no network."""
+        engine = self._engine(tmp_path)
+        engine.load_state(reset=True)
+        md = engine.fetch_live(exchange=FakeExchange(_rows(300)))
+        summary = engine.process_market(md)
+        assert len(summary) == 42
+        broken = {s: r["errors"] for s, r in summary.items() if r["errors"]}
+        assert not broken, f"strategies raised against live-shaped data: {broken}"
+        engine.persist()                      # not store.save(): persist() fills state["accounts"]
+        on_disk = json.load(open(tmp_path / "data.json"))
+        assert len(on_disk["accounts"]) == 42
+        assert on_disk["meta"]["symbol"] == "BTC/USDT"
+
+
 class TestExtendedStrategies:
     """Targeted checks for the added strategy families."""
 

@@ -18,8 +18,8 @@ with a **0.1% spot fee deducted on both sides**.
 ```bash
 pip install -r requirements.txt          # only dependency: ccxt
 
-python bot.py --init                     # create docs/data.json (12 x $1,000)
-python bot.py                            # one tick against live Binance data
+python bot.py --init                     # create docs/data.json (42 x $1,000)
+python bot.py                            # one tick against live Kraken data
 python bot.py --symbol ETH/USDT          # alternate market
 python bot.py --dry-run                  # evaluate, print, write nothing
 ```
@@ -167,7 +167,7 @@ Writes are **atomic** (temp file + `os.replace`) and keep a rotating
 | **Fill price** | Close of the signal candle, optionally degraded by `--slippage`. Grid limit orders fill at their own ladder price. |
 | **Fees** | 0.1% of notional, charged on buys (added to cost) and sells (netted from proceeds). |
 | **Insufficient funds** | The order is refused and logged — cash is never allowed to go negative. |
-| **Min order size** | Orders under 10 USDT notional are refused, mirroring Binance spot. |
+| **Min order size** | Orders under 10 USDT notional are refused, mirroring exchange minimums. |
 | **Position sizing** | 95% of free cash per entry (`--alloc`), leaving room for the fee. |
 | **Double runs** | Re-running inside the same candle is a no-op unless `--force` is passed. |
 | **Candle count** | `--limit 100` by default. Because strategies 4 and 40 need SMA(200), the fetch is automatically widened to 205 with a logged warning when either is enabled. |
@@ -282,14 +282,15 @@ indicators implemented in pure Python.
 - **Grid fills are optimistic.** A limit order is treated as filled whenever the
   candle's low/high reaches its level, which overstates fills in fast markets.
 - **No funding, borrow or shorting.** This models spot only.
-- **Binance geo-restriction.** The engine calls `api.binance.com`, which returns
-  HTTP 451 to United States IP addresses. GitHub-hosted runners are US-based, so
-  a scheduled run there will fail at the data-fetch step. Use a self-hosted
-  runner outside the US, or point the bot at an exchange that permits US access
-  (Kraken, Coinbase, KuCoin, OKX, Bybit all serve `*/USDT` spot). Note that ccxt
-  4.x has no `hostname` option for Binance, so redirecting to Binance's public
-  `data-api.binance.vision` mirror requires overriding `urls` in code.
-  *Not verified in the offline test-suite, which has no network access.*
+- **Exchange access.** Market data comes from **Kraken** (`api.kraken.com`),
+  chosen because Binance's `api.binance.com` returns HTTP 451 to United States
+  IP addresses and GitHub-hosted runners are US-based — a scheduled Binance tick
+  would die at the data-fetch step. Swapping is a one-line change in
+  `build_exchange()`; the engine only ever calls `fetch_ohlcv`, and
+  `Engine.fetch_live(exchange=...)` accepts any client for testing.
+- **Live connectivity is not covered by the test-suite.** The offline suite
+  drives the real engine through a fake exchange, so exchange reachability and
+  symbol availability are only exercised by an actual run.
 - **Results depend on synthetic-free live data.** The test-suite verifies
   mechanics, not edge; a strategy that beats a seeded random walk here has no
   implied edge in the real market.
