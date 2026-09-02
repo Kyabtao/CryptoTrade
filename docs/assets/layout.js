@@ -29,7 +29,7 @@ function renderNav(active) {
   <nav class="nav">
     <div class="nav-inner">
       <a class="brand" href="index.html"><span class="logo">₿</span> CryptoTrade</a>
-      <div class="nav-links">${links}</div>
+      <div class="nav-links" aria-label="Primary navigation">${links}</div>
       <a class="nav-who" href="profile.html" title="Bot profile &amp; account rules">
         <span class="avatar">${BOT.initials}</span>
         <span class="who-text"><b>${BOT.name}</b><span class="hide-sm">${BOT.handle}</span></span>

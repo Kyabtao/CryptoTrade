@@ -15,6 +15,20 @@ function svgText(x, y, text, attrs, parent) {
   return t;
 }
 
+
+function compactChart(container) {
+  return (container.clientWidth || window.innerWidth || 800) < 560;
+}
+
+function chartWidth(container, fallback = 800) {
+  return Math.max(280, Math.floor(container.clientWidth || fallback));
+}
+
+function chartLabel(label, max = 14) {
+  const text = String(label == null ? "" : label);
+  return text.length > max ? text.slice(0, Math.max(0, max - 1)) + "…" : text;
+}
+
 function niceStep(span, target) {
   const rough = span / target;
   const mag = Math.pow(10, Math.floor(Math.log10(rough)));
@@ -29,9 +43,10 @@ function niceStep(span, target) {
 
 /* Line chart. `series` = [{name, color, values:[...], area?}], `labels` = x labels. */
 function lineChart(container, series, labels, opts = {}) {
-  const width = container.clientWidth || 800;
-  const height = opts.height || 260;
-  const ml = opts.ml || 58, mr = 14, mt = 14, mb = 26;
+  const width = chartWidth(container, 800);
+  const compact = compactChart(container);
+  const height = opts.height || (compact ? 220 : 260);
+  const ml = opts.ml || (compact ? 46 : 58), mr = compact ? 8 : 14, mt = 14, mb = compact ? 24 : 26;
   const iw = width - ml - mr, ih = height - mt - mb;
 
   let all = [];
@@ -97,12 +112,13 @@ function lineChart(container, series, labels, opts = {}) {
 
 /* Divergent horizontal bar chart (centre at zero). `items` = [{label, value, color}]. */
 function barChartH(container, items, opts = {}) {
-  const width = container.clientWidth || 800;
-  const rowH = opts.rowH || 20;
-  const gap = opts.gap || 6;
+  const width = chartWidth(container, 800);
+  const compact = compactChart(container);
+  const rowH = opts.rowH || (compact ? 18 : 20);
+  const gap = opts.gap || (compact ? 5 : 6);
   const height = Math.max(40, items.length * (rowH + gap) + 8);
-  const labelW = opts.labelW || 210;
-  const chartX = labelW + 10, chartW = width - chartX - 58;
+  const labelW = opts.labelW || (compact ? Math.min(118, width * 0.34) : 210);
+  const chartX = labelW + (compact ? 8 : 10), chartW = Math.max(120, width - chartX - (compact ? 42 : 58));
   const maxAbs = Math.max(1, ...items.map((i) => Math.abs(i.value)));
 
   container.innerHTML = "";
@@ -113,7 +129,7 @@ function barChartH(container, items, opts = {}) {
 
   items.forEach((item, i) => {
     const cy = i * (rowH + gap) + rowH / 2 + 2;
-    svgText(labelW, cy + 4, item.label, { "text-anchor": "end", "font-size": 11.5, fill: "#97a1b5" }, svg);
+    svgText(labelW, cy + 4, compact ? chartLabel(item.label, 13) : item.label, { "text-anchor": "end", "font-size": compact ? 10.5 : 11.5, fill: "#97a1b5" }, svg);
     const w = (Math.abs(item.value) / maxAbs) * (chartW / 2);
     const bx = item.value >= 0 ? zeroX + 2 : zeroX - 2 - w;
     el("rect", { x: bx, y: cy - rowH / 2, width: Math.max(w, 1), height: rowH, rx: 3, fill: item.color || (item.value >= 0 ? "#22c55e" : "#ef4444"), opacity: 0.85 }, svg);
@@ -124,9 +140,10 @@ function barChartH(container, items, opts = {}) {
 
 /* Vertical bar chart with a zero baseline. `items` = [{label, value, color}]. */
 function barChartV(container, items, opts = {}) {
-  const width = container.clientWidth || 800;
-  const height = opts.height || 240;
-  const ml = 48, mr = 12, mt = 14, mb = 40;
+  const width = chartWidth(container, 800);
+  const compact = compactChart(container);
+  const height = opts.height || (compact ? 220 : 240);
+  const ml = compact ? 38 : 48, mr = compact ? 8 : 12, mt = 14, mb = compact ? 34 : 40;
   const iw = width - ml - mr, ih = height - mt - mb;
   const maxAbs = Math.max(1, ...items.map((i) => Math.abs(i.value)));
   const pad = maxAbs * 0.1;
@@ -160,7 +177,7 @@ function barChartV(container, items, opts = {}) {
       fill: item.color || (v >= 0 ? "#22c55e" : "#ef4444"),
       opacity: 0.85,
     }, svg);
-    svgText(cx, height - mb + 18, item.label, { "text-anchor": "middle", "font-size": 10.5, fill: "#97a1b5" }, svg);
+    svgText(cx, height - mb + 18, compact ? chartLabel(item.label, 8) : item.label, { "text-anchor": "middle", "font-size": compact ? 9.5 : 10.5, fill: "#97a1b5" }, svg);
   });
 }
 
@@ -173,9 +190,10 @@ function barChartV(container, items, opts = {}) {
 
    opts: { height, yFmt, xFmt, area, onZoom(from,to), zoom:{from,to} } */
 function interactiveLineChart(container, series, labels, opts = {}) {
-  const width = container.clientWidth || 820;
-  const height = opts.height || 300;
-  const ml = opts.ml || 62, mr = 16, mt = 16, mb = 30;
+  const width = chartWidth(container, 820);
+  const compact = compactChart(container);
+  const height = opts.height || (compact ? 240 : 300);
+  const ml = opts.ml || (compact ? 46 : 62), mr = compact ? 8 : 16, mt = 16, mb = compact ? 26 : 30;
   const iw = width - ml - mr, ih = height - mt - mb;
 
   const total = labels.length;
@@ -206,7 +224,7 @@ function interactiveLineChart(container, series, labels, opts = {}) {
     el("line", { x1: ml, x2: ml + iw, y1: y(g), y2: y(g), stroke: "#1c2333", "stroke-width": 1 }, svg);
     svgText(ml - 8, y(g) + 4, yFmt(g), { "text-anchor": "end", "font-size": 11, fill: "#5f6b82", class: "num" }, svg);
   }
-  const every = Math.max(1, Math.ceil(n / (opts.ticks || 6)));
+  const every = Math.max(1, Math.ceil(n / (opts.ticks || (compact ? 3 : 6))));
   for (let i = 0; i < n; i += every) {
     svgText(x(i), height - 8, viewLabels[i] || "", { "text-anchor": "middle", "font-size": 11, fill: "#5f6b82", class: "num" }, svg);
   }
@@ -238,7 +256,7 @@ function interactiveLineChart(container, series, labels, opts = {}) {
   container.style.position = "relative";
   container.appendChild(tip);
 
-  const hit = el("rect", { x: ml, y: mt, width: iw, height: ih, fill: "transparent", style: "cursor:crosshair" }, svg);
+  const hit = el("rect", { x: ml, y: mt, width: iw, height: ih, fill: "transparent", style: "cursor:crosshair;touch-action:none" }, svg);
 
   const idxAt = (clientX) => {
     const r = container.getBoundingClientRect();
@@ -271,7 +289,7 @@ function interactiveLineChart(container, series, labels, opts = {}) {
     tip.style.opacity = 0;
   }
 
-  hit.addEventListener("mousemove", (e) => {
+  hit.addEventListener("pointermove", (e) => {
     const i = idxAt(e.clientX);
     showAt(i);
     if (dragStart != null) {
@@ -279,9 +297,10 @@ function interactiveLineChart(container, series, labels, opts = {}) {
       band.setAttribute("x", x(a)); band.setAttribute("width", Math.max(1, x(b) - x(a))); band.setAttribute("opacity", 1);
     }
   });
-  hit.addEventListener("mouseleave", () => { hide(); dragStart = null; band.setAttribute("opacity", 0); });
-  hit.addEventListener("mousedown", (e) => { dragStart = idxAt(e.clientX); });
-  hit.addEventListener("mouseup", (e) => {
+  hit.addEventListener("pointerleave", () => { hide(); dragStart = null; band.setAttribute("opacity", 0); });
+  hit.addEventListener("pointercancel", () => { hide(); dragStart = null; band.setAttribute("opacity", 0); });
+  hit.addEventListener("pointerdown", (e) => { dragStart = idxAt(e.clientX); hit.setPointerCapture && hit.setPointerCapture(e.pointerId); });
+  hit.addEventListener("pointerup", (e) => {
     if (dragStart == null) return;
     const i = idxAt(e.clientX);
     const a = Math.min(dragStart, i), b = Math.max(dragStart, i);
@@ -322,9 +341,10 @@ function priceChart(container, rows, opts = {}) {
 
 /* Simple histogram of values into `bins` buckets. */
 function histogram(container, values, opts = {}) {
-  const width = container.clientWidth || 800;
-  const height = opts.height || 240;
-  const ml = 44, mr = 12, mt = 14, mb = 34;
+  const width = chartWidth(container, 800);
+  const compact = compactChart(container);
+  const height = opts.height || (compact ? 210 : 240);
+  const ml = compact ? 36 : 44, mr = compact ? 8 : 12, mt = 14, mb = compact ? 30 : 34;
   const iw = width - ml - mr, ih = height - mt - mb;
   container.innerHTML = "";
   if (!values.length) { container.innerHTML = '<div class="empty">No data</div>'; return; }
@@ -361,9 +381,10 @@ function histogram(container, values, opts = {}) {
 
 /* Scatter plot. `points` = [{x, y, label, color}] */
 function scatterChart(container, points, opts = {}) {
-  const width = container.clientWidth || 800;
-  const height = opts.height || 280;
-  const ml = 56, mr = 16, mt = 16, mb = 38;
+  const width = chartWidth(container, 800);
+  const compact = compactChart(container);
+  const height = opts.height || (compact ? 230 : 280);
+  const ml = compact ? 42 : 56, mr = compact ? 8 : 16, mt = 16, mb = compact ? 34 : 38;
   const iw = width - ml - mr, ih = height - mt - mb;
   container.innerHTML = "";
   if (!points.length) { container.innerHTML = '<div class="empty">No data</div>'; return; }
@@ -409,7 +430,7 @@ function scatterChart(container, points, opts = {}) {
 /* Donut chart. `items` = [{label, value, color}] */
 function donutChart(container, items, opts = {}) {
   const size = opts.size || 220;
-  const width = container.clientWidth || size;
+  const width = chartWidth(container, size);
   const r = size / 2 - 8, cx = size / 2, cy = size / 2, inner = r * 0.62;
   container.innerHTML = "";
   const total = items.reduce((s, i) => s + Math.max(0, i.value), 0);
