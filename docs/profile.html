@@ -230,7 +230,7 @@
         const draw = () => interactiveLineChart(document.getElementById("curve"), s, history.map((h) => fmtTsShort(h.ts)),
           { yFmt: (v) => "$" + v.toLocaleString("en-US", { maximumFractionDigits: 0 }), zoom: z, onZoom: (a, b) => { z = { from: a, to: b }; draw(); } });
         draw();
-        window.addEventListener("resize", draw);
+        window.addEventListener("resize", debounce(draw));
       } else {
         document.getElementById("curve").innerHTML = '<div class="empty">No history recorded yet.</div>';
       }

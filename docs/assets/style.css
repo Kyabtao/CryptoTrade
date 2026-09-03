@@ -565,7 +565,12 @@ button, .btn, .chip-btn, .nav-links a, .nav-who { min-height: 40px; }
   .nav-links { gap: 2px; overflow-x: auto; scrollbar-width: none; }
   .nav-links::-webkit-scrollbar { display: none; }
   .nav-links a { white-space: nowrap; }
-  .nav-who .hide-sm { display: none; }
+  /* Below ~980px the brand + six links + full identity chip no longer fit in
+     one row, which made the links silently scroll (hidden scrollbars, so the
+     last pages looked unreachable). Collapse the chip to its avatar so every
+     link fits from 768px up without horizontal scrolling. */
+  .nav-who { padding: 4px; }
+  .nav-who .who-text { display: none; }
 }
 
 @media (max-width: 760px) {
@@ -595,6 +600,8 @@ button, .btn, .chip-btn, .nav-links a, .nav-who { min-height: 40px; }
     margin: 0;
     padding: 8px;
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
     border: 1px solid var(--border);
     border-radius: 18px;
     background: rgba(15, 19, 28, 0.94);

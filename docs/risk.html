@@ -128,17 +128,21 @@
       drawMkt();
 
       const open = env.accounts.filter((a) => a.inPosition);
-      if (open.length) {
-        barChartH(document.getElementById("expChart"),
+      function drawExp() {
+        const host = document.getElementById("expChart");
+        if (!open.length) { host.innerHTML = '<div class="empty">Every account is flat right now.</div>'; return; }
+        barChartH(host,
           open.map((a) => ({ label: a.name.slice(0, 26), value: a.holdings * env.price, color: "#f59e0b" }))
             .sort((a, b) => b.value - a.value), { vFmt: (v) => fmtUSD0(v) });
-        barChartH(document.getElementById("upnlChart"),
+      }
+      function drawUpnl() {
+        const host = document.getElementById("upnlChart");
+        if (!open.length) { host.innerHTML = '<div class="empty">No open positions.</div>'; return; }
+        barChartH(host,
           open.map((a) => ({ label: a.name.slice(0, 26), value: a.unrealizedPnl }))
             .sort((a, b) => b.value - a.value), { vFmt: (v) => fmtUSD(v) });
-      } else {
-        document.getElementById("expChart").innerHTML = '<div class="empty">Every account is flat right now.</div>';
-        document.getElementById("upnlChart").innerHTML = '<div class="empty">No open positions.</div>';
       }
+      drawExp(); drawUpnl();
 
       const tb = document.querySelector("#pos tbody");
       function renderPos() {
@@ -162,7 +166,7 @@
       document.getElementById("search").addEventListener("input", renderPos);
       renderPos();
 
-      window.addEventListener("resize", () => { drawDd(); drawMkt(); });
+      window.addEventListener("resize", debounce(() => { drawDd(); drawMkt(); drawExp(); drawUpnl(); }));
     })().catch((e) => {
       document.body.innerHTML = '<div class="wrap"><div class="empty">Failed to load data: ' + e.message + '</div></div>';
     });

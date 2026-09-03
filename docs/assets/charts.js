@@ -2,6 +2,19 @@
 
 const SVGNS = "http://www.w3.org/2000/svg";
 
+/* Run `fn` once after a burst of viewport resize / orientation events settles.
+   Charts are drawn against their container width, so rotating a phone/tablet or
+   resizing the window must re-render them at the new width (otherwise the SVG
+   text and margins get squashed or blown up). A trailing debounce keeps this
+   cheap while a resize is being dragged or animated. */
+function debounce(fn, wait = 150) {
+  let t = null;
+  return function () {
+    clearTimeout(t);
+    t = setTimeout(fn, wait);
+  };
+}
+
 function el(name, attrs, parent) {
   const node = document.createElementNS(SVGNS, name);
   for (const k in attrs) node.setAttribute(k, attrs[k]);
@@ -330,7 +343,11 @@ function interactiveLineChart(container, series, labels, opts = {}) {
   container.style.position = "relative";
   container.appendChild(tip);
 
-  const hit = el("rect", { x: ml, y: mt, width: iw, height: ih, fill: "transparent", style: "cursor:crosshair;touch-action:none" }, svg);
+  // Full-chart hit area for crosshair + drag-zoom. `touch-action: pan-y` keeps
+  // horizontal drag-zoom working but lets vertical swipes scroll the page on
+  // touch devices — with `touch-action: none` the tall charts would trap the
+  // finger and the page could not be scrolled from over any chart.
+  const hit = el("rect", { x: ml, y: mt, width: iw, height: ih, fill: "transparent", style: "cursor:crosshair;touch-action:pan-y" }, svg);
 
   const idxAt = (clientX) => {
     const r = container.getBoundingClientRect();
@@ -531,10 +548,23 @@ function donutChart(container, items, opts = {}) {
   svgText(cx, cy + 5, opts.center || "", { "text-anchor": "middle", "font-size": 15, fill: "#e6eaf2", class: "num" }, svg);
 }
 
-/* Heatmap grid. `rows` = [{label, cells:[{label,value}]}] */
+/* Heatmap grid. `rows` = [{label, cells:[{label,value}]}]
+   When a row would hold thousands of tick columns the grid is capped at
+   `maxCols` visible columns by striding (keeping the first and last cell):
+   rendering 42 rows × up to ~2,016 tick cells (~85k DOM nodes) makes the page
+   crawl on phones, and sub-pixel slivers are unreadable anyway. */
 function heatmap(container, rows, opts = {}) {
   container.innerHTML = "";
   if (!rows.length) { container.innerHTML = '<div class="empty">No data</div>'; return; }
+  const maxCols = opts.maxCols || 480;
+  const total = rows[0].cells.length;
+  const stride = total > maxCols ? Math.ceil(total / maxCols) : 1;
+  if (stride > 1) {
+    rows = rows.map((r) => ({
+      ...r,
+      cells: r.cells.filter((_, i) => i % stride === 0 || i === total - 1),
+    }));
+  }
   const maxAbs = Math.max(1e-9, ...rows.flatMap((r) => r.cells.map((c) => Math.abs(c.value || 0))));
   const html = rows.map((r) => `
     <div class="hm-row">
