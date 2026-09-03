@@ -629,7 +629,16 @@ button, .btn, .chip-btn, .nav-links a, .nav-who { min-height: 40px; }
   .controls .spacer { display: none; }
   .msg { margin-top: 12px; padding: 11px; gap: 9px; }
   .msg .msg-sub { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-  table.data thead th { top: 56px; }
+  /* iOS Safari (WebKit) bug: a sticky header with a viewport-relative offset
+     (top: 56px) inside a horizontally scrollable ancestor (.table-wrap,
+     overflow-x: auto) is positioned relative to the wrapper box instead of
+     the viewport, so the header row lands ~56px below its natural spot and
+     visually overrides the first data row. The standard fix: make the
+     wrapper the vertical scroll context as well and pin the header at the
+     top of the wrapper's own scrollport — `top: 0` sticky is handled
+     correctly by WebKit, and rows scroll under the opaque header. */
+  .table-wrap { max-height: calc(100vh - 160px); overflow: auto; }
+  table.data thead th { top: 0; }
   .strat-grid { grid-template-columns: 1fr; }
   .drawer { padding: 0; align-items: stretch; }
   .drawer .sheet { min-height: 100%; border-radius: 0; border-left: 0; border-right: 0; padding: 20px 14px 96px; }
