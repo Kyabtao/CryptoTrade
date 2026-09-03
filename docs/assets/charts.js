@@ -127,14 +127,71 @@ function barChartH(container, items, opts = {}) {
   const zeroX = chartX + chartW / 2;
   el("line", { x1: zeroX, x2: zeroX, y1: 0, y2: height, stroke: "#2a3348", "stroke-width": 1 }, svg);
 
+  // A value label printed next to a (near) zero-length bar lands right on the
+  // axis and collides with the label of the opposite sign. Reserve the centre
+  // of the chart for bars only; only print a numeric label once the bar tip is
+  // far enough from the axis that it cannot overlap its mirror on the other side.
+  const labelZone = (chartW / 2) * (opts.labelZoneFrac || 0.18);
+
   items.forEach((item, i) => {
     const cy = i * (rowH + gap) + rowH / 2 + 2;
     svgText(labelW, cy + 4, compact ? chartLabel(item.label, 13) : item.label, { "text-anchor": "end", "font-size": compact ? 10.5 : 11.5, fill: "#97a1b5" }, svg);
     const w = (Math.abs(item.value) / maxAbs) * (chartW / 2);
-    const bx = item.value >= 0 ? zeroX + 2 : zeroX - 2 - w;
-    el("rect", { x: bx, y: cy - rowH / 2, width: Math.max(w, 1), height: rowH, rx: 3, fill: item.color || (item.value >= 0 ? "#22c55e" : "#ef4444"), opacity: 0.85 }, svg);
-    svgText(item.value >= 0 ? bx + w + 6 : bx - 6, cy + 4, (opts.vFmt || ((v) => fmtPct(v)))(item.value),
-      { "text-anchor": item.value >= 0 ? "start" : "end", "font-size": 11.5, fill: "#e6eaf2", class: "num" }, svg);
+    const drawW = Math.max(w, 2.5);
+    const bx = item.value >= 0 ? zeroX + 2 : zeroX - 2 - drawW;
+    const rect = el("rect", { x: bx, y: cy - rowH / 2, width: drawW, height: rowH, rx: 3, fill: item.color || (item.value >= 0 ? "#22c55e" : "#ef4444"), opacity: 0.85 }, svg);
+    const t = el("title", {}, rect);
+    t.textContent = `${item.label}: ${(opts.vFmt || ((v) => fmtPct(v)))(item.value)}`;
+    if (w > labelZone) {
+      svgText(item.value >= 0 ? bx + drawW + 6 : bx - 6, cy + 4, (opts.vFmt || ((v) => fmtPct(v)))(item.value),
+        { "text-anchor": item.value >= 0 ? "start" : "end", "font-size": 11.5, fill: "#e6eaf2", class: "num" }, svg);
+    }
+  });
+}
+
+/* Plain (non-divergent) horizontal bar chart scaling values over [min,max] with
+   the baseline pinned at `min` (commonly 0). Great for rates such as win %.
+   `items` = [{label, value, color}]. */
+function hbarChart(container, items, opts = {}) {
+  const width = chartWidth(container, 800);
+  const compact = compactChart(container);
+  const rowH = opts.rowH || (compact ? 20 : 22);
+  const gap = opts.gap || (compact ? 6 : 7);
+  const height = Math.max(44, items.length * (rowH + gap) + 12);
+  const labelW = opts.labelW || (compact ? Math.min(150, width * 0.36) : 230);
+  const vmin = opts.min != null ? opts.min : Math.min(0, ...items.map((i) => i.value));
+  const vmax = opts.max != null ? opts.max : Math.max(...items.map((i) => i.value));
+  const span = (vmax - vmin) || 1;
+  const chartX = labelW + (compact ? 10 : 12);
+  const chartW = Math.max(120, width - chartX - (compact ? 70 : 92));
+
+  container.innerHTML = "";
+  const svg = el("svg", { viewBox: `0 0 ${width} ${height}`, class: "chart" }, container);
+
+  // vertical gridlines + axis scale
+  const step = niceStep(span, 4);
+  for (let g = Math.ceil(vmin / step) * step; g <= vmax + 1e-9; g += step) {
+    if (g < vmin || g > vmax) continue;
+    const gx = chartX + ((g - vmin) / span) * chartW;
+    el("line", { x1: gx, x2: gx, y1: 0, y2: height - 6, stroke: "#1c2333", "stroke-width": 1 }, svg);
+    svgText(gx, height - 1, (opts.xFmt || ((v) => String(Math.round(v))))(g), { "text-anchor": "middle", "font-size": 10, fill: "#5f6b82", class: "num" }, svg);
+  }
+
+  const baseX = chartX + ((vmin - vmin) / span) * chartW; // == chartX
+  const valueFmt = opts.vFmt || ((v) => fmtPct(v));
+  items.forEach((item, i) => {
+    const cy = i * (rowH + gap) + rowH / 2 + 2;
+    svgText(labelW - 8, cy + 4, compact ? chartLabel(item.label, 16) : item.label, { "text-anchor": "end", "font-size": compact ? 10.5 : 11.5, fill: "#97a1b5" }, svg);
+    const bx = baseX;
+    const endX = chartX + ((item.value - vmin) / span) * chartW;
+    const w = Math.max(Math.abs(endX - bx), item.value > vmin ? 2.5 : 0);
+    const rx = Math.max(bx, endX);
+    const rect = el("rect", { x: bx, y: cy - rowH / 2, width: w, height: rowH, rx: 3, fill: item.color || "#3b82f6", opacity: 0.85 }, svg);
+    const t = el("title", {}, rect);
+    t.textContent = `${item.label}: ${valueFmt(item.value)}`;
+    // value label to the right of the bar tip, kept inside the chart
+    const labelX = rx + 6;
+    svgText(labelX, cy + 4, valueFmt(item.value), { "text-anchor": "start", "font-size": 11.5, fill: "#e6eaf2", class: "num" }, svg);
   });
 }
 
@@ -232,18 +289,35 @@ function interactiveLineChart(container, series, labels, opts = {}) {
   view.forEach((s) => {
     const pts = s.values.map((v, i) => (v == null ? null : [x(i), y(v)])).filter(Boolean);
     if (!pts.length) return;
-    if (s.area) {
+    // A line/area needs at least two points; a single recorded tick can only
+    // be shown as a marker, otherwise the chart renders as an empty box.
+    if (pts.length >= 2) {
+      if (s.area) {
+        el("path", {
+          d: "M" + pts.map((p) => p.join(",")).join(" L") + ` L${pts[pts.length - 1][0]},${mt + ih} L${pts[0][0]},${mt + ih} Z`,
+          fill: s.fill || "rgba(59,130,246,0.13)", stroke: "none",
+        }, svg);
+      }
       el("path", {
-        d: "M" + pts.map((p) => p.join(",")).join(" L") + ` L${pts[pts.length - 1][0]},${mt + ih} L${pts[0][0]},${mt + ih} Z`,
-        fill: s.fill || "rgba(59,130,246,0.13)", stroke: "none",
+        d: "M" + pts.map((p) => p.join(",")).join(" L"),
+        fill: "none", stroke: s.color || "#3b82f6", "stroke-width": s.width || 2,
+        "stroke-linejoin": "round", "stroke-linecap": "round",
+        "stroke-dasharray": s.dashed ? "5 4" : null,
       }, svg);
     }
-    el("path", {
-      d: "M" + pts.map((p) => p.join(",")).join(" L"),
-      fill: "none", stroke: s.color || "#3b82f6", "stroke-width": s.width || 2,
-      "stroke-linejoin": "round", "stroke-linecap": "round",
-      "stroke-dasharray": s.dashed ? "5 4" : null,
-    }, svg);
+    // Draw explicit markers whenever there are few ticks so a sparse or
+    // single-point history is still visibly rendered instead of blank.
+    if (pts.length <= 80) {
+      s.values.forEach((v, i) => {
+        if (v == null) return;
+        const c = el("circle", {
+          cx: x(i), cy: y(v), r: n <= 4 ? 4 : 2.4,
+          fill: s.color || "#3b82f6", stroke: "#0b0e14", "stroke-width": 1,
+        }, svg);
+        const tt = el("title", {}, c);
+        tt.textContent = `${s.name}: ${yFmt(v)}`;
+      });
+    }
   });
 
   /* crosshair + hover markers */
