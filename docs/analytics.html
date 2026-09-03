@@ -197,12 +197,18 @@
         Object.keys(catEq).map((c) => ({ label: c, value: catEq[c], color: categoryColor(c, cats) })),
         { center: fmtUSD0(env.totalEquity) });
 
-      barChartH(document.getElementById("winChart"),
-        env.accounts.filter((a) => a.closedCount).map((a) => ({
-          label: a.name.slice(0, 26), value: a.winRate - 50, color: a.winRate >= 50 ? "#22c55e" : "#ef4444",
-        })).sort((a, b) => b.value - a.value),
-        { vFmt: (v) => (v + 50).toFixed(0) + "%" });
-      if (!env.accounts.some((a) => a.closedCount)) {
+      const winData = env.accounts
+        .filter((a) => a.closedCount)
+        .map((a) => ({
+          label: a.name.slice(0, 26),
+          value: a.winRate,
+          color: a.winRate >= 50 ? "#22c55e" : "#ef4444",
+        }))
+        .sort((a, b) => b.value - a.value);
+      if (winData.length) {
+        hbarChart(document.getElementById("winChart"), winData,
+          { min: 0, max: 100, xFmt: (v) => v + "%", vFmt: (v) => v.toFixed(0) + "%" });
+      } else {
         document.getElementById("winChart").innerHTML = '<div class="empty">No closed trades yet.</div>';
       }
 

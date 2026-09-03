@@ -165,9 +165,21 @@ a:hover { text-decoration: underline; }
 .table-wrap { overflow-x: auto; }
 table.data {
   width: 100%;
-  border-collapse: collapse;
+  min-width: 760px;
+  /* IMPORTANT: `border-collapse: collapse` combined with `position: sticky`
+     table headers is a known WebKit / iOS Safari bug that makes the header
+     cells drift out of line with their columns (and visually sit on top of
+     the first data row). Using `separate` with zero spacing keeps every
+     column pixel-aligned while headers stay pinned. */
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 13px;
 }
+/* A table whose columns fit comfortably inside its card (e.g. the two-column
+   profile config table) must NOT be forced to the wide-table minimum width,
+   or it overflows the card and the header no longer lines up with the data. */
+table.data.table-narrow { min-width: 0; }
+
 table.data thead th {
   text-align: left;
   color: var(--text-dim);
@@ -181,12 +193,16 @@ table.data thead th {
   position: sticky;
   top: 58px;
   background: var(--panel);
-  z-index: 5;
+  z-index: 12;
+  box-shadow: 0 1px 0 var(--border);
 }
+table.data thead th.r, table.data thead th.c { box-shadow: none; }
+table.data thead th:last-child { box-shadow: 0 1px 0 var(--border); }
 table.data tbody td {
   padding: 9px 12px;
   border-bottom: 1px solid var(--border-soft);
   white-space: nowrap;
+  background: transparent;
 }
 table.data tbody tr { transition: background .1s ease; }
 table.data tbody tr:hover { background: var(--panel-2); }
@@ -542,19 +558,6 @@ button, .btn, .chip-btn, .nav-links a, .nav-who { min-height: 40px; }
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
 }
-.table-wrap::after {
-  content: "";
-  position: sticky;
-  right: 0;
-  top: 0;
-  display: block;
-  width: 34px;
-  height: 1px;
-  margin-left: auto;
-  pointer-events: none;
-  box-shadow: -18px 0 28px rgba(11, 14, 20, 0.75);
-}
-table.data { min-width: 760px; }
 .controls input[type="text"], .controls select { min-height: 42px; }
 
 @media (max-width: 980px) {
@@ -628,6 +631,15 @@ table.data { min-width: 760px; }
   .hm-row { align-items: stretch; flex-direction: column; gap: 5px; min-width: 520px; }
   .hm-label { width: auto; text-align: left; }
   pre.json { max-height: 260px; font-size: 11.5px; }
+
+  /* profile pages: let long rule text wrap instead of overflowing the card */
+  .profile-head { align-items: stretch; }
+  .profile-head h1 { overflow-wrap: anywhere; }
+  .rule { align-items: flex-start; }
+  .rule > span:last-child { min-width: 0; overflow-wrap: anywhere; }
+  .rule b { overflow-wrap: anywhere; }
+  .kv-grid { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+  .card h3 .hint { max-width: 100%; }
 }
 
 @media (max-width: 460px) {
@@ -638,8 +650,8 @@ table.data { min-width: 760px; }
   .kpi { min-height: auto; }
   .kpi .value { font-size: 20px; }
   .legend { max-height: 132px; overflow: auto; }
-  .table-wrap { margin-left: -2px; margin-right: -2px; }
   table.data { min-width: 680px; font-size: 12px; }
+  table.data.table-narrow { min-width: 0; }
   table.data thead th, table.data tbody td { padding: 8px 9px; }
   .profile-head .avatar-lg { width: 62px; height: 62px; border-radius: 18px; font-size: 22px; }
 }
