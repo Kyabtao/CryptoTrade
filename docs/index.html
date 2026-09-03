@@ -201,38 +201,47 @@
       drawRet();
 
       /* ---- distribution + categories ---- */
-      const dist = env.accounts
-        .map((a) => ({ label: a.id, value: a.returnPct, color: a.returnPct >= 0 ? "#22c55e" : "#ef4444" }))
-        .sort((a, b) => b.value - a.value);
-      barChartH(document.getElementById("distChart"), dist, {});
+      function drawDist() {
+        const dist = env.accounts
+          .map((a) => ({ label: a.id, value: a.returnPct, color: a.returnPct >= 0 ? "#22c55e" : "#ef4444" }))
+          .sort((a, b) => b.value - a.value);
+        barChartH(document.getElementById("distChart"), dist, {});
+      }
 
-      const catAgg = {};
-      env.accounts.forEach((a) => {
-        const c = a.category || "Other";
-        (catAgg[c] = catAgg[c] || { n: 0, sum: 0 });
-        catAgg[c].n++; catAgg[c].sum += a.returnPct;
-      });
-      barChartV(document.getElementById("catChart"), Object.keys(catAgg).map((c) => ({
-        label: c.length > 18 ? c.slice(0, 18) + "…" : c,
-        value: catAgg[c].sum / catAgg[c].n,
-        color: categoryColor(c, cats),
-      })), { yFmt: (v) => v.toFixed(2) + "%" });
+      function drawCat() {
+        const catAgg = {};
+        env.accounts.forEach((a) => {
+          const c = a.category || "Other";
+          (catAgg[c] = catAgg[c] || { n: 0, sum: 0 });
+          catAgg[c].n++; catAgg[c].sum += a.returnPct;
+        });
+        barChartV(document.getElementById("catChart"), Object.keys(catAgg).map((c) => ({
+          label: c.length > 18 ? c.slice(0, 18) + "…" : c,
+          value: catAgg[c].sum / catAgg[c].n,
+          color: categoryColor(c, cats),
+        })), { yFmt: (v) => v.toFixed(2) + "%" });
+      }
 
       /* ---- allocation donut ---- */
-      const cash = env.accounts.reduce((s, a) => s + a.balance, 0);
-      const exposure = env.accounts.reduce((s, a) => s + a.holdings * env.price, 0);
-      donutChart(document.getElementById("allocChart"), [
-        { label: "Idle cash (USDT)", value: cash, color: "#3b82f6" },
-        { label: "Open exposure (BTC)", value: exposure, color: "#f59e0b" },
-        { label: "Fees paid", value: env.totalFees, color: "#ef4444" },
-      ], { center: ((exposure / (cash + exposure || 1)) * 100).toFixed(1) + "%" });
+      function drawAlloc() {
+        const cash = env.accounts.reduce((s, a) => s + a.balance, 0);
+        const exposure = env.accounts.reduce((s, a) => s + a.holdings * env.price, 0);
+        donutChart(document.getElementById("allocChart"), [
+          { label: "Idle cash (USDT)", value: cash, color: "#3b82f6" },
+          { label: "Open exposure (BTC)", value: exposure, color: "#f59e0b" },
+          { label: "Fees paid", value: env.totalFees, color: "#ef4444" },
+        ], { center: ((exposure / (cash + exposure || 1)) * 100).toFixed(1) + "%" });
+      }
 
       /* ---- scatter: activity vs return ---- */
-      scatterChart(document.getElementById("scatterChart"), env.accounts.map((a) => ({
-        x: a.tradesCount, y: a.returnPct, label: a.name,
-        color: categoryColor(a.category, cats),
-        href: "trades.html?sid=" + encodeURIComponent(a.id),
-      })), { xLabel: "trades executed", yFmt: (v) => v.toFixed(2) + "%", xFmt: (v) => v.toFixed(0) });
+      function drawScatter() {
+        scatterChart(document.getElementById("scatterChart"), env.accounts.map((a) => ({
+          x: a.tradesCount, y: a.returnPct, label: a.name,
+          color: categoryColor(a.category, cats),
+          href: "trades.html?sid=" + encodeURIComponent(a.id),
+        })), { xLabel: "trades executed", yFmt: (v) => v.toFixed(2) + "%", xFmt: (v) => v.toFixed(0) });
+      }
+      drawDist(); drawCat(); drawAlloc(); drawScatter();
 
       /* ---- leaderboard ---- */
       const catSel = document.getElementById("catFilter");
@@ -282,7 +291,12 @@
       });
       renderTable();
 
-      window.addEventListener("resize", () => { drawEquity(); drawRet(); });
+      /* Charts are sized against their container width, so re-render all of
+         them (debounced) when the viewport changes — rotation, split view or a
+         window resize otherwise leaves SVG text/margins squashed or blown up. */
+      window.addEventListener("resize", debounce(() => {
+        drawEquity(); drawRet(); drawDist(); drawCat(); drawAlloc(); drawScatter();
+      }));
     })().catch((e) => {
       document.body.innerHTML = '<div class="wrap"><div class="empty">Failed to load data: ' + e.message + '</div></div>';
     });

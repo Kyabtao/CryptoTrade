@@ -184,33 +184,42 @@
       drawHeat();
 
       /* ---- histogram / scatter / donut / win rate ---- */
-      histogram(document.getElementById("histChart"), env.accounts.map((a) => a.returnPct), { bins: 12 });
-
-      scatterChart(document.getElementById("feeScatter"), env.accounts.map((a) => ({
-        x: a.totalFees, y: a.realizedPnl, label: a.name,
-        color: categoryColor(a.category, cats), href: "trades.html?sid=" + encodeURIComponent(a.id),
-      })), { xLabel: "fees paid ($)", yFmt: (v) => "$" + v.toFixed(2), xFmt: (v) => "$" + v.toFixed(1) });
-
-      const catEq = {};
-      env.accounts.forEach((a) => (catEq[a.category] = (catEq[a.category] || 0) + a.equity));
-      donutChart(document.getElementById("catDonut"),
-        Object.keys(catEq).map((c) => ({ label: c, value: catEq[c], color: categoryColor(c, cats) })),
-        { center: fmtUSD0(env.totalEquity) });
-
-      const winData = env.accounts
-        .filter((a) => a.closedCount)
-        .map((a) => ({
-          label: a.name.slice(0, 26),
-          value: a.winRate,
-          color: a.winRate >= 50 ? "#22c55e" : "#ef4444",
-        }))
-        .sort((a, b) => b.value - a.value);
-      if (winData.length) {
-        hbarChart(document.getElementById("winChart"), winData,
-          { min: 0, max: 100, xFmt: (v) => v + "%", vFmt: (v) => v.toFixed(0) + "%" });
-      } else {
-        document.getElementById("winChart").innerHTML = '<div class="empty">No closed trades yet.</div>';
+      function drawHist() {
+        histogram(document.getElementById("histChart"), env.accounts.map((a) => a.returnPct), { bins: 12 });
       }
+
+      function drawFee() {
+        scatterChart(document.getElementById("feeScatter"), env.accounts.map((a) => ({
+          x: a.totalFees, y: a.realizedPnl, label: a.name,
+          color: categoryColor(a.category, cats), href: "trades.html?sid=" + encodeURIComponent(a.id),
+        })), { xLabel: "fees paid ($)", yFmt: (v) => "$" + v.toFixed(2), xFmt: (v) => "$" + v.toFixed(1) });
+      }
+
+      function drawCatEq() {
+        const catEq = {};
+        env.accounts.forEach((a) => (catEq[a.category] = (catEq[a.category] || 0) + a.equity));
+        donutChart(document.getElementById("catDonut"),
+          Object.keys(catEq).map((c) => ({ label: c, value: catEq[c], color: categoryColor(c, cats) })),
+          { center: fmtUSD0(env.totalEquity) });
+      }
+
+      function drawWin() {
+        const winData = env.accounts
+          .filter((a) => a.closedCount)
+          .map((a) => ({
+            label: a.name.slice(0, 26),
+            value: a.winRate,
+            color: a.winRate >= 50 ? "#22c55e" : "#ef4444",
+          }))
+          .sort((a, b) => b.value - a.value);
+        if (winData.length) {
+          hbarChart(document.getElementById("winChart"), winData,
+            { min: 0, max: 100, xFmt: (v) => v + "%", vFmt: (v) => v.toFixed(0) + "%" });
+        } else {
+          document.getElementById("winChart").innerHTML = '<div class="empty">No closed trades yet.</div>';
+        }
+      }
+      drawHist(); drawFee(); drawCatEq(); drawWin();
 
       /* ---- rankings ---- */
       let sortKey = "returnPct", sortDir = -1;
@@ -240,7 +249,11 @@
       }));
       renderRank();
 
-      window.addEventListener("resize", () => { drawCmp(); drawHeat(); });
+      /* Re-render every chart on viewport changes (see docs/index.html) —
+         rotation/resizing otherwise distorts the static SVG charts. */
+      window.addEventListener("resize", debounce(() => {
+        drawCmp(); drawHeat(); drawHist(); drawFee(); drawCatEq(); drawWin();
+      }));
     })().catch((e) => {
       document.body.innerHTML = '<div class="wrap"><div class="empty">Failed to load data: ' + e.message + '</div></div>';
     });

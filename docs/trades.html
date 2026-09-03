@@ -143,15 +143,20 @@
       legend("#pnlLegend", cumSeries, drawPnl);
       drawPnl();
 
-      histogram(document.getElementById("sizeChart"), all.map((t) => t.notional || 0),
-        { bins: 10, fmt: (v) => "$" + v.toFixed(0) });
+      function drawSize() {
+        histogram(document.getElementById("sizeChart"), all.map((t) => t.notional || 0),
+          { bins: 10, fmt: (v) => "$" + v.toFixed(0) });
+      }
 
-      donutChart(document.getElementById("sideChart"), [
-        { label: "Buys", value: buys.length, color: "#22c55e" },
-        { label: "Sells", value: sells.length, color: "#ef4444" },
-      ], { center: all.length + " fills" });
+      function drawSide() {
+        donutChart(document.getElementById("sideChart"), [
+          { label: "Buys", value: buys.length, color: "#22c55e" },
+          { label: "Sells", value: sells.length, color: "#ef4444" },
+        ], { center: all.length + " fills" });
+      }
+      drawSize(); drawSide();
 
-      window.addEventListener("resize", drawPnl);
+      window.addEventListener("resize", debounce(() => { drawPnl(); drawSize(); drawSide(); }));
 
       /* filters */
       const acctSel = document.getElementById("acctFilter");
