@@ -645,6 +645,12 @@ button, .btn, .chip-btn, .nav-links a, .nav-who { min-height: 40px; }
   .rule { align-items: flex-start; }
   .rule > span:last-child { min-width: 0; overflow-wrap: anywhere; }
   .rule b { overflow-wrap: anywhere; }
+  /* Profile "Live Account Configuration" is a two-column text table: its
+     cells inherit `white-space: nowrap` from table.data, so on narrow screens
+     long values (e.g. "Kraken public OHLCV") force the card wider than the
+     viewport. Let the Setting/Value columns wrap instead. */
+  table.data.table-narrow thead th,
+  table.data.table-narrow tbody td { white-space: normal; overflow-wrap: anywhere; }
   .kv-grid { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
   .card h3 .hint { max-width: 100%; }
 }
