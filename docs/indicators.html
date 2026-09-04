@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CryptoTrade — Indicator Glossary</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <script src="assets/data.js"></script>
+  <script src="assets/charts.js"></script>
+  <script src="assets/layout.js"></script>
+  <script>renderNav("learn.html");</script>
+
+  <div class="wrap">
+    <div class="crumbs"><a href="index.html">Dashboard</a><span class="sep">›</span><a href="learn.html">Learn</a><span class="sep">›</span><span class="cur">Indicator &amp; Concept Glossary</span></div>
+    <div class="hero">
+      <div>
+        <h1>🔬 Indicator &amp; Concept Glossary</h1>
+        <div class="sub" id="sub">Every indicator, chart pattern and money-management idea the 42 strategies use — formula, plain-English meaning, and links to the lessons that use it.</div>
+      </div>
+      <div class="chip" id="statChip">loading…</div>
+    </div>
+
+    <div class="controls">
+      <input type="text" id="search" placeholder="Search concepts (rsi, kelly, candle, …)" />
+      <select id="kindFilter">
+        <option value="">All kinds</option>
+        <option value="indicator">Indicators</option>
+        <option value="basics">Basics</option>
+        <option value="execution">Execution &amp; sizing</option>
+        <option value="risk">Risk</option>
+        <option value="chart">Charting</option>
+        <option value="concept">Concepts</option>
+      </select>
+      <select id="famFilter"><option value="">All families</option></select>
+      <span class="spacer"></span>
+      <span class="mini" id="rowCount"></span>
+    </div>
+
+    <div class="section">
+      <div class="strat-grid" id="grid"></div>
+    </div>
+
+    <div class="note">
+      <b>How to use this glossary.</b> Click any card for the full explanation (“detail” and “how to read it”). Every concept lists the
+      strategies that rely on it — open those lessons to see the concept in action. Not sure where to start? Read
+      <a href="basics.html">Trading Basics</a> first, then the concepts marked <span class="diff-tag diff-1" style="vertical-align:middle">Basics 101</span>.
+    </div>
+    <div class="footer">CryptoTrade · Academy — formulas are educational summaries, not financial advice</div>
+  </div>
+
+  <!-- detail drawer -->
+  <div class="drawer" id="drawer">
+    <div class="sheet" id="sheet"></div>
+  </div>
+
+  <script>
+    (async function () {
+      const [indicators, lessons, state] = await Promise.all([loadIndicators(), loadLessons(), loadState()]);
+      if (!indicators || !indicators.length) {
+        document.querySelector(".wrap").innerHTML = '<div class="empty">Glossary not found.</div>';
+        return;
+      }
+      const env = enrichState(state);
+      renderUpdateMessage(env.meta);
+
+      const lessonById = {};
+      (lessons || []).forEach((l) => (lessonById[l.id] = l));
+      const families = [...new Set(indicators.map((c) => c.family))];
+      const famSel = document.getElementById("famFilter");
+      famSel.innerHTML = '<option value="">All families</option>' + families.map((f) => `<option>${f}</option>`).join("");
+      document.getElementById("statChip").innerHTML = `<b>${indicators.length}</b> concepts · <b>${(lessons || []).length}</b> lessons`;
+
+      const KIND = {
+        indicator: "indicator", basics: "basics", execution: "execution", risk: "risk", chart: "charting", concept: "concept",
+      };
+      const KIND_NAME = {
+        indicator: "indicator", basics: "basics", execution: "execution", risk: "risk", chart: "charting", concept: "concept",
+      };
+
+      function card(c, small) {
+        const used = (c.used_by || []).slice(0, 4).map((id) => {
+          const l = lessonById[id];
+          return `<a href="lesson.html?id=${encodeURIComponent(id)}">${esc(l ? l.name.split(" (")[0].split(" ").slice(0, 4).join(" ") : id)}</a>`;
+        }).join(", ");
+        const more = (c.used_by || []).length > 4 ? ` <span class="mini">+${c.used_by.length - 4}</span>` : "";
+        return `
+        <div class="card concept-card" onclick="openConcept('${c.id}')" style="cursor:pointer;display:flex;flex-direction:column">
+          <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
+            <div class="name">${esc(c.name)}</div>
+            <span class="badge flat">${esc(c.family.split(" & ")[0])}</span>
+          </div>
+          <div class="formula">${esc(c.formula)}</div>
+          <div class="mini" style="flex:1;line-height:1.55">${esc(c.summary)}</div>
+          ${(c.used_by || []).length ? `<div class="used">Used by: ${used}${more}</div>` : '<div class="used">Not yet used by a live lesson</div>'}
+        </div>`;
+      }
+
+      function render() {
+        const q = document.getElementById("search").value.toLowerCase();
+        const kf = document.getElementById("kindFilter").value;
+        const ff = famSel.value;
+        const rows = indicators
+          .filter((c) => (c.name + " " + c.id + " " + c.summary + " " + c.formula).toLowerCase().includes(q))
+          .filter((c) => !kf || c.kind === kf)
+          .filter((c) => !ff || c.family === ff);
+        document.getElementById("rowCount").textContent = rows.length + " concepts";
+        document.getElementById("grid").innerHTML = rows.map((c) => card(c)).join("") ||
+          '<div class="empty" style="grid-column:1/-1">Nothing matches — try another search.</div>';
+      }
+      document.getElementById("search").addEventListener("input", render);
+      document.getElementById("kindFilter").addEventListener("change", render);
+      famSel.addEventListener("change", render);
+
+      const byId = {};
+      indicators.forEach((c) => (byId[c.id] = c));
+
+      window.openConcept = function (id) {
+        const c = byId[id];
+        if (!c) return;
+        const drawer = document.getElementById("drawer");
+        const sheet = document.getElementById("sheet");
+        const lessonsList = (c.used_by || []).map((lid) => {
+          const l = lessonById[lid];
+          return l ? `<a class="cchip" href="lesson.html?id=${encodeURIComponent(lid)}"><b>${esc(l.name)}</b></a>` : "";
+        }).join("");
+        sheet.innerHTML = `
+          <button class="close" onclick="closeConcept()">✕</button>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:4px">
+            <span class="badge flat">${esc(c.family)}</span>
+            <span class="badge cat">${esc(KIND_NAME[c.kind] || c.kind)}</span>
+          </div>
+          <h2>${esc(c.name)}</h2>
+          <div class="formula" style="font-size:12.5px;white-space:normal">${esc(c.formula)}</div>
+          <h3 style="font-size:13px;color:var(--gold);margin:14px 0 6px;text-transform:uppercase;letter-spacing:.5px">What it is</h3>
+          <p style="color:var(--text-dim);font-size:13.5px;line-height:1.7;margin:0 0 10px">${esc(c.detail)}</p>
+          <h3 style="font-size:13px;color:var(--gold);margin:10px 0 6px;text-transform:uppercase;letter-spacing:.5px">How to read it</h3>
+          <p style="color:var(--text-dim);font-size:13.5px;line-height:1.7;margin:0">${esc(c.read)}</p>
+          <h3 style="font-size:13px;color:var(--gold);margin:16px 0 8px;text-transform:uppercase;letter-spacing:.5px">Used by ${(c.used_by || []).length ? "" : ""}</h3>
+          <div class="concept-chips">${lessonsList || '<span class="mini">Not used by any live strategy yet</span>'}</div>
+        `;
+        drawer.classList.add("open");
+        drawer.onclick = (e) => { if (e.target === drawer) closeConcept(); };
+      };
+      window.closeConcept = function () { document.getElementById("drawer").classList.remove("open"); };
+      document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeConcept(); });
+
+      render();
+      const hash = location.hash;
+      if (hash.length > 1) {
+        const id = decodeURIComponent(hash.slice(1));
+        if (byId[id]) {
+          render();
+          openConcept(id);
+        }
+      }
+    })().catch((e) => {
+      document.body.innerHTML = '<div class="wrap"><div class="empty">Failed to load glossary: ' + e.message + '</div></div>';
+    });
+  </script>
+</body>
+</html>

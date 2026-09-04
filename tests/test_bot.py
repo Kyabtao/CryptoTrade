@@ -746,13 +746,14 @@ class TestLiveDataPath:
             syn.EPOCH_MS, 50000.0, 50005.0, 49995.0, 50002.0, 10.0)
 
     def test_fetch_live_requests_the_widened_limit(self, tmp_path):
-        """The workflow passes no --limit, so the fetch must widen 100 -> 205 or
-        the SMA200 strategies never warm up."""
+        """The workflow passes no --limit, so the fetch must widen 100 to cover
+        both the SMA200 warm-up and the persisted candle window (720 rows =
+        ~7.5 days of 15m candles shown on the dashboard Market screen)."""
         engine = self._engine(tmp_path)
         assert engine.cfg.candle_limit == 100
-        ex = FakeExchange(_rows(205))
+        ex = FakeExchange(_rows(botmod.CANDLES_MAX_ENTRIES + 5))
         engine.fetch_live(exchange=ex)
-        assert ex.calls[0]["limit"] == 205
+        assert ex.calls[0]["limit"] == botmod.CANDLES_MAX_ENTRIES
         assert ex.calls[0]["symbol"] == "BTC/USDT"
         assert ex.calls[0]["timeframe"] == "15m"
 

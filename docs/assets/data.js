@@ -31,6 +31,30 @@ async function loadCatalog() {
   }
 }
 
+async function loadLessons() {
+  try {
+    return await fetchJSON("assets/lessons.json");
+  } catch (e) {
+    return null;
+  }
+}
+
+async function loadIndicators() {
+  try {
+    return await fetchJSON("assets/indicators.json");
+  } catch (e) {
+    return null;
+  }
+}
+
+async function loadCandles() {
+  try {
+    return await fetchJSON("candles.json");
+  } catch (e) {
+    return null;
+  }
+}
+
 /* ---------- formatting helpers ---------- */
 
 /* Escape a value before interpolating it into innerHTML. */

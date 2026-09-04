@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CryptoTrade — Learning Hub</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <script src="assets/data.js"></script>
+  <script src="assets/charts.js"></script>
+  <script src="assets/layout.js"></script>
+  <script>renderNav("learn.html");</script>
+
+  <div class="wrap">
+    <div class="hero">
+      <div>
+        <h1>📚 Learning Hub</h1>
+        <div class="sub" id="heroSub">A full course on every one of the 42 strategies — from “what is a candle?” to half-Kelly position sizing.</div>
+      </div>
+      <div class="chip" id="statChip">loading…</div>
+    </div>
+
+    <div class="section">
+      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px">
+        <a class="card" href="basics.html" style="display:block;text-decoration:none;color:inherit">
+          <h3>🌱 Start here <span class="hint">15 min read</span></h3>
+          <div class="mini" style="line-height:1.6">Never traded before? Learn candles, trends, order types, indicators, and how this paper-trading bot actually works — no jargon.</div>
+          <div style="margin-top:10px"><span class="badge cat">Trading Basics</span> <span class="badge flat">no prior knowledge needed</span></div>
+        </a>
+        <a class="card" href="indicators.html" style="display:block;text-decoration:none;color:inherit">
+          <h3>🔬 Indicator glossary <span class="hint">69 concepts</span></h3>
+          <div class="mini" style="line-height:1.6">RSI, MACD, Bollinger, VWAP, Kelly… every indicator and idea the strategies use, with its formula, plain-English meaning and links to the lessons that use it.</div>
+          <div style="margin-top:10px"><span class="badge cat">Reference</span></div>
+        </a>
+        <a class="card" href="market.html" style="display:block;text-decoration:none;color:inherit">
+          <h3>📈 See it live <span class="hint">market screen</span></h3>
+          <div class="mini" style="line-height:1.6">Real 15-minute candles with SMA/EMA/Bollinger/RSI overlays — the same inputs the bot evaluates. Spot the signals before reading their lessons.</div>
+          <div style="margin-top:10px"><span class="badge cat">Practice</span></div>
+        </a>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="card">
+        <h3>Lesson library — all 42 strategies <span class="hint">click any card for the full lesson</span></h3>
+        <div class="controls">
+          <input type="text" id="search" placeholder="Search lessons…" />
+          <select id="diffFilter"><option value="">All levels</option><option value="1">Beginner</option><option value="2">Intermediate</option><option value="3">Advanced</option></select>
+          <select id="catFilter"><option value="">All categories</option></select>
+          <span class="spacer"></span>
+          <span class="mini" id="rowCount"></span>
+        </div>
+
+        <div id="library"></div>
+      </div>
+    </div>
+
+    <div class="note">
+      <b>Suggested paths.</b>
+      Brand new → read <a href="basics.html">Basics</a> first, then lesson
+      <a href="lesson.html?id=01_rsi_mean_reversion">01</a>,
+      <a href="lesson.html?id=02_dual_ema_crossover">02</a>,
+      <a href="lesson.html?id=11_dynamic_dca">11</a>.
+      Already know indicators → start with the
+      <a href="compare.html">comparison screen</a> and the advanced lessons
+      <a href="lesson.html?id=38_kelly_fraction_sizer">38</a> and
+      <a href="lesson.html?id=41_volatility_regime_switcher">41</a>.
+      Every lesson includes the strategy's real paper-trading results — study the behaviour, not just the theory.
+    </div>
+    <div class="footer">CryptoTrade · Academy — education only, not financial advice</div>
+  </div>
+
+  <script>
+    (async function () {
+      const [lessons, state, history, indicators, catalog] = await Promise.all([
+        loadLessons(), loadState(), loadHistory(), loadIndicators(), loadCatalog(),
+      ]);
+      const env = enrichState(state);
+      renderUpdateMessage(env.meta);
+      const indCount = (indicators || []).length;
+
+      const diffCount = { 1: 0, 2: 0, 3: 0 };
+      (lessons || []).forEach((l) => (diffCount[l.difficulty] = (diffCount[l.difficulty] || 0) + 1));
+      const used = new Set();
+      (lessons || []).forEach((l) => (l.concepts || []).forEach((c) => used.add(c)));
+      document.getElementById("statChip").innerHTML =
+        `<b>${(lessons || []).length}</b> lessons · <b>${diffCount[1]}</b> beginner · <b>${diffCount[2]}</b> intermediate · <b>${diffCount[3]}</b> advanced`;
+      document.getElementById("heroSub").textContent =
+        "A full course on every one of the 42 strategies — from \u201Cwhat is a candle?\u201D to half-Kelly position sizing.";
+
+      const byId = {};
+      const catById = {};
+      (lessons || []).forEach((l) => (byId[l.id] = l));
+      (catalog || []).forEach((c) => (catById[c.id] = c));
+
+      // group by category, preserving catalog category order
+      const cats = [...new Set((catalog || []).map((c) => c.category))];
+      const catSel = document.getElementById("catFilter");
+      catSel.innerHTML = '<option value="">All categories</option>' + cats.map((c) => `<option>${c}</option>`).join("");
+
+      function esc2(s) { return esc(s); }
+      const retsById = {};
+      if (history.length) {
+        const last = history[history.length - 1];
+        Object.keys(last.rets || {}).forEach((id) => { retsById[id] = last.rets[id]; });
+      }
+
+      function lessonCard(l, a) {
+        const live = a ? `
+          <span class="mini">Eq <b class="num">${fmtUSD(a.equity)}</b></span>
+          <span class="mini ${pctClass(a.returnPct)}">Ret <b class="num">${fmtPct(a.returnPct)}</b></span>
+          <span class="mini">Trd <b class="num">${a.tradesCount}</b></span>
+          <span class="mini">Win <b class="num">${a.closedCount ? a.winRate.toFixed(0) + "%" : "—"}</b></span>` : "";
+        return `
+        <div class="card lesson-card" onclick="location.href='lesson.html?id=${encodeURIComponent(l.id)}'">
+          <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
+            <div>
+              <div class="lesson-id">${esc2(l.id)}</div>
+              <div style="font-weight:650;font-size:14.5px">${esc2(l.name)}</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+              <span class="diff-tag diff-${l.difficulty}">${esc2(l.level)}</span>
+              <span class="badge flat">warmup ${esc2(l.warmup)}</span>
+            </div>
+          </div>
+          <div class="summ">${esc2(l.summary)}</div>
+          <div class="sigline">IN ▸ ${esc2(l.entry)}<br>OUT ▸ ${esc2(l.exit)}</div>
+          <div class="mets">
+            ${live}
+          </div>
+        </div>`;
+      }
+
+      const entries = (lessons || []).map((l) => ({ l, a: env.accounts.find((x) => x.id === l.id) }));
+
+      function render() {
+        const q = document.getElementById("search").value.toLowerCase();
+        const df = document.getElementById("diffFilter").value;
+        const cf = catSel.value;
+        const rows = entries
+          .filter((e) => (e.l.id + " " + e.l.name + " " + e.l.summary).toLowerCase().includes(q))
+          .filter((e) => !df || String(e.l.difficulty) === df)
+          .filter((e) => !cf || e.l.category === cf);
+        document.getElementById("rowCount").textContent = rows.length + " lessons";
+
+        const out = [];
+        rows.forEach(({ l, a }) => out.push(lessonCard(l, a)));
+        document.getElementById("library").innerHTML =
+          out.length ? `<div class="strat-grid">${out.join("")}</div>` : '<div class="empty">No lessons match — try clearing filters.</div>';
+      }
+      document.getElementById("search").addEventListener("input", render);
+      document.getElementById("diffFilter").addEventListener("change", render);
+      catSel.addEventListener("change", render);
+
+      // jump to category via hash (#cat:Name)
+      const hash = location.hash;
+      if (hash.startsWith("#cat:")) {
+        catSel.value = decodeURIComponent(hash.slice(5));
+        if (!catSel.value) catSel.value = "";
+      }
+      render();
+      if (hash.startsWith("#cat:")) {
+        const el = document.getElementById("library");
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    })().catch((e) => {
+      document.body.innerHTML = '<div class="wrap"><div class="empty">Failed to load the library: ' + e.message + "</div></div>";
+    });
+  </script>
+</body>
+</html>

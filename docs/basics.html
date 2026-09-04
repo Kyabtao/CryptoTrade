@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CryptoTrade — Trading Basics</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <script src="assets/data.js"></script>
+  <script src="assets/charts.js"></script>
+  <script src="assets/layout.js"></script>
+  <script>renderNav("learn.html");</script>
+
+  <div class="wrap">
+    <div class="crumbs"><a href="index.html">Dashboard</a><span class="sep">›</span><a href="learn.html">Learn</a><span class="sep">›</span><span class="cur">Trading Basics</span></div>
+    <div class="hero">
+      <div>
+        <h1>🌱 Trading Basics — start here</h1>
+        <div class="sub">A plain-English introduction to the markets this bot trades and to how the dashboard works. No prior knowledge needed.</div>
+      </div>
+      <div class="chip">⏱ 15 minute read · 8 chapters</div>
+    </div>
+
+    <div class="toc-chips" id="toc">
+      <a class="chip" href="#c1">1 · Markets 101</a>
+      <a class="chip" href="#c2">2 · Candles &amp; timeframes</a>
+      <a class="chip" href="#c3">3 · Trends &amp; levels</a>
+      <a class="chip" href="#c4">4 · Indicators 101</a>
+      <a class="chip" href="#c5">5 · Strategy families</a>
+      <a class="chip" href="#c6">6 · How this bot works</a>
+      <a class="chip" href="#c7">7 · Reading results</a>
+      <a class="chip" href="#c8">8 · Money &amp; risk</a>
+      <a class="chip" href="#c9">9 · Words to know</a>
+    </div>
+
+    <div class="section basics-section" id="c1">
+      <div class="card blk">
+        <h2>1 · Markets 101</h2>
+        <div class="sub">What is actually happening when you “trade crypto”.</div>
+        <p>A <b>crypto exchange</b> (Binance, Kraken, Coinbase…) is a website where people buy and sell digital assets with each other. A <b>pair</b> like <b>BTC/USDT</b> simply means “Bitcoin priced in Tether (a dollar-pegged coin)” — the bot trades that pair, and its virtual accounts hold either USDT cash or BTC.</p>
+        <p>An <b>order</b> is an instruction: a <b>market order</b> buys/sells immediately at whatever price is available; a <b>limit order</b> says “only trade at this price or better”, and may wait. This bot places market-style orders at each candle's close, and virtual limit orders for grid strategies.</p>
+        <details class="faq"><summary>Why do prices move?</summary><div class="faq-body">Every trade has a buyer and a seller. When more people want to buy than sell at the current price, buyers raise their bids and price climbs; when sellers outnumber buyers, price falls. “The market” is just this auction — no central planner decides the price.</div></details>
+        <details class="faq"><summary>What is an exchange's order book?</summary><div class="faq-body">A live list of all resting buy and sell limit orders, with sizes. The best bid/ask at the top is where market orders fill. Liquid markets (like BTC/USDT) have deep books — your order fills almost instantly at a fair price, day or night.</div></details>
+        <details class="faq"><summary>Can I lose more than I put in?</summary><div class="faq-body">With spot (no leverage) and no shorting: no — the worst case is your coins becoming worth ~zero, never negative. This bot is long-only with 1× leverage, so every account's worst case is its starting $1,000 going to near zero, never below.</div></details>
+      </div>
+    </div>
+
+    <div class="section basics-section" id="c2">
+      <div class="card blk">
+        <h2>2 · Candles &amp; timeframes</h2>
+        <div class="sub">The language every chart speaks.</div>
+        <p>Price history is chopped into <b>candles</b>. Each candle summarises one period — this bot uses <b>15-minute candles</b> — with four numbers (<b>OHLC</b>): the price at the <b>O</b>pen, the <b>H</b>igh and <b>L</b>ow reached during the period, and the price at the <b>C</b>lose. A green candle closed higher than it opened; a red one closed lower. The <b>volume</b> bar shows how much was traded.</p>
+        <p><b>Timeframe</b> decides what each candle means. A 15m candle captures a quarter-hour; a daily candle captures a day. Signals that work on one timeframe may be noise on another — this whole experiment runs on 15m bars, one evaluation after every closed candle.</p>
+        <details class="faq"><summary>Why do the bot's candles look “delayed”?</summary><div class="faq-body">Strategies only act on <b>closed</b> candles. A candle that is still forming can change completely in its last seconds, so trading it is gambling. The bot waits for the 15-minute candle to finish, then evaluates all 42 accounts against the finished bar. That's why updates arrive right after each quarter-hour.</div></details>
+        <details class="faq"><summary>What is a “wick”?</summary><div class="faq-body">The thin line above/below a candle's body showing the high/low. A long upper wick means price shot up but was sold back down — buyers got rejected. Heikin-Ashi and engulfing strategies read wicks as rejection or acceptance stories.</div></details>
+      </div>
+    </div>
+
+    <div class="section basics-section" id="c3">
+      <div class="card blk">
+        <h2>3 · Trends &amp; levels</h2>
+        <div class="sub">The two big structures: direction and boundaries.</div>
+        <p>A <b>trend</b> is persistent direction. <b>Uptrend</b> = higher highs and higher lows; <b>downtrend</b> = lower lows and lower highs; everything else is a <b>range</b> (sideways). Roughly speaking: trend strategies make money in trends and bleed in ranges; mean-reversion strategies do the opposite. That's why this zoo of 42 accounts is full of both.</p>
+        <p><b>Support</b> is a price floor where dips keep finding buyers; <b>resistance</b> is a ceiling where rallies keep getting sold. When price finally closes through a level, it often “flips” — broken resistance becomes support. Strategies either buy bounces off levels (pivot points, Fibonacci) or buy the <b>breakout</b> through them (Donchian, opening range).</p>
+        <details class="faq"><summary>What is a breakout exactly?</summary><div class="faq-body">A candle that <b>closes</b> beyond a level or range extreme. Closes matter: a spike through a level that closes back inside is a fakeout. Multiple bot strategies (Donchian 20/10, opening range, volume-spike) wait for close-based breaks for exactly this reason.</div></details>
+        <details class="faq"><summary>What is a pullback?</summary><div class="faq-body">A short counter-trend dip inside an uptrend — the market pausing to catch its breath. Dip-buying strategies (Connors RSI, VWAP, Fibonacci) specialise in buying pullbacks, ideally only when the longer trend is still up.</div></details>
+      </div>
+    </div>
+
+    <div class="section basics-section" id="c4">
+      <div class="card blk">
+        <h2>4 · Indicators 101</h2>
+        <div class="sub">Math on price — and the #1 beginner misunderstanding.</div>
+        <p>An <b>indicator</b> is a calculation over recent prices (and sometimes volume) that summarises something: momentum (RSI, MACD), trend (moving averages), volatility (ATR, Bollinger), or flow (OBV, MFI). All of them are <b>descriptions of the past</b>, not predictions of the future. They help because markets have habits — stretched readings tend to revert, breaks of ranges tend to continue — but no indicator is ever “right” on its own.</p>
+        <p><b>Lag</b> is the price of smoothing: indicators that ignore noise (SMA200, TRIX) react late but rarely lie; fast ones (RSI(2)) react early but cry wolf often. The best education is watching an indicator disagree with price — the Academy's <a href="indicators.html">glossary</a> explains all 69 concepts used by the 42 strategies, with the formulas and the lessons that use them.</p>
+        <details class="faq"><summary>Why do different indicators disagree?</summary><div class="faq-body">Because they measure different things on different windows. RSI might say “stretched down” while EMA says “trend still up” — both can be true. That disagreement is information; strategy 39 (consensus) makes five indicators vote and trades only majorities.</div></details>
+      </div>
+    </div>
+
+    <div class="section basics-section" id="c5">
+      <div class="card blk">
+        <h2>5 · Strategy families</h2>
+        <div class="sub">The five philosophies behind the 42 accounts.</div>
+        <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-top:12px">
+          <div class="card"><h3>📈 Trend &amp; Momentum</h3><p style="color:var(--text-dim);font-size:12.5px;line-height:1.6">Buy strength, ride it, leave when it breaks. Crossovers, breakouts, ADX, Supertrend… winners when trends run, losers in chop.</p><a class="btn" href="learn.html#cat:Momentum%20%26%20Trend%20Following">13 lessons</a></div>
+          <div class="card"><h3>🪃 Mean Reversion</h3><p style="color:var(--text-dim);font-size:12.5px;line-height:1.6">Fade stretched moves back to average — RSI, Bollinger, z-score, CCI. Winners in ranges, hurt by strong trends.</p><a class="btn" href="learn.html#cat:Mean%20Reversion%20%26%20Oscillators">6 lessons</a></div>
+          <div class="card"><h3>🧭 Channels &amp; price action</h3><p style="color:var(--text-dim);font-size:12.5px;line-height:1.6">Trade the map: channel bands, VWAP, pivots, Fibonacci, opening range, engulfing candles.</p><a class="btn" href="learn.html#cat:Mean%20Reversion%20%26%20Channels">3 lessons</a> <a class="btn" href="learn.html#cat:Price%20Action">4 lessons</a></div>
+          <div class="card"><h3>📊 Volume &amp; volatility</h3><p style="color:var(--text-dim);font-size:12.5px;line-height:1.6">Confirm moves with volume (OBV, spikes) and time breakouts to volatility compressions (squeeze, Elder-Ray).</p><a class="btn" href="learn.html#cat:Volume%20%26%20Volatility">6 lessons</a></div>
+          <div class="card"><h3>🤖 Execution &amp; hybrids</h3><p style="color:var(--text-dim);font-size:12.5px;line-height:1.6">DCA, grids, martingale, Kelly sizing — and the meta layer: consensus votes, confluence filters, regime switching, ensemble allocation.</p><a class="btn" href="learn.html#cat:Execution-Based%20%26%20Portfolio">5 lessons</a> <a class="btn" href="learn.html#cat:Composite%20%26%20Hybrid">4 lessons</a></div>
+          <div class="card"><h3>🛡 Risk &amp; trailing</h3><p style="color:var(--text-dim);font-size:12.5px;line-height:1.6">The stop-loss art: ATR-scaled exits that ride trends without giving everything back.</p><a class="btn" href="learn.html#cat:Risk%20%26%20Trailing">1 lesson</a></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section basics-section" id="c6">
+      <div class="card blk">
+        <h2>6 · How this bot actually works</h2>
+        <div class="sub">The rulebook every account obeys — mirror of the Profile page.</div>
+        <p>The bot is an experiment: <b>42 isolated virtual accounts</b>, each starting with $1,000 and each running one strategy on the same BTC/USDT 15-minute candle stream from Kraken. Every quarter-hour it fetches the latest closed candle, evaluates all 42 rulebooks, executes simulated fills at the candle close, deducts a <b>0.1% fee on both sides</b>, and saves the state. <b>No real orders are ever placed.</b></p>
+        <p>Key rules: long-only, 1× leverage, FIFO lot matching, minimum order $10, at most one fill per strategy per run per candle, an optional global stop-loss/take-profit overlay, and a warm-up per strategy (e.g. 200 candles for SMA200) during which an account simply waits. Each account is isolated — no shared capital, so one strategy blowing up costs only its own $1,000. The complete rulebook is rendered on the <a href="profile.html">bot profile page</a> straight from the bot's configuration.</p>
+        <details class="faq"><summary>Where does the data come from?</summary><div class="faq-body">Public OHLCV candles from Kraken's API — no exchange keys, no accounts, no orders. The <a href="market.html">Market screen</a> shows the very candle window the bot just evaluated, with indicator overlays computed in your browser.</div></details>
+        <details class="faq"><summary>Is the money real?</summary><div class="faq-body">No. All balances are virtual and the whole state file is public in this repository. Consider every number a simulation result — useful for learning how strategies behave, useless as investment advice.</div></details>
+      </div>
+    </div>
+
+    <div class="section basics-section" id="c7">
+      <div class="card blk">
+        <h2>7 · Reading the results</h2>
+        <div class="sub">How to judge a strategy honestly.</div>
+        <ul class="tick-list">
+          <li><b>Equity vs Return.</b> Equity = cash + BTC at the latest price. Return % compares it to the $1,000 start. Both move every candle (mark-to-market) even when nothing was traded.</li>
+          <li><b>Realized vs unrealized.</b> Realized PnL comes from closed round trips; unrealized PnL is the open position's paper swing. Always look at both.</li>
+          <li><b>Win rate without context lies.</b> A grid's 90% win rate with small wins can lose to a trend account's 30% win rate with big wins. Compare average win vs average loss too (that's the b in Kelly).</li>
+          <li><b>Warm-up matters.</b> An account that waited 200 candles then traded well is behaving correctly, not “late”.</li>
+          <li><b>Drawdown is the truth.</b> A +40% strategy that first fell −60% is a different animal from a steady +15%. Check max drawdown on the <a href="portfolio.html">Portfolio</a> screen.</li>
+          <li><b>Benchmark.</b> BTC itself is the benchmark — a long-only strategy that underperforms buy-and-hold in a bull market is doing its job badly.</li>
+        </ul>
+        <details class="faq"><summary>Why does every account start flat for a while?</summary><div class="faq-body">Warm-up: each strategy refuses to signal until its indicators have enough history (up to 200 candles ≈ 2 days). During warm-up the account holds cash and its line sits at 0% — perfectly normal.</div></details>
+      </div>
+    </div>
+
+    <div class="section basics-section" id="c8">
+      <div class="card blk">
+        <h2>8 · Money &amp; risk — the part that actually matters</h2>
+        <div class="sub">Fees, sizing, and why some famous systems are traps.</div>
+        <p><b>Fees are a tax on ideas.</b> At 0.1% per side, every round trip must beat 0.2% just to break even. A strategy that wins 55% of the time with 1:1 wins is a money-loser after fees; the same strategy with 1.5:1 wins is a business. Always subtract fees before believing a backtest.</p>
+        <p><b>Sizing decides survival.</b> “How much to bet” matters more than “when to bet”. The bot shows three honest approaches: fixed fraction per entry (most accounts, 95% default), fixed schedules (DCA/grid per-leg sizes), and the <b>Kelly criterion</b> (strategy 38) — the mathematical link between your edge and your bet size, halved for safety because your edge estimate is never perfect.</p>
+        <p><b>Two classic traps to study, not copy:</b> the <b>martingale</b> (strategy 36 doubles losing bets — it recovers fast and destroys accounts that remove its caps) and its mirror the <b>anti-martingale</b> (37, which adds to winners). The difference in their equity curves is the best risk-management lesson in this whole dashboard.</p>
+        <details class="faq"><summary>Why no leverage or shorting?</summary><div class="faq-body">Leverage multiplies fees, liquidation risk and panic — it would contaminate the experiment. Long-only 1× keeps every account survivable and every curve comparable. If you can't make money without leverage, leverage won't fix that.</div></details>
+        <details class="faq"><summary>What is drawdown, really?</summary><div class="faq-body">The fall from an equity peak to its trough. If your $1,000 becomes $600, you're in a 40% drawdown — and you now need +67% to recover. Drawdowns compound against you, which is why position sizing and stop rules exist.</div></details>
+      </div>
+    </div>
+
+    <div class="section basics-section" id="c9">
+      <div class="card blk">
+        <h2>9 · Words to know</h2>
+        <div class="sub">The quick-reference glossary. Everything here has a fuller explanation in the <a href="indicators.html">indicator glossary</a>.</div>
+        <div class="terms-grid">
+          <div class="card"><b>Long / short</b><div class="mini">Long = bet price rises. Short = bet it falls. This bot is long-only.</div></div>
+          <div class="card"><b>Paper trading</b><div class="mini">Trading with simulated money against real market data.</div></div>
+          <div class="card"><b>Position</b><div class="mini">The coins an account currently holds. In position vs flat (all cash).</div></div>
+          <div class="card"><b>Lot</b><div class="mini">One buy = one lot. Accumulators hold ladders of lots bought at different prices.</div></div>
+          <div class="card"><b>Entry / exit</b><div class="mini">The signal that opens a position vs the one that closes it.</div></div>
+          <div class="card"><b>Stop-loss</b><div class="mini">A sell rule that caps loss when price moves against you.</div></div>
+          <div class="card"><b>Take-profit</b><div class="mini">A sell rule that locks in gains at a chosen profit level.</div></div>
+          <div class="card"><b>Trailing stop</b><div class="mini">A stop that follows price up and only triggers on a reversal of X%.</div></div>
+          <div class="card"><b>Volatility</b><div class="mini">How violently price moves — measured by ATR or standard deviation.</div></div>
+          <div class="card"><b>Liquidity</b><div class="mini">How easily you can trade without moving price. BTC/USDT is very liquid.</div></div>
+          <div class="card"><b>Slippage</b><div class="mini">The gap between expected and actual fill price.</div></div>
+          <div class="card"><b>Regime</b><div class="mini">The market's current character (trending / ranging, calm / volatile).</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="lesson-nav">
+      <a class="btn" href="learn.html">← Back to the Learning Hub</a>
+      <span class="spacer2"></span>
+      <a class="btn primary" href="indicators.html">Continue to the Indicator Glossary →</a>
+    </div>
+    <div class="footer">CryptoTrade · Academy — education only, not financial advice</div>
+  </div>
+</body>
+</html>

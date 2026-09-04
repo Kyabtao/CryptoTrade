@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CryptoTrade — Strategy Comparison</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <script src="assets/data.js"></script>
+  <script src="assets/charts.js"></script>
+  <script src="assets/layout.js"></script>
+  <script>renderNav("compare.html");</script>
+
+  <div class="wrap">
+    <div class="crumbs"><a href="index.html">Dashboard</a><span class="sep">›</span><span class="cur">Compare</span></div>
+    <div class="hero">
+      <div>
+        <h1>⚖️ Strategy Comparison</h1>
+        <div class="sub">Pick any strategies and put them side by side: rules, parameters, live stats and equity curves.</div>
+      </div>
+      <div class="chip" id="selChip">0 selected</div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
+      <h3>Pick strategies <span class="hint">click to toggle · up to 6 · link is shareable</span></h3>
+      <div class="controls">
+        <button class="btn" id="presetTop">Top returns</button>
+        <button class="btn" id="presetTrend">Trend</button>
+        <button class="btn" id="presetRev">Mean reversion</button>
+        <button class="btn" id="presetExec">Execution</button>
+        <button class="btn" id="clearAll">Clear</button>
+        <span class="spacer"></span>
+        <span class="mini"># = account id · live stats from the last tick</span>
+      </div>
+      <div class="pick-list" id="picks"></div>
+    </div>
+
+    <div class="card" id="emptyBox" style="margin-bottom:16px">
+      <div class="empty">Select 2 or more strategies above to compare. Tip: “Top returns” is a great first look.</div>
+    </div>
+
+    <div id="body" style="display:none">
+      <div class="section">
+        <div class="card">
+          <h3>Equity Curves — return % over ticks <span class="hint">hover · click legend to toggle · drag to zoom</span></h3>
+          <div class="legend" id="eqLegend"></div>
+          <div id="eqChart" class="chart"></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="card">
+          <h3>Live Stats <span class="hint">equity &amp; return at the latest price</span></h3>
+          <div class="table-wrap"><table class="data">
+            <thead><tr><th>Strategy</th><th class="r">Equity</th><th class="r">Return</th><th class="r">Trades</th><th class="r">Win %</th><th class="r">Realized</th><th class="r">Unrealized</th><th class="r">Fees</th><th class="r">Best / worst</th></tr></thead>
+            <tbody id="statsRows"></tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="card">
+          <h3>Signals &amp; Rules</h3>
+          <div class="table-wrap"><table class="data">
+            <thead><tr><th></th><th>Category</th><th>Warm-up</th><th>Position</th><th class="c">Entry signal</th><th class="c">Exit signal</th><th>Difficulty</th><th></th></tr></thead>
+            <tbody id="rulesRows"></tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="card">
+          <h3>Parameters — defaults from bot.py</h3>
+          <div class="table-wrap"><table class="data" id="paramTable">
+            <thead><tr><th>Param</th></tr></thead>
+            <tbody></tbody>
+          </table></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="card">
+          <h3>Head-to-head <span class="hint">per-tick return correlation (Pearson)</span></h3>
+          <div class="table-wrap"><table class="data">
+            <thead><tr><th>A</th><th>B</th><th class="r">Correlation</th><th class="r">Shared ticks</th><th class="c">Interpretation</th></tr></thead>
+            <tbody id="hhRows"></tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="note">
+      <b>Fair comparison.</b> All 42 accounts started with the same $1,000 on the same candle and pay the same 0.1% fee —
+      differences in equity come only from strategy behaviour. Papers are virtual; results are not financial advice.
+    </div>
+    <div class="footer">CryptoTrade · selection is stored in the URL hash — share it to reproduce a comparison</div>
+  </div>
+
+  <script>
+    (async function () {
+      const [state, history, lessons] = await Promise.all([loadState(), loadHistory(), loadLessons()]);
+      const env = enrichState(state);
+      renderUpdateMessage(env.meta);
+      const lessonById = {};
+      (lessons || []).forEach((l) => (lessonById[l.id] = l));
+
+      const MAX = 6;
+      const COLS = ["#3b82f6", "#22c55e", "#f59e0b", "#a78bfa", "#ef4444", "#06b6d4"];
+      const selected = new Set();
+      const init = new URLSearchParams(location.search).getAll("id");
+      init.slice(0, MAX).forEach((id) => { if (env.accounts.find((a) => a.id === id)) selected.add(id); });
+
+      // quick presets
+      const sortedBy = (fn) => [...env.accounts].sort((a, b) => fn(b) - fn(a)).slice(0, 4).map((a) => a.id);
+      document.getElementById("presetTop").onclick = () => {
+        selected.clear();
+        sortedBy((a) => a.returnPct).forEach((id) => selected.add(id));
+        paint(); location.hash = hashOf();
+      };
+      document.getElementById("presetTrend").onclick = () => {
+        selected.clear();
+        ["02_dual_ema_crossover", "04_triple_moving_average", "05_supertrend_atr", "10_donchian_breakout"].forEach((id) => { if (env.accounts.find((a) => a.id === id)) selected.add(id); });
+        paint(); location.hash = hashOf();
+      };
+      document.getElementById("presetRev").onclick = () => {
+        selected.clear();
+        ["01_rsi_mean_reversion", "06_bollinger_mean_reversion", "24_zscore_mean_reversion", "08_stoch_rsi_reversal"].forEach((id) => { if (env.accounts.find((a) => a.id === id)) selected.add(id); });
+        paint(); location.hash = hashOf();
+      };
+      document.getElementById("presetExec").onclick = () => {
+        selected.clear();
+        ["11_dynamic_dca", "12_arithmetic_grid", "36_martingale_dip", "37_anti_martingale_pyramid"].forEach((id) => { if (env.accounts.find((a) => a.id === id)) selected.add(id); });
+        paint(); location.hash = hashOf();
+      };
+      document.getElementById("clearAll").onclick = () => { selected.clear(); paint(); location.hash = ""; };
+
+      const hashOf = () => "#" + [...selected].map((id) => "id=" + encodeURIComponent(id)).join("&");
+
+      const pickHost = document.getElementById("picks");
+      function paintPicks() {
+        pickHost.innerHTML = env.accounts.map((a) => {
+          const l = lessonById[a.id];
+          const on = selected.has(a.id);
+          const disabled = !on && selected.size >= MAX;
+          return `<button class="pick ${on ? "on" : ""}" style="${disabled ? "opacity:.45" : ""}" data-id="${esc(a.id)}">${on ? "✓ " : ""}${esc(a.id.slice(0, 2))} ${esc(a.name)}${l ? " · " + l.level.slice(0, 4) : ""}</button>`;
+        }).join("");
+        pickHost.querySelectorAll(".pick").forEach((b) => {
+          b.onclick = () => {
+            const id = b.dataset.id;
+            if (selected.has(id)) selected.delete(id);
+            else if (selected.size < MAX) selected.add(id);
+            paint(); location.hash = hashOf();
+          };
+        });
+        document.getElementById("selChip").innerHTML = `<b>${selected.size}</b> selected`;
+      }
+
+      function colorFor(i) { return COLS[i % COLS.length]; }
+
+      function seriesFor(a, color) {
+        return {
+          name: a.name, color, width: 2,
+          values: history.map((h) => (h.rets && h.rets[a.id] != null ? h.rets[a.id] : null)),
+        };
+      }
+
+      function drawChart() {
+        const host = document.getElementById("eqChart");
+        if (!history.length) { host.innerHTML = '<div class="empty">No history recorded yet.</div>'; return; }
+        const list = [...selected];
+        const series = list.map((id, i) => seriesFor(env.accounts.find((a) => a.id === id), colorFor(i)));
+        let zoom = null;
+        const draw = () => {
+          interactiveLineChart(host, series.filter((s) => s.visible !== false), history.map((h) => fmtTsShort(h.ts)),
+            { height: 300, yFmt: (v) => v.toFixed(2) + "%", zoom, onZoom: (x, y2) => { zoom = { from: x, to: y2 }; draw(); } });
+        };
+        draw();
+        legend(document.getElementById("eqLegend"), series, draw);
+      }
+
+      function stats() {
+        const list = [...selected];
+        document.getElementById("statsRows").innerHTML = list.map((id, i) => {
+          const a = env.accounts.find((x) => x.id === id);
+          const l = lessonById[id];
+          return `<tr>
+            <td><span class="swatch" style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${colorFor(i)};margin-right:8px"></span><a href="lesson.html?id=${encodeURIComponent(id)}">${esc(a.name)}</a> <span class="mono" style="color:var(--text-faint);font-size:11px">${esc(id)}</span></td>
+            <td class="r num">${fmtUSD(a.equity)}</td>
+            <td class="r num ${pctClass(a.returnPct)}">${fmtPct(a.returnPct)}</td>
+            <td class="r num">${a.tradesCount}</td>
+            <td class="r num">${a.closedCount ? a.winRate.toFixed(0) + "%" : "—"}</td>
+            <td class="r num ${pctClass(a.realizedPnl)}">${fmtUSD(a.realizedPnl)}</td>
+            <td class="r num ${pctClass(a.unrealizedPnl)}">${fmtUSD(a.unrealizedPnl)}</td>
+            <td class="r num">${fmtUSD(a.totalFees)}</td>
+            <td class="r num">${fmtUSD(a.best)} / ${fmtUSD(a.worst)}</td>
+          </tr>`;
+        }).join("");
+        document.getElementById("rulesRows").innerHTML = list.map((id, i) => {
+          const l = lessonById[id];
+          return `<tr>
+            <td><span class="swatch" style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${colorFor(i)};margin-right:8px"></span><b>${esc(l ? l.name : id)}</b></td>
+            <td>${esc(l ? l.category : "—")}</td>
+            <td class="num">${l ? l.warmup : "—"}</td>
+            <td>${l && l.single_position ? "single position" : '<span style="color:var(--gold)">multi-lot</span>'}</td>
+            <td style="white-space:normal;max-width:320px">${esc(l ? l.entry : "—")}</td>
+            <td style="white-space:normal;max-width:320px">${esc(l ? l.exit : "—")}</td>
+            <td>${l ? `<span class="diff-tag diff-${l.difficulty}">${esc(l.level)}</span>` : "—"}</td>
+            <td><a class="btn" href="lesson.html?id=${encodeURIComponent(id)}" style="padding:3px 10px;font-size:12px">Lesson</a></td>
+          </tr>`;
+        }).join("");
+      }
+
+      function params() {
+        const list = [...selected];
+        const head = document.querySelector("#paramTable thead tr");
+        head.innerHTML = "<th>Param</th>" + list.map((id) => {
+          const l = lessonById[id];
+          return `<th class="r">${esc(l ? l.name.split(" (")[0] : id)}</th>`;
+        }).join("");
+        const keys = [...new Set(list.flatMap((id) => Object.keys((lessonById[id] || {}).params || {})))];
+        const rows = keys.map((k) => {
+          const vals = list.map((id) => {
+            const p = (lessonById[id] || {}).params || {};
+            const v = p[k] ? p[k].default : null;
+            return `<td class="r num">${v === null || v === undefined ? "—" : esc(typeof v === "number" ? fmtNum(v, 4) : String(v))}</td>`;
+          }).join("");
+          return `<tr><td class="mono" style="color:var(--gold)">${esc(k)}</td>${vals}</tr>`;
+        }).join("");
+        document.querySelector("#paramTable tbody").innerHTML = rows || '<tr><td class="empty" colspan="' + (list.length + 1) + '">No parameters</td></tr>';
+      }
+
+      /* Per-tick returns are the day-over-day change of each cumulative
+         return series; history rows align across accounts, so consecutive
+         values with both defined give an aligned return-pair series. */
+      function pairDiffs(aId, bId) {
+        const dx = [], dy = [];
+        let px = null, py = null;
+        for (const h of history) {
+          const rx = h.rets && h.rets[aId];
+          const ry = h.rets && h.rets[bId];
+          if (rx == null || ry == null) continue;
+          if (px != null && py != null) { dx.push(rx - px); dy.push(ry - py); }
+          px = rx; py = ry;
+        }
+        return { dx, dy };
+      }
+
+      function head2head() {
+        const list = [...selected];
+        const rows = [];
+        for (let i = 0; i < list.length; i++) {
+          for (let j = i + 1; j < list.length; j++) {
+            const { dx, dy } = pairDiffs(list[i], list[j]);
+            const r = dx.length > 12 ? corr(dx, dy) : null;
+            const a = env.accounts.find((x) => x.id === list[i]);
+            const b = env.accounts.find((x) => x.id === list[j]);
+            rows.push({ i, j, a, b, r, n: dx.length });
+          }
+        }
+        rows.sort((x, y) => Math.abs(y.r || 0) - Math.abs(x.r || 0));
+        document.getElementById("hhRows").innerHTML = rows.map(({ i, j, a, b, r, n }) => `
+          <tr>
+            <td>${esc(a.name)}</td><td>${esc(b.name)}</td>
+            <td class="r num">${r == null ? "—" : r.toFixed(2)}</td>
+            <td class="r num">${n}</td>
+            <td class="c mini">${r == null ? "not enough ticks" : Math.abs(r) > 0.6 ? "move together" : Math.abs(r) > 0.2 ? "loosely related" : "independent-ish"}</td>
+          </tr>`).join("");
+      }
+
+      function corr(X, Y) {
+        const n = X.length;
+        const mx = X.reduce((s, v) => s + v, 0) / n;
+        const my = Y.reduce((s, v) => s + v, 0) / n;
+        let num = 0, dx = 0, dy = 0;
+        for (let k = 0; k < n; k++) {
+          num += (X[k] - mx) * (Y[k] - my);
+          dx += (X[k] - mx) ** 2;
+          dy += (Y[k] - my) ** 2;
+        }
+        return num / Math.sqrt(dx * dy || 1e-12);
+      }
+
+      function paint() {
+        paintPicks();
+        const show = selected.size >= 1;
+        document.getElementById("emptyBox").style.display = show ? "none" : "";
+        document.getElementById("body").style.display = show ? "" : "none";
+        if (!show) return;
+        stats();
+        if (selected.size >= 1) drawChart();
+        if (selected.size >= 1) params();
+        head2head();
+      }
+      paint();
+    })().catch((e) => {
+      document.body.innerHTML = '<div class="wrap"><div class="empty">Failed to load compare: ' + e.message + '</div></div>';
+    });
+  </script>
+</body>
+</html>

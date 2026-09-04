@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CryptoTrade — Market</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <script src="assets/data.js"></script>
+  <script src="assets/charts.js"></script>
+  <script src="assets/layout.js"></script>
+  <script>renderNav("market.html");</script>
+
+  <div class="wrap">
+    <div class="hero">
+      <div>
+        <h1>📈 Market — BTC/USDT · 15m</h1>
+        <div class="sub" id="heroSub">The same Kraken candles the bot evaluates, drawn in your browser with the indicators the strategies trade.</div>
+      </div>
+      <div class="hero-price">
+        <div class="big num" id="heroPrice">—</div>
+        <div class="delta num" id="heroDelta">—</div>
+        <div class="mtag" id="heroMeta"></div>
+      </div>
+    </div>
+
+    <div class="ohlc-strip" id="ohlcStrip"></div>
+
+    <div class="card" style="margin-bottom:16px">
+      <h3>Candles &amp; indicators
+        <span class="chart-tools" id="tools">
+          <button class="chip-btn on" data-ov="sma">SMA 20/50/200</button>
+          <button class="chip-btn on" data-ov="ema">EMA 9/21</button>
+          <button class="chip-btn" data-ov="bb">Bollinger 20·2</button>
+          <button class="chip-btn" data-ov="rsi">RSI 14</button>
+        </span>
+      </h3>
+      <div class="mini" style="margin-bottom:8px;color:var(--text-faint)">
+        <span id="chartHint">hover for OHLCV · drag to zoom · double-click to reset</span>
+      </div>
+      <div id="mainChart" class="chart"></div>
+      <div id="rsiHost" class="chart" style="margin-top:12px;display:none"></div>
+      <div class="legend" id="legend"></div>
+    </div>
+
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px">
+      <div class="card">
+        <h3>Strategy fills on the latest candles <span class="hint">all 42 accounts · newest first</span></h3>
+        <div class="table-wrap"><table class="data table-narrow">
+          <thead><tr><th>Time</th><th>Strategy</th><th>Side</th><th class="r">Price</th><th class="r">Qty</th><th>Why</th></tr></thead>
+          <tbody id="fillRows"></tbody>
+        </table></div>
+      </div>
+      <div class="card">
+        <h3>How to read this screen</h3>
+        <ul class="tick-list" style="display:flex;flex-direction:column;gap:8px">
+          <li>The candle window refreshes after every closed 15m tick — the file is written by the bot itself, so what you see is exactly what it evaluated.</li>
+          <li>Toggle overlays and compare them with the IN▸ / OUT▸ rules on each <a href="learn.html">lesson page</a>.</li>
+          <li><b>SMA 20/50/200</b> powers the triple-MA stack (04); <b>EMA 9/21</b> is the dual-EMA crossover (02); <b>Bollinger 20·2</b> drives the band fades (06, 29, 41); <b>RSI 14</b> is the classic oscillator (01, 08, 40).</li>
+          <li>Volume bars are 15m traded volume — look for 2× spikes before reading breakout lessons (28).</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="note">
+      <b>About the data.</b> Candles are real Kraken BTC/USDT OHLCV rows stored in <code>docs/candles.json</code> by the
+      scheduled bot run (market data only — no orders, ever). When no candles are recorded yet the screen falls back to the
+      recorded tick closes from <code>history.json</code>.
+    </div>
+    <div class="footer">CryptoTrade · indicator overlays are computed client-side for education — not financial advice</div>
+  </div>
+
+  <script>
+    (async function () {
+      const [candlesFile, state, history, lessons] = await Promise.all([loadCandles(), loadState(), loadHistory(), loadLessons()]);
+      const env = enrichState(state);
+      renderUpdateMessage(env.meta);
+      const meta = env.meta;
+      const lessonById = {};
+      (lessons || []).forEach((l) => (lessonById[l.id] = l));
+
+      /* ---- indicators (pure JS, aligned with bot.py semantics) ---- */
+      function smaSeries(v, n) {
+        const out = new Array(v.length).fill(null);
+        let sum = 0;
+        for (let i = 0; i < v.length; i++) {
+          sum += v[i];
+          if (i >= n) sum -= v[i - n];
+          if (i >= n - 1) out[i] = sum / n;
+        }
+        return out;
+      }
+      function emaSeries(v, n) {
+        const out = new Array(v.length).fill(null);
+        const k = 2 / (n + 1);
+        let prev = null;
+        for (let i = 0; i < v.length; i++) {
+          if (i === n - 1) { prev = v.slice(0, n).reduce((s, x) => s + x, 0) / n; out[i] = prev; }
+          else if (i >= n) { prev = v[i] * k + prev * (1 - k); out[i] = prev; }
+        }
+        return out;
+      }
+      function stdev(a, mean) {
+        return Math.sqrt(a.reduce((s, x) => s + (x - mean) * (x - mean), 0) / a.length);
+      }
+      function bollinger(v, n, mult) {
+        const mid = smaSeries(v, n), up = new Array(v.length).fill(null), lo = new Array(v.length).fill(null);
+        for (let i = n - 1; i < v.length; i++) {
+          const win = v.slice(i - n + 1, i + 1);
+          const sd = stdev(win, mid[i]);
+          up[i] = mid[i] + mult * sd;
+          lo[i] = mid[i] - mult * sd;
+        }
+        return { up, mid, lo };
+      }
+      function rsiSeries(v, n) {
+        const out = new Array(v.length).fill(null);
+        let gain = 0, loss = 0;
+        for (let i = 1; i < v.length; i++) {
+          const ch = v[i] - v[i - 1];
+          const g = Math.max(ch, 0), l = Math.max(-ch, 0);
+          if (i <= n) { gain += g; loss += l; if (i === n) { gain /= n; loss /= n; } }
+          else { gain = (gain * (n - 1) + g) / n; loss = (loss * (n - 1) + l) / n; }
+          if (i >= n) out[i] = loss === 0 ? 100 : 100 - 100 / (1 + gain / loss);
+        }
+        return out;
+      }
+
+      /* ---- data source: real candles when present, else recorded closes ---- */
+      const candleMeta = candlesFile && candlesFile.meta ? candlesFile.meta : null;
+      const candles = (candlesFile && candlesFile.candles) ? candlesFile.candles : [];
+      const closes = candles.map((c) => c[4]);
+      const tsList = candles.map((c) => c[0]);
+      const volList = candles.map((c) => c[5]);
+      const usingCloses = candles.length === 0 && history.length > 1;
+
+      const OHLC_LABEL = { o: "Open", h: "High", l: "Low", c: "Close" };
+      const price = meta.last_price || (history.length ? history[history.length - 1].price : 0);
+
+      function stamp(tsMs) {
+        const d = new Date(tsMs);
+        return d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) + " " +
+          d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+      }
+
+      if (usingCloses) {
+        history.forEach((h) => { closes.push(h.price); tsList.push(new Date(h.candle_ts).getTime()); });
+      }
+
+      const firstC = closes.length ? closes[0] : price;
+      const dayIdx = Math.max(0, closes.length - 96); // ~24h of 15m candles
+      const dayOpen = closes.length > dayIdx ? closes[dayIdx] : firstC;
+      const winHigh = closes.length ? Math.max(...closes.slice(dayIdx)) : price;
+      const winLow = closes.length ? Math.min(...closes.slice(dayIdx)) : price;
+      const dayVol = volList.length ? volList.slice(dayIdx).reduce((s, v) => s + v, 0) : 0;
+      const deltaDay = dayOpen ? (price / dayOpen - 1) * 100 : 0;
+      const deltaWin = firstC ? (price / firstC - 1) * 100 : 0;
+
+      document.getElementById("heroPrice").textContent = fmtPrice(price);
+      document.getElementById("heroDelta").innerHTML =
+        `<span class="${pctClass(deltaWin)}">${fmtPct(deltaWin)}</span> over the shown window`;
+      document.getElementById("heroMeta").textContent =
+        (candleMeta && candleMeta.exchange ? candleMeta.exchange : "Kraken (public OHLCV)") +
+        " · " + (candleMeta ? candleMeta.timeframe : "15m") + " · updated " +
+        (candleMeta && candleMeta.updated_at ? fmtTs(candleMeta.updated_at) : fmtTs(meta.updated_at));
+      document.getElementById("heroSub").textContent =
+        usingCloses ? "No candle file yet — showing recorded tick closes; real OHLCV appears after the next scheduled tick." :
+          (candleMeta ? candleMeta.count : 0) + " closed candles · " + stamp(closes.length ? tsList[tsList.length - 1] : Date.now()) +
+          " · " + (candleMeta && candleMeta.symbol ? candleMeta.symbol : meta.symbol);
+
+      document.getElementById("ohlcStrip").innerHTML = `
+        <div class="ohlc"><div class="k">Last</div><div class="v num">${fmtPrice(price)}</div></div>
+        <div class="ohlc"><div class="k">24h high</div><div class="v num">${fmtPrice(winHigh)}</div></div>
+        <div class="ohlc"><div class="k">24h low</div><div class="v num">${fmtPrice(winLow)}</div></div>
+        <div class="ohlc"><div class="k">24h change</div><div class="v num ${pctClass(deltaDay)}">${fmtPct(deltaDay)}</div></div>
+        <div class="ohlc"><div class="k">24h volume (BTC)</div><div class="v num">${volList.length ? fmtNum(dayVol, 2) : "—"}</div></div>
+        <div class="ohlc"><div class="k">Paper fills (42 accts)</div><div class="v num">${env.totalTrades}</div></div>`;
+
+      /* ---- toggles ---- */
+      const toggles = { sma: true, ema: true, bb: false, rsi: false };
+      let zoom = null;
+
+      document.getElementById("tools").querySelectorAll(".chip-btn").forEach((b) => {
+        b.onclick = () => {
+          toggles[b.dataset.ov] = !toggles[b.dataset.ov];
+          b.classList.toggle("on", toggles[b.dataset.ov]);
+          draw();
+        };
+      });
+
+      const COL = { sma: ["#f59e0b", "#a78bfa", "#ef4444"], ema: ["#22c55e", "#ec4899"], bb: ["#3b82f6", "#3b82f6", "#3b82f6"] };
+
+      function overlays() {
+        const list = [];
+        if (toggles.sma) {
+          [20, 50, 200].forEach((n, i) => {
+            list.push({ name: "SMA" + n, color: COL.sma[i], width: i === 2 ? 2 : 1.4, values: smaSeries(closes, n) });
+          });
+        }
+        if (toggles.ema) {
+          list.push({ name: "EMA9", color: COL.ema[0], width: 1.6, values: emaSeries(closes, 9) });
+          list.push({ name: "EMA21", color: COL.ema[1], width: 1.6, values: emaSeries(closes, 21) });
+        }
+        if (toggles.bb) {
+          const bb = bollinger(closes, 20, 2);
+          list.push({ name: "BB upper", color: COL.bb[0], width: 1.1, values: bb.up });
+          list.push({ name: "BB mid", color: COL.bb[1], width: 1.1, dashed: true, values: bb.mid });
+          list.push({ name: "BB lower", color: COL.bb[2], width: 1.1, values: bb.lo });
+        }
+        return list;
+      }
+
+      function rsiOverlay() {
+        const r = rsiSeries(closes, 14);
+        const n = r.length;
+        const k30 = new Array(n).fill(30), k70 = new Array(n).fill(70);
+        return [
+          { name: "RSI 14", color: "#a78bfa", width: 2, values: r },
+          { name: "70", color: "#ef4444", width: 1, dashed: true, values: k70 },
+          { name: "30", color: "#22c55e", width: 1, dashed: true, values: k30 },
+        ];
+      }
+
+      function fmtOv(v) { return v == null ? "" : (typeof v === "number" && Math.abs(v) > 50 ? v.toFixed(1) : v.toFixed(2)); }
+
+      function draw() {
+        const host = document.getElementById("mainChart");
+        const rsiHost = document.getElementById("rsiHost");
+
+        const legendHost = document.getElementById("legend");
+        legendHost.innerHTML = "";
+
+        if (!closes.length) {
+          host.innerHTML = '<div class="empty">No market data recorded yet — appears after the first tick.</div>';
+          rsiHost.style.display = "none";
+          return;
+        }
+
+        if (usingCloses) {
+          // stepped line over recorded closes (no OHLC yet)
+          const series = [{ name: "Recorded closes", color: "#f59e0b", width: 2 }].concat(overlays().map((o) => ({ ...o })));
+          let z = zoom;
+          interactiveLineChart(host, series, tsList.map((t) => fmtTsShort(new Date(t).toISOString())), {
+            height: 340, yFmt: (v) => "$" + v.toLocaleString("en-US", { maximumFractionDigits: 0 }),
+            zoom: z, onZoom: (x, y2) => { zoom = { from: x, to: y2 }; draw(); },
+          });
+          const names = series.map((s) => s.name);
+          legendHost.innerHTML = names.map((n) => `<span class="item"><span class="swatch" style="background:${series[names.indexOf(n)].color}"></span>${esc(n)}</span>`).join("");
+        } else {
+          candleChart(host, candles, {
+            height: 380, overlays: overlays(), showVolume: true,
+            zoom, yFmt: (v) => "$" + v.toLocaleString("en-US", { maximumFractionDigits: 0 }),
+            ovFmt: fmtOv,
+            onZoom: (x, y2) => { zoom = { from: x, to: y2 }; draw(); },
+          });
+          const ol = overlays();
+          legendHost.innerHTML = ol.map((o) => `<span class="item"><span class="swatch" style="background:${o.color}"></span>${esc(o.name)}</span>`).join("");
+        }
+
+        // RSI sub-pane
+        rsiHost.style.display = toggles.rsi ? "" : "none";
+        if (toggles.rsi) {
+          const labels = tsList.map((t) => fmtTsShort(new Date(t).toISOString()));
+          const rsiData = rsiOverlay();
+          let rz = zoom;
+          interactiveLineChart(rsiHost, rsiData, labels, {
+            height: 150, yFmt: (v) => v.toFixed(0),
+            zoom: rz, onZoom: (x, y2) => { rz = { from: x, to: y2 }; zoom = rz; draw(); },
+          });
+        }
+      }
+
+      /* ---- latest fills across accounts ---- */
+      const fills = [];
+      env.accounts.forEach((a) => a.trades.forEach((t) => fills.push({ ...t, sid: a.id, name: a.name })));
+      fills.sort((x, y) => new Date(y.timestamp) - new Date(x.timestamp));
+      document.getElementById("fillRows").innerHTML = fills.slice(0, 16).map((t) => {
+        const l = lessonById[t.sid];
+        return `<tr>
+          <td class="num">${fmtTs(t.timestamp)}</td>
+          <td><a href="lesson.html?id=${encodeURIComponent(t.sid)}">${esc(l ? l.name.split(" (")[0] : t.sid)}</a></td>
+          <td><span class="badge ${t.side}">${t.side}</span></td>
+          <td class="r num">${fmtPrice(t.price)}</td>
+          <td class="r num">${fmtQty(t.qty)}</td>
+          <td style="max-width:300px;white-space:normal;color:var(--text-dim)">${esc(t.entry_reason || t.exit_reason || "")}</td>
+        </tr>`;
+      }).join("") || '<tr><td colspan="6" class="empty">No fills recorded yet.</td></tr>';
+
+      draw();
+      window.addEventListener("resize", debounce(draw, 200));
+    })().catch((e) => {
+      document.body.innerHTML = '<div class="wrap"><div class="empty">Failed to load market data: ' + e.message + '</div></div>';
+    });
+  </script>
+</body>
+</html>

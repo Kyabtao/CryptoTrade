@@ -18,7 +18,11 @@
         <h1>Strategy Library &amp; Analysis</h1>
         <div class="sub">All 42 sub-accounts, their signal logic and live paper-trading state</div>
       </div>
-      <div class="chip">⏱ warmup = candles needed before a strategy may signal</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end">
+        <a class="chip" href="learn.html" style="text-decoration:none">📚 Learn each strategy →</a>
+        <a class="chip" href="compare.html" style="text-decoration:none">⚖️ Compare</a>
+        <span class="chip">⏱ warmup = candles needed before a strategy may signal</span>
+      </div>
     </div>
 
     <div class="controls">
@@ -104,6 +108,7 @@
               <span class="mini">${a.inPosition ? '<span class="badge long">LONG</span>' : '<span class="badge flat">flat</span>'}</span>
               <span class="mini">Trd <b class="num">${a.tradesCount}</b></span>
               <span class="mini">Win <b class="num">${a.closedCount ? a.winRate.toFixed(0) + "%" : "—"}</b></span>
+              <span style="margin-left:auto"><a class="btn" style="padding:3px 10px;font-size:11.5px" href="lesson.html?id=${encodeURIComponent(a.id)}" onclick="event.stopPropagation()">📖 Lesson</a></span>
             </div>
           </div>`;
         }).join("");
@@ -158,6 +163,10 @@
           <div class="sig" style="margin-top:12px">
             <div class="row"><span class="tag">IN ▸</span><span>${esc(m.entry || "—")}</span></div>
             <div class="row"><span class="tag">OUT ▸</span><span>${esc(m.exit || "—")}</span></div>
+          </div>
+          <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
+            <a class="btn primary" style="padding:7px 13px" href="lesson.html?id=${encodeURIComponent(a.id)}">📖 Full lesson &amp; live stats</a>
+            <a class="btn" style="padding:7px 13px" href="compare.html?id=${encodeURIComponent(a.id)}">⚖️ Compare</a>
           </div>
 
           <div class="chart-card">

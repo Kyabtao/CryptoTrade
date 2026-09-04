@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CryptoTrade — Portfolio Lab</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <script src="assets/data.js"></script>
+  <script src="assets/charts.js"></script>
+  <script src="assets/layout.js"></script>
+  <script>renderNav("portfolio.html");</script>
+
+  <div class="wrap">
+    <div class="crumbs"><a href="index.html">Dashboard</a><span class="sep">›</span><span class="cur">Portfolio Lab</span></div>
+    <div class="hero">
+      <div>
+        <h1>🧪 Portfolio Lab</h1>
+        <div class="sub">Beyond returns: how the 42 strategies relate, how deep they draw down, and which ones are just the same bet in disguise.</div>
+      </div>
+      <div class="chip" id="statChip">loading…</div>
+    </div>
+
+    <div class="grid kpis" id="kpis"></div>
+
+    <div class="section">
+      <div class="card">
+        <h3>Portfolio drawdown <span class="hint">peak-to-trough of the combined equity</span></h3>
+        <div id="ddChart" class="chart"></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="card">
+        <h3>Correlation between strategies <span class="hint">per-tick returns · hover cells · subset picker</span></h3>
+        <div class="controls">
+          <button class="chip-btn on" data-set="top10">Top 10 by trades</button>
+          <button class="chip-btn" data-set="topRet">Top 10 by return</button>
+          <button class="chip-btn" data-set="families">One per family</button>
+          <button class="chip-btn" data-set="all">All 42</button>
+          <span class="spacer"></span>
+          <div class="legend-bar">
+            <span style="color:var(--green)">■ +1</span><span style="color:#5f6b82">■ 0</span><span style="color:var(--red)">■ −1</span>
+          </div>
+        </div>
+        <div class="table-wrap" style="padding:12px;overflow-x:auto">
+          <div id="corrMatrix" style="min-width:0"></div>
+        </div>
+        <div class="mini" style="margin-top:8px" id="corrNote"></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="card">
+        <h3>Most correlated pairs <span class="hint">|r| highest first — same-behaviour clusters</span></h3>
+        <div class="table-wrap"><table class="data">
+          <thead><tr><th>A</th><th>B</th><th class="r">Correlation</th><th class="r">Ticks</th></tr></thead>
+          <tbody id="pairsRows"></tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="card">
+        <h3>Risk-adjusted standings <span class="hint">max drawdown from recorded returns · vol = std of per-tick returns</span></h3>
+        <div class="table-wrap"><table class="data">
+          <thead><tr>
+            <th class="sortable" data-k="name">Strategy</th>
+            <th class="sortable r" data-k="ret">Return</th>
+            <th class="sortable r" data-k="dd">Max drawdown</th>
+            <th class="sortable r" data-k="curdd">Current DD</th>
+            <th class="sortable r" data-k="vol">Vol (tick)</th>
+            <th class="sortable r" data-k="rv">Ret / vol</th>
+            <th class="sortable r" data-k="trades">Trades</th>
+            <th class="sortable r" data-k="win">Win %</th>
+            <th class="sortable r" data-k="fees">Fees</th>
+            <th></th>
+          </tr></thead>
+          <tbody id="riskRows"></tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <div class="note">
+      <b>Reading the matrix.</b> Two strategies with r near +1 are making the same bet (often: both long BTC in the same
+      style) — holding both gives little diversification. Near 0 or negative means their edges come from different market
+      states. Remember all accounts are long-only on one asset, so most correlations will be positive during BTC rallies.
+      History-based stats need enough shared ticks; small samples show “—”.
+    </div>
+    <div class="footer">CryptoTrade · drawdowns computed from docs/history.json cumulative returns — not financial advice</div>
+  </div>
+
+  <script>
+    (async function () {
+      const [state, history, lessons] = await Promise.all([loadState(), loadHistory(), loadLessons()]);
+      const env = enrichState(state);
+      renderUpdateMessage(env.meta);
+      const lessonById = {};
+      (lessons || []).forEach((l) => (lessonById[l.id] = l));
+
+      const N = history.length;
+      const ticks = history.map((h) => h.rets || {});
+
+      /* per-strategy cumulative curves from history rets */
+      function curveOf(id) {
+        return ticks.map((r) => (r[id] != null ? r[id] : null));
+      }
+
+      /* max drawdown of a cumulative % curve (peak-to-trough in %) */
+      function maxDD(curve) {
+        let peak = -Infinity, worst = 0;
+        for (const v of curve) {
+          if (v == null) continue;
+          peak = Math.max(peak, v);
+          if (peak > 0) worst = Math.min(worst, ((v - peak) / (100 + peak)) * 100);
+        }
+        return worst;
+      }
+      function currentDD(curve) {
+        let peak = -Infinity, last = null;
+        for (const v of curve) {
+          if (v == null) continue;
+          peak = Math.max(peak, v);
+          last = v;
+        }
+        if (last == null || peak <= 0) return null;
+        return ((last - peak) / (100 + peak)) * 100;
+      }
+      function perTickReturns(id) {
+        const out = [];
+        let px = null;
+        for (const r of ticks) {
+          const v = r[id];
+          if (v == null) continue;
+          if (px != null) out.push(v - px);
+          px = v;
+        }
+        return out;
+      }
+      function std(a) {
+        if (a.length < 2) return null;
+        const m = a.reduce((s, x) => s + x, 0) / a.length;
+        return Math.sqrt(a.reduce((s, x) => s + (x - m) * (x - m), 0) / (a.length - 1));
+      }
+      function pearson(aId, bId) {
+        const a = perTickReturns(aId), b = perTickReturns(bId);
+        const n = Math.min(a.length, b.length);
+        if (n < 12) return null;
+        const X = a.slice(a.length - n), Y = b.slice(b.length - n);
+        const mx = X.reduce((s, v) => s + v, 0) / n;
+        const my = Y.reduce((s, v) => s + v, 0) / n;
+        let num = 0, dx = 0, dy = 0;
+        for (let i = 0; i < n; i++) {
+          num += (X[i] - mx) * (Y[i] - my);
+          dx += (X[i] - mx) ** 2;
+          dy += (Y[i] - my) ** 2;
+        }
+        const d = Math.sqrt(dx * dy);
+        return d < 1e-12 ? null : num / d;
+      }
+
+      /* ---- KPIs ---- */
+      const rets = env.accounts.map((a) => a.returnPct);
+      const best = env.accounts.reduce((m, a) => (a.returnPct > m.returnPct ? a : m), env.accounts[0]);
+      const worst = env.accounts.reduce((m, a) => (a.returnPct < m.returnPct ? a : m), env.accounts[0]);
+      const counts = env.accounts.map((a) => ({ id: a.id, dd: maxDD(curveOf(a.id)) }));
+      const inDD = counts.filter((c) => (c.dd || 0) < -0.05).length;
+
+      document.getElementById("kpis").innerHTML = `
+        ${kpi("Best strategy", esc(best.name), "pos")}
+        ${kpi("Worst strategy", esc(worst.name), "neg")}
+        ${kpi("Dispersion", fmtPct(best.returnPct - worst.returnPct), "")}
+        ${kpi("Accounts in drawdown", inDD + " of 42", "")}
+        ${kpi("History ticks", fmtNum(N), "")}
+        ${kpi("Total fees", fmtUSD(env.totalFees), "")}`;
+      document.getElementById("statChip").innerHTML = `<b>${N}</b> ticks recorded`;
+
+      /* ---- portfolio drawdown chart ---- */
+      const ddHost = document.getElementById("ddChart");
+      if (N > 1) {
+        const vals = [];
+        let peak = -Infinity;
+        history.forEach((h) => {
+          peak = Math.max(peak, h.return_pct);
+          vals.push(peak > 0 ? h.return_pct : h.return_pct);
+        });
+        const underwater = history.map((h, i) => {
+          const p = Math.max(...history.slice(0, i + 1).map((x) => x.return_pct));
+          return p > 0 ? ((h.return_pct - p) / (100 + p)) * 100 : h.return_pct;
+        });
+        interactiveLineChart(ddHost, [
+          { name: "Portfolio return", color: "#3b82f6", area: true, values: history.map((h) => h.return_pct) },
+          { name: "Underwater (drawdown)", color: "#ef4444", width: 1.6, values: underwater },
+        ], history.map((h) => fmtTsShort(h.ts)), { height: 240, yFmt: (v) => v.toFixed(2) + "%" });
+      } else {
+        ddHost.innerHTML = '<div class="empty">Not enough history yet.</div>';
+      }
+
+      /* ---- correlation matrix subset ---- */
+      const FAMILY_REP = [
+        "01_rsi_mean_reversion", "02_dual_ema_crossover", "06_bollinger_mean_reversion",
+        "10_donchian_breakout", "11_dynamic_dca", "27_obv_trend_breakout",
+        "31_engulfing_reversal", "35_chandelier_trend_ride", "39_multi_indicator_consensus",
+      ];
+      const corrHost = document.getElementById("corrMatrix");
+      let subset = "top10";
+
+      function matrixColors() {
+        const groups = {
+          top10: [...env.accounts].sort((a, b) => b.tradesCount - a.tradesCount).slice(0, 10),
+          topRet: [...env.accounts].sort((a, b) => b.returnPct - a.returnPct).slice(0, 10),
+          families: env.accounts.filter((a) => FAMILY_REP.includes(a.id)),
+          all: env.accounts,
+        };
+        return groups;
+      }
+
+      function colorFor(r) {
+        if (r == null) return "#1c2333";
+        if (Math.abs(r) < 0.02) return "#232b3d";
+        const a = Math.min(0.95, Math.abs(r) + 0.05);
+        return r > 0 ? `rgba(34,197,94,${a})` : `rgba(239,68,68,${a})`;
+      }
+
+      function drawMatrix() {
+        const list = matrixColors()[subset] || matrixColors().top10;
+        if (!list.length) return;
+        const ids = list.map((a) => a.id);
+        const rows = ids.map((idA) => ({
+          label: idA.slice(0, 2) + " " + (lessonById[idA] ? lessonById[idA].name.split(" (")[0] : idA),
+          cells: ids.map((idB) => {
+            const r = idA === idB ? 1 : pearson(idA, idB);
+            return { label: idA + " vs " + idB, value: r };
+          }),
+        }));
+        // heatmap() renders shared "hm" classes; for a matrix we want title tooltips with r values.
+        corrHost.innerHTML = `<div class="hm" style="min-width:${ids.length * 26 + 150}px">
+          ${rows.map((r) => `
+            <div class="hm-row">
+              <div class="hm-label" title="${esc(r.label)}">${esc(r.label)}</div>
+              <div class="hm-cells">
+                ${r.cells.map((c) => `
+                  <div class="hm-cell" style="background:${colorFor(c.value)};font-size:0;width:22px;min-width:22px;height:22px;flex:none" title="${esc(c.label)}: ${c.value == null ? "insufficient ticks" : c.value.toFixed(2)}"></div>
+                `).join("")}
+              </div>
+            </div>`).join("")}
+        </div>`;
+        const vals = [];
+        ids.forEach((a, i) => ids.forEach((b, j) => {
+          if (j > i) { const r = pearson(a, b); if (r != null) vals.push(r); }
+        }));
+        const avg = vals.length ? vals.reduce((s, x) => s + x, 0) / vals.length : 0;
+        const strong = vals.filter((x) => Math.abs(x) > 0.7).length;
+        document.getElementById("corrNote").textContent =
+          `${ids.length} strategies · ${vals.length} pairs · mean |r| ${avg.toFixed(2)} · ${strong} pairs above 0.7`;
+      }
+
+      document.querySelectorAll("[data-set]").forEach((b) => {
+        b.onclick = () => {
+          subset = b.dataset.set;
+          document.querySelectorAll("[data-set]").forEach((x) => x.classList.toggle("on", x === b));
+          drawMatrix();
+        };
+      });
+
+      /* ---- pairs table ---- */
+      const pairs = [];
+      for (let i = 0; i < env.accounts.length; i++) {
+        for (let j = i + 1; j < env.accounts.length; j++) {
+          const r = pearson(env.accounts[i].id, env.accounts[j].id);
+          if (r != null) pairs.push({ a: env.accounts[i], b: env.accounts[j], r });
+        }
+      }
+      pairs.sort((x, y) => Math.abs(y.r) - Math.abs(x.r));
+      document.getElementById("pairsRows").innerHTML = pairs.slice(0, 15).map((p) => `
+        <tr>
+          <td><a href="lesson.html?id=${encodeURIComponent(p.a.id)}">${esc(p.a.name)}</a></td>
+          <td><a href="lesson.html?id=${encodeURIComponent(p.b.id)}">${esc(p.b.name)}</a></td>
+          <td class="r num">${p.r.toFixed(2)}</td>
+          <td class="r num">${Math.min(perTickReturns(p.a.id).length, perTickReturns(p.b.id).length)}</td>
+        </tr>`).join("") || '<tr><td colspan="4" class="empty">Not enough shared history yet.</td></tr>';
+
+      /* ---- risk standings ---- */
+      const rows = env.accounts.map((a) => {
+        const curve = curveOf(a.id);
+        const dd = maxDD(curve);
+        const curdd = currentDD(curve);
+        const ticks = perTickReturns(a.id);
+        const vol = std(ticks);
+        const ret = a.returnPct;
+        return { a, ret, dd, curdd, vol, rv: vol && vol !== 0 ? ret / vol : null, ticks: ticks.length };
+      });
+      let sortK = "ret", sortDir = -1;
+      function renderRisk() {
+        const sorted = [...rows].sort((x, y) => {
+          const a = x[sortK], b = y[sortK];
+          if (a == null && b == null) return 0;
+          if (a == null) return 1;
+          if (b == null) return -1;
+          return (a > b ? 1 : a < b ? -1 : 0) * sortDir;
+        });
+        document.getElementById("riskRows").innerHTML = sorted.map(({ a, ret, dd, curdd, vol, rv }) => `
+          <tr>
+            <td><a href="lesson.html?id=${encodeURIComponent(a.id)}">${esc(a.name)}</a> <span class="mono" style="color:var(--text-faint);font-size:11px">${esc(a.id)}</span></td>
+            <td class="r num ${pctClass(ret)}">${fmtPct(ret)}</td>
+            <td class="r num ${(dd || 0) < -5 ? "neg" : "neu"}">${dd == null ? "—" : fmtPct(dd)}</td>
+            <td class="r num ${(curdd || 0) < -0.1 ? "neg" : "neu"}">${curdd == null ? "—" : fmtPct(curdd)}</td>
+            <td class="r num">${vol == null ? "—" : fmtNum(vol, 2)}</td>
+            <td class="r num">${rv == null ? "—" : fmtNum(rv, 2)}</td>
+            <td class="r num">${a.tradesCount}</td>
+            <td class="r num">${a.closedCount ? a.winRate.toFixed(0) + "%" : "—"}</td>
+            <td class="r num">${fmtUSD(a.totalFees)}</td>
+            <td><a class="btn" style="padding:3px 10px;font-size:12px" href="lesson.html?id=${encodeURIComponent(a.id)}">Lesson</a></td>
+          </tr>`).join("");
+      }
+      document.querySelectorAll("th.sortable").forEach((th) => {
+        th.onclick = () => {
+          const k = th.dataset.k;
+          if (sortK === k) sortDir *= -1; else { sortK = k; sortDir = -1; }
+          renderRisk();
+          document.querySelectorAll("th.sortable").forEach((x) => (x.querySelector(".arrow") || {}).remove && x.querySelector(".arrow") && x.querySelector(".arrow").remove());
+          const sp = document.createElement("span");
+          sp.className = "arrow";
+          sp.textContent = sortDir < 0 ? "▼" : "▲";
+          th.appendChild(sp);
+        };
+      });
+
+      function kpi(label, value, cls) {
+        return `<div class="card kpi"><div class="label">${label}</div><div class="value ${cls} num">${value}</div></div>`;
+      }
+      renderRisk();
+      drawMatrix();
+    })().catch((e) => {
+      document.body.innerHTML = '<div class="wrap"><div class="empty">Failed to load portfolio lab: ' + e.message + "</div></div>";
+    });
+  </script>
+</body>
+</html>
