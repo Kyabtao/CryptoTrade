@@ -80,6 +80,13 @@ DEFAULT_MIN_NOTIONAL = 10.0
 HISTORY_FILENAME = "history.json"
 HISTORY_MAX_ENTRIES = 2016   # ~3 weeks of 15m ticks
 
+# Candle window for the dashboard Market screen. Kept next to the state file,
+# refreshed on every live tick so charts and indicator overlays (SMA200, ...)
+# always reflect the latest closed candle without the HTML page needing any
+# exchange access of its own.
+CANDLES_FILENAME = "candles.json"
+CANDLES_MAX_ENTRIES = 720   # ~7.5 days of 15m candles (Kraken OHLC row cap)
+
 
 def utcnow_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -3112,10 +3119,11 @@ class Engine:
     def fetch_live(self, exchange=None) -> MarketData:
         ex = exchange or build_exchange()
 
-        limit = max(self.cfg.candle_limit, self.required_candles())
+        limit = max(self.cfg.candle_limit, self.required_candles(), CANDLES_MAX_ENTRIES)
         if limit > self.cfg.candle_limit:
             self.log.warning(
-                "Raising candle limit %d -> %d to satisfy the largest strategy warm-up (SMA200).",
+                "Raising candle limit %d -> %d to satisfy the largest strategy "
+                "warm-up (SMA200) and the dashboard candle window.",
                 self.cfg.candle_limit, limit,
             )
 
@@ -3379,6 +3387,52 @@ def history_path(state_path: str) -> str:
     """Where the per-run history snapshot lives, next to the state file."""
     directory = os.path.dirname(os.path.abspath(state_path))
     return os.path.join(directory, HISTORY_FILENAME)
+
+
+def candles_path(state_path: str) -> str:
+    """Where the OHLCV candle window lives, next to the state file."""
+    directory = os.path.dirname(os.path.abspath(state_path))
+    return os.path.join(directory, CANDLES_FILENAME)
+
+
+def persist_candles(candles: Sequence["Candle"], state_path: str,
+                    symbol: str, timeframe: str) -> None:
+    """Write the latest closed-candle window for the dashboard Market screen.
+
+    The file is a plain snapshot of the most recent candles the engine just
+    evaluated (one row per candle: ``[ts_ms, open, high, low, close, volume]``
+    plus a small meta block). It is *replaced*, not appended, on every live
+    tick, so it never accumulates stale history. This never raises: a
+    dashboard file should not be able to fail a trading tick.
+    """
+    log = logging.getLogger("bot")
+    try:
+        rows = [
+            [c.ts, c.open, c.high, c.low, c.close, c.volume]
+            for c in candles[-CANDLES_MAX_ENTRIES:]
+        ]
+        payload = {
+            "meta": {
+                "symbol": symbol,
+                "timeframe": timeframe,
+                "exchange": "Kraken (public OHLCV)",
+                "updated_at": utcnow_iso(),
+                "last_candle_ts": rows[-1][0] if rows else None,
+                "count": len(rows),
+            },
+            "candles": rows,
+        }
+        path = candles_path(state_path)
+        directory = os.path.dirname(path)
+        os.makedirs(directory, exist_ok=True)
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(payload, fh, separators=(",", ":"))
+            fh.write("\n")
+        os.replace(tmp, path)
+    except (OSError, TypeError, ValueError) as exc:
+        log.warning("Could not write candle window %s: %s",
+                    candles_path(state_path), exc)
 
 
 def append_history(state: Dict[str, Any], state_path: str,
@@ -3672,6 +3726,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     else:
         engine.persist()
         append_history(engine.state, cfg.state_path)
+        if not args.replay:
+            # Live tick only (a replay of synthetic candles must never clobber
+            # the dashboard's real candle window).
+            persist_candles(md.candles[:-1] if len(md.candles) > 1 else md.candles,
+                            cfg.state_path, md.symbol, md.timeframe)
         log.info("State saved to %s", cfg.state_path)
 
     return 0

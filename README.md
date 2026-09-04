@@ -44,6 +44,13 @@ build step and no server-side code:
 | [`docs/trades.html`](docs/trades.html) | Every simulated fill, plus a cumulative realized-PnL curve, fill-size histogram and buy/sell split; filterable by account/side/reason and paginated |
 | [`docs/risk.html`](docs/risk.html) | Portfolio drawdown, buy-and-hold vs. portfolio return, exposure and unrealized PnL per account, and the live open-position table |
 | [`docs/profile.html`](docs/profile.html) | The bot's profile — who it is, its full account rulebook, live configuration, trading record, equity curve and sub-account register |
+| [`docs/learn.html`](docs/learn.html) | Academy hub: searchable/filterable library of the 42 lessons with live stats per strategy and suggested reading paths |
+| [`docs/lesson.html`](docs/lesson.html) | Full lesson per strategy (`?id=<slug>`): plain-English idea, how it works, strengths/weaknesses, mistakes, watch-outs, real defaults with explanations, related lessons, indicator links and live account panels |
+| [`docs/basics.html`](docs/basics.html) | Beginner course: markets, candles, trends, indicators, strategy families, how the bot works, reading results, money & risk |
+| [`docs/indicators.html`](docs/indicators.html) | Glossary of all 69 indicators/concepts used by the strategies — formula, plain-English detail, how to read it and the lessons that use it |
+| [`docs/market.html`](docs/market.html) | The bot's real candle window (Kraken BTC/USDT 15m from `candles.json`) with client-side SMA/EMA/Bollinger/RSI overlays, OHLCV ticker strip and recent fills |
+| [`docs/compare.html`](docs/compare.html) | Pick up to 6 strategies: side-by-side equity curves, live stats, signals/rules, parameters and pairwise return correlations (`?id=` links) |
+| [`docs/portfolio.html`](docs/portfolio.html) | Portfolio lab: combined drawdown, strategy correlation matrix and most-correlated pairs, plus sortable risk-adjusted standings |
 
 Every chart is interactive: hover for a crosshair tooltip, click legend entries
 to toggle series, drag across a chart to zoom into a range and double-click to
@@ -81,6 +88,17 @@ scheduled workflow:
 [`docs/assets/strategies.json`](docs/assets/strategies.json) — the entry/exit
 descriptions, categories and parameter defaults shown on the strategy pages —
 straight from the classes in `bot.py`, so the docs never drift from the code.
+
+The Academy screens build on that catalog: authored prose in
+`scripts/lessons_a.py` / `scripts/lessons_b.py` (one lesson per strategy) and
+`scripts/learn_concepts.py` (the indicator & concept glossary) are merged with
+the catalog by `scripts/generate_learn_assets.py` into
+[`docs/assets/lessons.json`](docs/assets/lessons.json) and
+[`docs/assets/indicators.json`](docs/assets/indicators.json). The generator
+validates that every lesson slug, parameter key and concept link actually
+exists, and injects the real default values — prose never hard-codes a number
+that could drift from `bot.py`. Run it after touching strategy parameters or
+lesson content.
 
 ---
 

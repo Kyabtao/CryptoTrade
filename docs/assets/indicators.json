@@ -1,0 +1,1006 @@
+[
+ {
+  "id": "candlestick",
+  "name": "Candlestick",
+  "family": "Basics 101",
+  "kind": "basics",
+  "formula": "open · high · low · close (OHLC) of one candle",
+  "summary": "A candle packs the whole fight of a period into one shape: where price opened, the extremes it reached, and where it closed.",
+  "detail": "The body shows the open-to-close move (green when close > open, red when close < open); the thin lines (wicks) show the high and low. A long body means conviction, long wicks mean rejection of those price levels. Strategies read single candles (engulfing), patterns of candles (Heikin-Ashi runs) or only the close.",
+  "read": "Bigger bodies = stronger momentum. A close near the high/low tells you which side controlled the period.",
+  "used_by": [
+   "18_heikin_ashi_trend",
+   "31_engulfing_reversal"
+  ]
+ },
+ {
+  "id": "ohlcv",
+  "name": "OHLCV data",
+  "family": "Basics 101",
+  "kind": "basics",
+  "formula": "Open, High, Low, Close, Volume per timeframe bar",
+  "summary": "The five numbers that describe every candle — and almost every indicator in this bot is built from them.",
+  "detail": "Open/close show the price at the period's start/end; high/low bound the range traded; volume counts how much was traded. Timeframes (this bot uses 15m) decide how often you look. Indicators are just math applied to these series: moving averages use closes, ATR uses high-low ranges, MFI uses volume.",
+  "read": "The bot evaluates on the last closed 15-minute candle so every account sees the same finished bar.",
+  "used_by": []
+ },
+ {
+  "id": "trend",
+  "name": "Trend",
+  "family": "Basics 101",
+  "kind": "basics",
+  "formula": "higher highs + higher lows (up) / lower highs + lower lows (down)",
+  "summary": "A market's tendency to keep moving in one direction. Trend-following strategies try to ride it; mean-reversion strategies try to fade the wobbles against it.",
+  "detail": "An uptrend makes higher highs and higher lows — buyers keep stepping in at rising prices. Trends end when the structure breaks. Nobody can know a trend's length in advance, so trend strategies always pair entry signals with exits that cut the ride short when structure fails.",
+  "read": "Most of the bot's 42 strategies either chase a trend (crossover, breakout) or fade extremes (RSI, Bollinger); each half makes money in the market half that suits it.",
+  "used_by": [
+   "02_dual_ema_crossover",
+   "03_macd_histogram_reversal",
+   "04_triple_moving_average",
+   "05_supertrend_atr",
+   "10_donchian_breakout",
+   "13_adx_dmi_trend",
+   "14_ichimoku_cloud",
+   "15_parabolic_sar",
+   "16_roc_momentum",
+   "17_aroon_trend",
+   "18_heikin_ashi_trend",
+   "19_trix_momentum",
+   "20_ema_ribbon_consensus",
+   "27_obv_trend_breakout",
+   "32_fibonacci_pullback",
+   "33_pivot_point_bounce",
+   "34_opening_range_breakout",
+   "35_chandelier_trend_ride",
+   "39_multi_indicator_consensus",
+   "40_trend_pullback_confluence"
+  ]
+ },
+ {
+  "id": "support_resistance",
+  "name": "Support & Resistance",
+  "family": "Basics 101",
+  "kind": "basics",
+  "formula": "price levels where buyers (support) / sellers (resistance) repeatedly appear",
+  "summary": "Price levels that have rejected moves before. Strategies lean on them: bounce off support, sell into resistance, or trade the break of a level.",
+  "detail": "Support is a floor where dips have been bought; resistance is a ceiling where rallies have been sold. The longer and more often a level held, the more traders watch it — which is partly why it keeps working. A decisive close through a level flips its role (support becomes resistance and vice versa).",
+  "read": "Breakout strategies trigger on closes beyond levels; bounce strategies buy when price dips to them and shows a turn.",
+  "used_by": [
+   "01_rsi_mean_reversion",
+   "04_triple_moving_average",
+   "10_donchian_breakout",
+   "14_ichimoku_cloud",
+   "21_williams_r_reversal",
+   "31_engulfing_reversal",
+   "32_fibonacci_pullback",
+   "33_pivot_point_bounce",
+   "34_opening_range_breakout"
+  ]
+ },
+ {
+  "id": "breakout",
+  "name": "Breakout",
+  "family": "Basics 101",
+  "kind": "basics",
+  "formula": "close beyond a defined level or range",
+  "summary": "When price exits a range or passes a recent extreme on a closed candle, breakout traders bet the move has room to run.",
+  "detail": "A breakout signals that one side overpowered the other and the balance price was stuck in has shifted. The bot trades many variants: Donchian (N-candle high/low), opening range, volume-spike confirmation, OBV breaks. Classic trap: 'fakeouts' — breaks that immediately reverse, which is why this bot requires a candle close beyond the level, not just an intra-candle poke.",
+  "read": "Breakouts are momentum trades: they win when the move extends, so exits trail behind rather than taking profit at a fixed target.",
+  "used_by": [
+   "07_keltner_breakout",
+   "10_donchian_breakout",
+   "13_adx_dmi_trend",
+   "14_ichimoku_cloud",
+   "16_roc_momentum",
+   "17_aroon_trend",
+   "27_obv_trend_breakout",
+   "28_volume_spike_breakout",
+   "29_volatility_squeeze",
+   "34_opening_range_breakout",
+   "37_anti_martingale_pyramid"
+  ]
+ },
+ {
+  "id": "pullback",
+  "name": "Pullback",
+  "family": "Basics 101",
+  "kind": "basics",
+  "formula": "temporary counter-trend dip inside an ongoing trend",
+  "summary": "A pause or dip in a trend that lets late buyers in at a better price — 'buy the dip' with rules.",
+  "detail": "Trends rarely move in straight lines; they climb, pull back, and climb again. Pullback strategies wait for the retracement to reach a statistical extreme (RSI low, retracement level, VWAP) and buy the turn while the longer trend filter is still up. The danger is mistaking a genuine reversal for a pullback — hence the trend filter.",
+  "read": "Lesson 40 (Trend + Pullback Confluence) is the bot's textbook example: only buy dips when the long-term moving averages still agree the trend is up.",
+  "used_by": [
+   "09_vwap_pullback",
+   "23_connors_rsi_pullback",
+   "31_engulfing_reversal",
+   "32_fibonacci_pullback",
+   "40_trend_pullback_confluence"
+  ]
+ },
+ {
+  "id": "momentum",
+  "name": "Momentum",
+  "family": "Basics 101",
+  "kind": "basics",
+  "formula": "rate of change of price (e.g. ROC, MACD, RSI)",
+  "summary": "The speed and strength of a price move. Momentum strategies buy strength and sell weakness — 'the trend is your friend'.",
+  "detail": "Momentum indicators measure how fast and how consistently price is changing. Strong momentum tends to persist for a while (crowds join in), which is why trend-following works. Momentum and mean reversion are philosophical opposites: momentum says chase the move, mean reversion says fade the extreme.",
+  "read": "Compare strategy 16 (ROC burst) with strategy 1 (RSI fade) to see both sides of the same market.",
+  "used_by": [
+   "02_dual_ema_crossover",
+   "03_macd_histogram_reversal",
+   "13_adx_dmi_trend",
+   "15_parabolic_sar",
+   "16_roc_momentum",
+   "17_aroon_trend",
+   "18_heikin_ashi_trend",
+   "19_trix_momentum",
+   "26_chande_momentum"
+  ]
+ },
+ {
+  "id": "oscillator",
+  "name": "Oscillator",
+  "family": "Basics 101",
+  "kind": "basics",
+  "formula": "an indicator bounded in a range (0-100, -100..+100, …) that measures stretch",
+  "summary": "A meter for how stretched price is: oscillators swing between 'too hot' and 'too cold' instead of following price forever.",
+  "detail": "RSI, StochRSI, CCI, CMO and Williams %R are all oscillators: they normalize recent behaviour into a bounded scale with defined extreme zones. Their core assumption is that extremes revert — the opposite of momentum indicators that assume extremes extend. Every oscillator in this bot (RSI family, StochRSI, CCI, CMO, Williams %R) is used as a mean-reversion trigger.",
+  "read": "Oscillators say 'stretched', not 'wrong'. Pair their extremes with trend context before trusting them.",
+  "used_by": [
+   "01_rsi_mean_reversion",
+   "06_bollinger_mean_reversion",
+   "08_stoch_rsi_reversal",
+   "21_williams_r_reversal",
+   "22_cci_mean_reversion",
+   "24_zscore_mean_reversion",
+   "25_mfi_flow_reversal",
+   "26_chande_momentum",
+   "30_elder_ray_power",
+   "39_multi_indicator_consensus"
+  ]
+ },
+ {
+  "id": "streak",
+  "name": "Price streak",
+  "family": "Basics 101",
+  "kind": "basics",
+  "formula": "number of consecutive same-colour candles (e.g. 5 red closes in a row)",
+  "summary": "How many candles in a row moved the same direction. Long streaks are statistically rare — which makes them mean-reversion fuel.",
+  "detail": "Five consecutive red 15m candles happen far less often than intuition suggests. Connors RSI turns the streak into an RSI of its own (streak length 2+), so a long losing streak pushes the composite reading toward the buy zone. Streaks also matter to trend traders — as evidence of persistent momentum.",
+  "read": "Each extra same-colour candle stretches the rubber band another notch — for dip-buyers, not knife-catchers.",
+  "used_by": [
+   "23_connors_rsi_pullback"
+  ]
+ },
+ {
+  "id": "mean_reversion",
+  "name": "Mean Reversion",
+  "family": "Basics 101",
+  "kind": "basics",
+  "formula": "price stretches away from a 'fair value' and tends to snap back",
+  "summary": "The belief that price eventually returns toward an average. Buy panic dips, sell euphoric spikes — with strict rules so you never catch a falling knife.",
+  "detail": "If an asset is range-bound, big one-direction moves are over-reactions that revert. Mean-reversion strategies wait for an extreme reading (RSI < 30, close below the Bollinger band, z-score < -2) and buy the snap-back. The risk: in a true trend or crash, price never reverts — so filters and exits matter more than the entry.",
+  "read": "The Mean Reversion & Oscillators categories are full of variants; lesson 29 explains when fading works better than breaking out.",
+  "used_by": [
+   "01_rsi_mean_reversion",
+   "06_bollinger_mean_reversion",
+   "08_stoch_rsi_reversal",
+   "11_dynamic_dca",
+   "21_williams_r_reversal",
+   "22_cci_mean_reversion",
+   "23_connors_rsi_pullback",
+   "24_zscore_mean_reversion",
+   "25_mfi_flow_reversal",
+   "26_chande_momentum",
+   "33_pivot_point_bounce",
+   "42_sibling_performance_allocator"
+  ]
+ },
+ {
+  "id": "volatility",
+  "name": "Volatility",
+  "family": "Basics 101",
+  "kind": "basics",
+  "formula": "typical candle range — measured by ATR or standard deviation of returns",
+  "summary": "How violently price moves. High volatility means big candles; low volatility means quiet compression — often just before an explosion.",
+  "detail": "Volatility is not direction: a market can be very volatile and go nowhere. It sets the stage for strategy choice — breakouts thrive after compression, mean reversion works when ranges are wide, and stop distances should scale with ATR so noise doesn't shake you out. Crypto is structurally more volatile than stocks, which is exactly why this bot exists as a paper experiment.",
+  "read": "Strategy 41 switches its whole behaviour on volatility; strategy 5 sizes its stop with ATR.",
+  "used_by": [
+   "06_bollinger_mean_reversion",
+   "07_keltner_breakout",
+   "22_cci_mean_reversion",
+   "24_zscore_mean_reversion",
+   "29_volatility_squeeze",
+   "30_elder_ray_power",
+   "41_volatility_regime_switcher"
+  ]
+ },
+ {
+  "id": "liquidity",
+  "name": "Liquidity",
+  "family": "Basics 101",
+  "kind": "basics",
+  "formula": "how easily an asset trades without moving price",
+  "summary": "BTC/USDT is among the most liquid markets in crypto: orders fill near the quoted price almost instantly, day and night.",
+  "detail": "Liquidity is why a paper bot on Kraken BTC/USDT is a fair laboratory: tiny simulated orders meet deep real order books in the data. On illiquid coins the same strategy would suffer slippage and spread costs the paper engine does not model.",
+  "read": "Illiquid markets fake out indicator signals far more often; results here only transfer to liquid majors.",
+  "used_by": [
+   "28_volume_spike_breakout"
+  ]
+ },
+ {
+  "id": "long_only",
+  "name": "Long-only",
+  "family": "Basics 101",
+  "kind": "basics",
+  "formula": "only ever buy (go long); profits come from price rising",
+  "summary": "This bot never shorts. Every account buys crypto and sells it later at a hopefully higher price.",
+  "detail": "Rulebook rule: long_only = true, leverage = 1. That means all 42 strategies are really 'long-direction' strategies — some (RSI, Bollinger) buy dips expecting a bounce, others (breakouts, trend) buy strength. Short-selling and leverage are deliberately excluded to keep the experiment clean and survivable.",
+  "read": "A long-only bot loses when the market falls: it simply sits in cash (see how the portfolio behaves vs buy-and-hold on the Risk page).",
+  "used_by": [
+   "01_rsi_mean_reversion"
+  ]
+ },
+ {
+  "id": "position_sizing",
+  "name": "Position sizing",
+  "family": "Basics 101",
+  "kind": "basics",
+  "formula": "how much cash each entry risks (alloc / notional / fraction)",
+  "summary": "The part of trading that decides survival: how big each bet is relative to your account.",
+  "detail": "Every strategy has a budget rule: single-position strategies spend a fixed share of cash (alloc, defaulting to the global 95% position allocation — the rest pays fees); accumulation strategies size each leg (base_notional, per-level capital, Kelly fraction). Sizing decides whether a losing streak bankrupts you or merely stings.",
+  "read": "Strategy 38 is the bot's sizing showcase: Kelly criterion computed from the account's own trade history.",
+  "used_by": [
+   "11_dynamic_dca",
+   "12_arithmetic_grid",
+   "37_anti_martingale_pyramid",
+   "38_kelly_fraction_sizer"
+  ]
+ },
+ {
+  "id": "fee",
+  "name": "Fees & slippage",
+  "family": "Basics 101",
+  "kind": "basics",
+  "formula": "0.1% spot fee on every fill, both sides",
+  "summary": "Every simulated trade pays 0.1% on the way in and 0.1% on the way out — a round trip costs 0.2% before you earn anything.",
+  "detail": "Real exchanges charge fees that eat small-edge strategies alive. The engine deducts 0.1% per side on every simulated fill (plus configurable slippage on market orders), so a strategy must clear ~0.2% per round trip just to break even. That is why high-frequency small-move strategies (grids, scalps) need careful step sizes.",
+  "read": "Total fees per account are tracked live — on the profile and lesson pages compare fees vs. profit to see the tax each strategy pays.",
+  "used_by": [
+   "12_arithmetic_grid"
+  ]
+ },
+ {
+  "id": "slippage",
+  "name": "Slippage",
+  "family": "Basics 101",
+  "kind": "basics",
+  "formula": "fill price worse than the signal price",
+  "summary": "The small gap between the price you expected and the price you got. The bot models a configurable market-order slippage on top of fees.",
+  "detail": "Slippage happens when your order size is large relative to book depth or when price moves between signal and fill. The engine executes at the candle close plus a slippage basis point by default — small orders on BTC rarely move the market, so the simulation is conservative but honest.",
+  "read": "Limit orders (grids, re-anchors) fill at their own price with no slippage — one reason grid strategies look clean on paper.",
+  "used_by": [
+   "12_arithmetic_grid"
+  ]
+ },
+ {
+  "id": "warmup",
+  "name": "Warm-up",
+  "family": "Basics 101",
+  "kind": "basics",
+  "formula": "minimum candles an indicator needs before it can produce a signal",
+  "summary": "Indicators need history before they mean anything — SMA(200) is meaningless with ten candles. Each strategy refuses to trade until its warm-up is met.",
+  "detail": "Every strategy declares a warmup (SMA200 needs 200, Ichimoku needs 80, most need 20-60). During warm-up the account holds its starting cash and waits. On the strategy cards you'll see 'warmup N candles' — it is why brand-new accounts sit flat for their first hours/days.",
+  "read": "On the lesson pages, warm-up explains why some strategies' equity curves start flat for a long time.",
+  "used_by": [
+   "02_dual_ema_crossover",
+   "04_triple_moving_average"
+  ]
+ },
+ {
+  "id": "trailing_stop",
+  "name": "Trailing stop",
+  "family": "Basics 101",
+  "kind": "risk",
+  "formula": "exit that follows price up and locks in profit if it falls X% from the peak",
+  "summary": "Instead of a fixed target, the exit ratchets up with the best price reached, so winners run while losses are cut short.",
+  "detail": "A trailing stop is a standing rule: keep the exit at peak minus X (or X·ATR). If price keeps climbing, the stop climbs with it; the moment price drops X from the peak, the position exits. Supertrend, Chandelier and the Anti-Martingale pyramid all use trailing-style exits.",
+  "read": "Trailing stops convert 'let winners run' from a slogan into a number — see strategy 37.",
+  "used_by": [
+   "05_supertrend_atr",
+   "15_parabolic_sar",
+   "35_chandelier_trend_ride",
+   "37_anti_martingale_pyramid"
+  ]
+ },
+ {
+  "id": "risk_management",
+  "name": "Risk management",
+  "family": "Basics 101",
+  "kind": "risk",
+  "formula": "rules that cap how much a strategy can lose",
+  "summary": "The meta-skill: position limits, stop-losses, take-profits, circuit breakers and account isolation keep one bad idea from sinking the portfolio.",
+  "detail": "This bot's rulebook is risk management in action: 42 isolated $1,000 accounts (one bad strategy costs 1/42 of the portfolio), FIFO lot matching, a per-run trade cap, minimum notional, optional global stop-loss/take-profit, and warm-ups that keep half-baked signals out. Martingale accounts additionally cap their doubling steps.",
+  "read": "The full rulebook lives on the Profile page — read it before judging any single strategy's equity curve.",
+  "used_by": [
+   "36_martingale_dip",
+   "37_anti_martingale_pyramid",
+   "38_kelly_fraction_sizer",
+   "42_sibling_performance_allocator"
+  ]
+ },
+ {
+  "id": "drawdown",
+  "name": "Drawdown",
+  "family": "Basics 101",
+  "kind": "risk",
+  "formula": "peak-to-trough decline of an equity curve",
+  "summary": "How far an account falls from its best point. The number that separates 'risky' from 'ruinous' strategies.",
+  "detail": "A 50% loss needs a 100% gain to recover, so drawdowns compound against you. When comparing strategies look past total return: a +20% strategy that first fell 40% and a steady +12% one are different animals. The portfolio page computes drawdown from recorded equity history.",
+  "read": "Max drawdown, not return, is the first number professionals check — the Risk & Portfolio screens show both.",
+  "used_by": []
+ },
+ {
+  "id": "sma",
+  "name": "Simple Moving Average (SMA)",
+  "family": "Trend & Momentum",
+  "kind": "indicator",
+  "formula": "SMA(n) = average of the last n closes",
+  "summary": "The plain average of recent closes. Slow to react but calm: it shows the market's dominant direction without noise.",
+  "detail": "Every close counts equally. SMA(200) is the classic 'institutional' line — above it, bulls control the long term; below it, bears. Crossovers of fast and slow SMAs (20/50/200) mark trend shifts. SMAs lag price by design: they confirm trends late, which is the price of ignoring noise.",
+  "read": "When the 20 > 50 > 200, the trend stack is bullish (strategy 4); when the fast average slips below the mid one, the structure breaks.",
+  "used_by": [
+   "04_triple_moving_average",
+   "40_trend_pullback_confluence"
+  ]
+ },
+ {
+  "id": "ema",
+  "name": "Exponential Moving Average (EMA)",
+  "family": "Trend & Momentum",
+  "kind": "indicator",
+  "formula": "EMA = EMA(prev) + k·(close − EMA(prev)), k = 2/(n+1)",
+  "summary": "Like an SMA but recent candles weigh more, so it hugs price more tightly and signals turns earlier.",
+  "detail": "The smoothing constant gives the latest close the biggest vote. Fast EMAs (9, 21) track short-term momentum; a 9/21 crossover (strategy 2) is one of the most traded signals in crypto. Because EMAs react faster than SMAs they also produce more false crosses in chop — the eternal trade-off.",
+  "read": "EMA above EMA = short-term bias up. Keltner channels and ribbons build on EMA families.",
+  "used_by": [
+   "02_dual_ema_crossover",
+   "03_macd_histogram_reversal",
+   "19_trix_momentum",
+   "20_ema_ribbon_consensus"
+  ]
+ },
+ {
+  "id": "ema_ribbon",
+  "name": "EMA ribbon",
+  "family": "Trend & Momentum",
+  "kind": "indicator",
+  "formula": "several EMAs (8/13/21/34/55) drawn together",
+  "summary": "A fan of moving averages. When every line stacks in order, the trend is unanimous; when they tangle, nobody agrees.",
+  "detail": "A ribbon shows trend strength at five speeds at once. Fully stacked bullish (fastest on top, all ascending) is a high-conviction trend state; tangled ribbons are chop. Strategy 20 only buys the unanimous stack and only sells when the whole stack flips bearish — few signals, but each one is a consensus.",
+  "read": "A tidy fan = trend; a spaghetti ball = stand aside. Simple as that.",
+  "used_by": [
+   "20_ema_ribbon_consensus"
+  ]
+ },
+ {
+  "id": "macd",
+  "name": "MACD",
+  "family": "Trend & Momentum",
+  "kind": "indicator",
+  "formula": "MACD = EMA(12) − EMA(26); signal = EMA(9) of MACD; histogram = MACD − signal",
+  "summary": "Measures the gap between fast and slow momentum. When the gap flips sign, momentum changed direction.",
+  "detail": "MACD subtracts a slow EMA from a fast one, so it rises when short-term momentum outpaces long-term. The 9-period signal line smooths it; the histogram is the distance between them. Strategy 3 buys when the MACD line crosses above its signal and sells on the reverse cross — momentum-confirmation with built-in trend memory.",
+  "read": "Crossing zero = trend shift; crossing the signal line = momentum shift inside the trend. This bot trades the latter.",
+  "used_by": [
+   "03_macd_histogram_reversal"
+  ]
+ },
+ {
+  "id": "roc",
+  "name": "Rate of Change (ROC)",
+  "family": "Trend & Momentum",
+  "kind": "indicator",
+  "formula": "ROC(n) = (close − close n ago) / close n ago × 100",
+  "summary": "The bluntest momentum meter: what percentage did price move over the last n candles?",
+  "detail": "ROC needs no smoothing and no parameters beyond n. Strategy 16 buys when a 12-candle ROC bursts above +2% (a strong, fresh push) and sells when it decays back to 0% — momentum that arrived must keep arriving, or the position leaves. Simple to compute, brutally honest about what momentum is doing now.",
+  "read": "Big positive ROC = strong push. Watch that it keeps climbing after entry — flattening ROC means the push is spent.",
+  "used_by": [
+   "16_roc_momentum"
+  ]
+ },
+ {
+  "id": "adx",
+  "name": "ADX / DMI",
+  "family": "Trend & Momentum",
+  "kind": "indicator",
+  "formula": "ADX = smoothed |+DI − −DI| / (+DI + −DI); +DI/−DI from directional movement",
+  "summary": "Two questions in one tool: WHICH side controls (+DI vs −DI) and HOW STRONGLY (ADX). Only strong, one-sided markets get traded.",
+  "detail": "The Directional Movement Index separates up-moves (+DI) from down-moves (−DI); ADX is their disagreement, scaled 0-100. High ADX (>25) = a real trend; low ADX = chop where crossovers lie. Strategy 13 buys only when +DI crosses above −DI while ADX is strong, and exits when direction flips OR the trend weakens — trend following with a 'no weak trends' filter.",
+  "read": "ADX < 20 says 'don't bother trend trading right now' — the bot literally stands aside.",
+  "used_by": [
+   "13_adx_dmi_trend"
+  ]
+ },
+ {
+  "id": "aroon",
+  "name": "Aroon",
+  "family": "Trend & Momentum",
+  "kind": "indicator",
+  "formula": "Aroon Up = (n − bars since n-period high)/n × 100 (Down mirrors lows)",
+  "summary": "Answers 'how recently did price make a new high/low?' Recent extremes mean fresh trend; stale extremes mean it died.",
+  "detail": "Aroon Up near 100 means the highest price of the window happened just now; Aroon Down near 100 means a fresh low. Strategy 17 buys when Aroon Up crosses above Aroon Down while above 70 (fresh highs, uptrend) and sells when Down takes over — a trend-age detector rather than an oscillator.",
+  "read": "Both lines low = old news either way = no trend. One line pinned high = that side is live.",
+  "used_by": [
+   "17_aroon_trend"
+  ]
+ },
+ {
+  "id": "ichimoku",
+  "name": "Ichimoku Cloud",
+  "family": "Trend & Momentum",
+  "kind": "indicator",
+  "formula": "Tenkan=(H9+L9)/2 · Kijun=(H26+L26)/2 · cloud between Senkou A & B (both shifted 26)",
+  "summary": "A Japanese all-in-one system: trend direction (cloud), momentum (Tenkan/Kijun), and future support/resistance (shifted cloud) on one chart.",
+  "detail": "Tenkan and Kijun are midpoints of recent ranges; their cross is the momentum trigger. The cloud (gap between two shifted averages) shows where the market 'agrees' value sits 26 candles ahead. Strategy 14 buys when price closes above the cloud with Tenkan above Kijun, exits when price sinks back into the cloud or the cross fails.",
+  "read": "Above the cloud = bullish regime; below = bearish; inside = no man's land. The bot refuses to trade inside it.",
+  "used_by": [
+   "14_ichimoku_cloud"
+  ]
+ },
+ {
+  "id": "psar",
+  "name": "Parabolic SAR",
+  "family": "Trend & Momentum",
+  "kind": "indicator",
+  "formula": "SAR(n) = SAR(prev) + acceleration factor × (EP − SAR(prev))",
+  "summary": "A stop that 'parabolically' chases price. Dots below price = long bias; dots above = short bias. Flip = trend change.",
+  "detail": "The SAR starts near price and accelerates toward it while the trend continues, tightening the stop every candle. When price touches it, the system flips. Strategy 15 buys the flip from above to below and rides until the dot flips back over price — a pure trailing mechanism, no targets, no judgement.",
+  "read": "Dots far below price = room to breathe; dots kissing price = the trend is getting tired (stop tightening).",
+  "used_by": [
+   "15_parabolic_sar"
+  ]
+ },
+ {
+  "id": "trix",
+  "name": "TRIX",
+  "family": "Trend & Momentum",
+  "kind": "indicator",
+  "formula": "triple-EMA of price, then its 1-period % change",
+  "summary": "Momentum of momentum of momentum: EMA an EMA of an EMA, then measure its rate of change — noise is triple-filtered.",
+  "detail": "Triple smoothing strips out everything but the deepest swing. TRIX oscillates around zero; crossing its own signal line marks a major momentum turn. Strategy 19 trades those crosses. Expect few signals and slow ones — TRIX is for patience, not scalping.",
+  "read": "TRIX above its signal = deep momentum up. It turns late but rarely lies.",
+  "used_by": [
+   "19_trix_momentum"
+  ]
+ },
+ {
+  "id": "supertrend",
+  "name": "Supertrend",
+  "family": "Trend & Momentum",
+  "kind": "indicator",
+  "formula": "midpoint = (high+low)/2 ± multiplier × ATR; follows price until flipped",
+  "summary": "A single line that is either below price (bullish, acts as a trailing stop) or above it (bearish). One glance tells you the regime.",
+  "detail": "Built from a simple price midpoint and ATR bands, Supertrend flips only when price closes through it — each flip is a trend change with a built-in stop. Strategy 5 buys the bullish flip and holds until the line flips bearish or price closes under the stop. Multiplier choice sets sensitivity (3×ATR is standard).",
+  "read": "Line below price and green = let it ride. Line above = out. The strategy is the line.",
+  "used_by": [
+   "05_supertrend_atr"
+  ]
+ },
+ {
+  "id": "chandelier_exit",
+  "name": "Chandelier Exit",
+  "family": "Trend & Momentum",
+  "kind": "indicator",
+  "formula": "Long stop = highest high since entry − multiplier × ATR",
+  "summary": "A stop that hangs from the ceiling of the move: the highest point reached minus a volatility-scaled distance.",
+  "detail": "Unlike a fixed percentage trail, the chandelier scales its distance to ATR, so it breathes with volatility — wide enough to survive normal noise, tight enough to lock in real reversals. Strategy 35 enters on a trend confirmation (close over EMA50) and rides until price undercuts the chandelier.",
+  "read": "The stop hangs 3×ATR below the peak: a normal pullback won't touch it, a real reversal will.",
+  "used_by": [
+   "35_chandelier_trend_ride"
+  ]
+ },
+ {
+  "id": "heikin_ashi",
+  "name": "Heikin-Ashi candles",
+  "family": "Trend & Momentum",
+  "kind": "chart",
+  "formula": "HA close = (O+H+L+C)/4; HA open = previous HA (open+close)/2",
+  "summary": "Averaged candles that smooth raw price into clean trend blocks — no wicks in one direction = that side is in control.",
+  "detail": "Each Heikin-Ashi bar blends the previous bar, producing bodies that flow like a river instead of jagged raw candles. A run of body-only bullish bars (no lower wick) is the trend's 'green light'. Strategy 18 waits for three consecutive wick-free bullish bars to enter and the mirror pattern to exit.",
+  "read": "Wick-free green bars = relentless buying. First wick appears = the other side is pushing back — watch for the exit pattern.",
+  "used_by": [
+   "18_heikin_ashi_trend"
+  ]
+ },
+ {
+  "id": "rsi",
+  "name": "Relative Strength Index (RSI)",
+  "family": "Oscillators & Mean Reversion",
+  "kind": "indicator",
+  "formula": "RSI = 100 − 100/(1 + avg gain/avg loss over n)  (Wilder, n=14 classic)",
+  "summary": "The most famous oscillator: 0-100 gauge of how stretched recent gains are versus losses. Over 70 = hot, under 30 = cold.",
+  "detail": "RSI compares average up-moves to average down-moves. High readings say buyers have been far stronger than sellers — often overbought; low readings oversold. Strategy 1 fades: buy under 30, sell over 70. RSI(2) style variants (Connors) catch deeper snap-backs faster, and trend versions buy RSI strength instead of weakness.",
+  "read": "RSI < 30 + sideways market = bounce candidate. RSI < 30 in a crash = falling knife. Context decides.",
+  "used_by": [
+   "01_rsi_mean_reversion",
+   "08_stoch_rsi_reversal",
+   "09_vwap_pullback",
+   "23_connors_rsi_pullback",
+   "40_trend_pullback_confluence"
+  ]
+ },
+ {
+  "id": "stoch_rsi",
+  "name": "Stochastic RSI",
+  "family": "Oscillators & Mean Reversion",
+  "kind": "indicator",
+  "formula": "StochRSI = (RSI − RSI low n) / (RSI high n − RSI low n); %K smooth, %D = SMA(%K)",
+  "summary": "RSI's own position inside its recent range — it pinpoints the extreme moments of an already-extreme oscillator.",
+  "detail": "Plain RSI can sit at 80 for days in a strong trend. StochRSI asks: where is RSI within its own recent band? Near 0 = RSI itself is at a short-term low. Strategy 8 buys when %K crosses back above %D while still below 20 (an oversold turn) and sells the mirrored high-side cross — an extreme-of-the-extreme reversal signal.",
+  "read": "Below 20 = stretched even for RSI. The buy happens on the TURN (cross), not while it's still falling.",
+  "used_by": [
+   "08_stoch_rsi_reversal"
+  ]
+ },
+ {
+  "id": "williams_r",
+  "name": "Williams %R",
+  "family": "Oscillators & Mean Reversion",
+  "kind": "indicator",
+  "formula": "%R = (highest high n − close) / (highest high n − lowest low n) × −100",
+  "summary": "RSI's cousin measured from the top down: −100 means close at the very bottom of the range, 0 means the top.",
+  "detail": "%R tells you where the close sits inside the recent high-low range. Below −80 = deeply oversold; above −20 = overbought. Strategy 21 buys only when %R TURNS up out of the oversold zone — waiting for the turn avoids buying a still-falling knife — and sells when it climbs into overbought.",
+  "read": "The direction of the turn matters more than the level: −90 and turning up beats −82 and still diving.",
+  "used_by": [
+   "21_williams_r_reversal"
+  ]
+ },
+ {
+  "id": "cci",
+  "name": "Commodity Channel Index (CCI)",
+  "family": "Oscillators & Mean Reversion",
+  "kind": "indicator",
+  "formula": "CCI = (typical price − SMA(typical price)) / (0.015 × mean deviation)",
+  "summary": "Measures how far price sits from its statistical average, in units of typical noise. ±100 is the classic 'something unusual' line.",
+  "detail": "CCI uses the typical price (H+L+C)/3 and normalises the deviation from its mean by the mean absolute deviation. Below −100 then turning up = capitulation bounce setup; above +100 then turning down = exhaustion. Strategy 22 trades exactly those two turns. Despite the name it works on any liquid market.",
+  "read": "Crossing back UP through −100 is the buy — CCI returning into its normal band is the snap-back finishing.",
+  "used_by": [
+   "22_cci_mean_reversion"
+  ]
+ },
+ {
+  "id": "connors_rsi",
+  "name": "Connors RSI (CRSI)",
+  "family": "Oscillators & Mean Reversion",
+  "kind": "indicator",
+  "formula": "CRSI = (RSI(3) + Streak RSI(2) + Percentile Rank(100))/3",
+  "summary": "Three oversold lenses averaged: a fast RSI, how long price has fallen in a row, and where today ranks against 100 days.",
+  "detail": "Larry Connors' blend catches 'buyable pullbacks' in uptrends: RSI(3) flags short-term weakness, the streak component measures consecutive down days (the longer the streak, the more stretched), and the 100-day rank adds the longer context. Strategy 23 buys the whole blend under 10 and sells above 90 — an aggressive dip-buyer with a strict trigger.",
+  "read": "A low CRSI after a sharp multi-day drop inside a longer uptrend is the classic profile it hunts.",
+  "used_by": [
+   "23_connors_rsi_pullback"
+  ]
+ },
+ {
+  "id": "zscore",
+  "name": "Z-Score",
+  "family": "Oscillators & Mean Reversion",
+  "kind": "indicator",
+  "formula": "z = (close − SMA(n)) / stdev(n)",
+  "summary": "Statistics for traders: how many standard deviations price sits from its average. −2 is unusually cheap, +2 unusually dear.",
+  "detail": "If returns were a bell curve, a z-score beyond ±2 happens only a few percent of the time — extreme by definition. Strategy 24 buys z ≤ −2 (price stretched far below its 20-candle mean) and sells when it reverts to z = 0 (back to the average). No fixed targets, just 'wait for the rubber band to relax'.",
+  "read": "z is in standard deviations, not dollars: −2.5 is a far bigger deal than −1.2, whatever the price level.",
+  "used_by": [
+   "24_zscore_mean_reversion"
+  ]
+ },
+ {
+  "id": "cmo",
+  "name": "Chande Momentum Oscillator (CMO)",
+  "family": "Oscillators & Mean Reversion",
+  "kind": "indicator",
+  "formula": "CMO = 100 × (Σ up moves − Σ down moves) / (Σ up moves + Σ down moves)",
+  "summary": "Net momentum as a share of total movement: 0 = balanced, +50 = strong up-pressure, −50 = strong down-pressure.",
+  "detail": "Unlike RSI (which only compares average gains to average losses), CMO puts both in one ratio of total flow, making it symmetric and bounded ±100. Strategy 26 buys when CMO turns up through −50 (heavy selling exhausting) and sells when it turns down through +50 — mean reversion on a less-common oscillator.",
+  "read": "Read it like RSI's scale-free twin; the −50/+50 turns filter out noise-level oscillations.",
+  "used_by": [
+   "26_chande_momentum"
+  ]
+ },
+ {
+  "id": "mfi",
+  "name": "Money Flow Index (MFI)",
+  "family": "Oscillators & Mean Reversion",
+  "kind": "indicator",
+  "formula": "like RSI but money-weighted: uses typical price × volume instead of close-only",
+  "summary": "RSI with volume inside: it shows whether the buying/selling pressure behind moves is real or thin.",
+  "detail": "MFI accumulates 'positive money flow' (up candles × volume) versus negative. Divergence is its superpower: price makes a new low while MFI makes a higher low = the sell-off is running out of gas. Strategy 25 fades the extremes directly: buy ≤ 20, sell ≥ 80, no divergence required.",
+  "read": "Extreme MFI readings with shrinking volume are the weakest — and most tradeable — extremes.",
+  "used_by": [
+   "25_mfi_flow_reversal"
+  ]
+ },
+ {
+  "id": "bollinger",
+  "name": "Bollinger Bands",
+  "family": "Channels, Levels & Price Action",
+  "kind": "indicator",
+  "formula": "middle = SMA(20); bands = middle ± 2 × stdev(20)",
+  "summary": "A dynamic envelope two standard deviations around a moving average. Price touching a band = statistically stretched.",
+  "detail": "Bands widen when volatility rises and shrink when it dies — they're a volatility meter with price levels built in. Strategy 6 buys closes below the lower band (stretched down) and sells back at the middle band (reversion complete). Squeezes (bands narrowing inside Keltner) also power the TTM-style breakout strategy 29.",
+  "read": "A close beyond a band in a range = snap-back candidate. In a runaway trend, price can 'ride the band' for days.",
+  "used_by": [
+   "06_bollinger_mean_reversion",
+   "29_volatility_squeeze",
+   "41_volatility_regime_switcher"
+  ]
+ },
+ {
+  "id": "keltner",
+  "name": "Keltner Channel",
+  "family": "Channels, Levels & Price Action",
+  "kind": "indicator",
+  "formula": "middle = EMA(20); bands = middle ± multiplier × ATR(20)",
+  "summary": "An EMA tunnel whose width is set by ATR — volatility-scaled, unlike Bollinger's statistics.",
+  "detail": "Where Bollinger uses standard deviation, Keltner uses ATR, so its width tracks the market's actual recent ranges. Closes beyond the upper band mean a genuine volatility expansion (not just statistical stretch). Strategy 7 buys that expansion and exits when price falls back inside below the middle EMA.",
+  "read": "Keltner vs Bollinger comparison: when Bollinger lives inside Keltner, volatility is compressing — a squeeze.",
+  "used_by": [
+   "07_keltner_breakout",
+   "29_volatility_squeeze"
+  ]
+ },
+ {
+  "id": "donchian",
+  "name": "Donchian Channel",
+  "family": "Channels, Levels & Price Action",
+  "kind": "indicator",
+  "formula": "upper = highest high of n; lower = lowest low of n",
+  "summary": "The purest breakout tool: a channel of the last n candles' extremes. New high = buy. Made famous by the Turtle Traders.",
+  "detail": "No averaging, no smoothing — just the raw extremes of the window (using strictly prior candles so a bar can't reference itself). Strategy 10 (20/10 Donchian) buys a close above the 20-candle high and exits below the 10-candle low; Kelly (38) and the regime switcher (41) borrow the same channel for entries.",
+  "read": "The entry level is objective and visible: price closing above the channel top. That's the whole signal.",
+  "used_by": [
+   "10_donchian_breakout",
+   "38_kelly_fraction_sizer",
+   "41_volatility_regime_switcher"
+  ]
+ },
+ {
+  "id": "vwap",
+  "name": "VWAP (Volume-Weighted Average Price)",
+  "family": "Channels, Levels & Price Action",
+  "kind": "indicator",
+  "formula": "VWAP = Σ(typical price × volume) / Σ(volume), reset per session",
+  "summary": "The true average price institutions paid today — the fair-value anchor that big traders trade against.",
+  "detail": "Unlike moving averages, VWAP weights every trade by its size, so it reflects where money actually changed hands. Below VWAP = 'cheap' relative to the day's average; far above = extended. Strategy 9 buys dips under VWAP while RSI stays healthy (buying weakness that isn't broken) and sells 1.5% extensions above it.",
+  "read": "VWAP acts like magnetic fair value intraday: price stretches away from it, then tends to come back.",
+  "used_by": [
+   "09_vwap_pullback"
+  ]
+ },
+ {
+  "id": "fibonacci",
+  "name": "Fibonacci Retracement",
+  "family": "Channels, Levels & Price Action",
+  "kind": "indicator",
+  "formula": "levels 0.236 / 0.382 / 0.5 / 0.618 of the prior swing high→low",
+  "summary": "Retracement levels derived from a completed swing: pullbacks often end near 0.382-0.618 of the move before the trend resumes.",
+  "detail": "After a swing up from low to high, the pullback levels are measured down from the top. The 0.618 'golden ratio' zone is where dip-buyers cluster. Strategy 32 buys when an uptrend pulls back INTO its 0.618 level (a deep, high-quality retrace) and exits as the rally returns toward the 0.236 level. Levels are self-reinforcing because everyone watches them.",
+  "read": "Trend up + pullback to 0.618 + turn = the confluence strategy 40 would call a buy too.",
+  "used_by": [
+   "32_fibonacci_pullback"
+  ]
+ },
+ {
+  "id": "pivot_points",
+  "name": "Pivot Points",
+  "family": "Channels, Levels & Price Action",
+  "kind": "indicator",
+  "formula": "P = (H+L+C)/3 of prior session; S1/R1 = 2P − H / 2P − L (classic)",
+  "summary": "Yesterday's range becomes today's map: a central pivot plus support/resistance floors and ceilings derived from it.",
+  "detail": "Day traders anchor levels to the previous session's high, low and close. Strategy 33 buys when price dips to (or below) the S1 support and then reclaims it on a close — a defended floor — and sells into R1 resistance. Simple arithmetic levels that thousands of traders share, which is exactly why they matter.",
+  "read": "S1 reclaimed = the dip was bought. R1 reached = the rally found its ceiling.",
+  "used_by": [
+   "33_pivot_point_bounce"
+  ]
+ },
+ {
+  "id": "opening_range",
+  "name": "Opening Range",
+  "family": "Channels, Levels & Price Action",
+  "kind": "concept",
+  "formula": "high/low of the first N minutes after a session opens",
+  "summary": "The first hour's range sets the day's battlefield: break above it = early strength, below = early weakness.",
+  "detail": "The logic: whoever controls the first hour usually controls the day. Strategy 34 (on UTC sessions with 15m candles) measures the first 60 minutes and buys the first close above that range high, exiting if price later closes back below the range low. It's a morning-only strategy — it simply waits outside the opening hour.",
+  "read": "The range is set by real early money; the trade is joining whichever side wins the argument.",
+  "used_by": [
+   "34_opening_range_breakout"
+  ]
+ },
+ {
+  "id": "engulfing",
+  "name": "Engulfing pattern",
+  "family": "Channels, Levels & Price Action",
+  "kind": "indicator",
+  "formula": "a candle whose body fully contains the previous candle's body",
+  "summary": "A two-candle reversal: one side's entire candle gets swallowed by the next — momentum just changed owners.",
+  "detail": "After a down-move, a green candle whose body covers the prior red body says buyers overwhelmed sellers in one bar. Strategy 31 requires the pattern at the end of a measured 10-candle downtrend (a real pullback, not a random bar) and the mirror image to exit. Context + pattern beats pattern alone.",
+  "read": "A big body swallowing a small one = conviction. In the middle of nowhere it's noise; at range extremes it's a signal.",
+  "used_by": [
+   "31_engulfing_reversal"
+  ]
+ },
+ {
+  "id": "obv",
+  "name": "On-Balance Volume (OBV)",
+  "family": "Volume & Flow",
+  "kind": "indicator",
+  "formula": "OBV += volume on up closes, −= volume on down closes (cumulative)",
+  "summary": "A running tally that adds a candle's volume on up days and subtracts it on down days — volume with a memory of direction.",
+  "detail": "OBV shows whether volume is flowing into up-moves or down-moves over time. Rising OBV while price chops sideways = accumulation (smart money quietly buying); falling OBV in an uptrend = distribution (the rally is being sold). Strategy 27 buys when OBV breaks its own 20-candle high WITH price confirming at a new high.",
+  "read": "The bot demands both price and OBV agree on a breakout — volume confirming price is the whole idea.",
+  "used_by": [
+   "27_obv_trend_breakout"
+  ]
+ },
+ {
+  "id": "volume_spike",
+  "name": "Volume spike",
+  "family": "Volume & Flow",
+  "kind": "indicator",
+  "formula": "current volume ≥ mult × average volume (e.g. 2× SMA20)",
+  "summary": "A sudden burst of trading. Breakouts on 2× normal volume are real breakouts; quiet ones are suspect.",
+  "detail": "Price can drift through a level on thin volume and fake traders out. When an extreme move arrives with a volume spike, real money is involved — institutions don't hide in 15m bars. Strategy 28 requires both: 2× volume AND a close above the 20-candle high. Volume is the lie-detector of price action.",
+  "read": "Watch the volume bar on the Market screen: signals without spikes are the ones that fail most.",
+  "used_by": [
+   "28_volume_spike_breakout"
+  ]
+ },
+ {
+  "id": "volume",
+  "name": "Volume",
+  "family": "Volume & Flow",
+  "kind": "basics",
+  "formula": "units of the asset traded in a period",
+  "summary": "The raw participation count behind every candle — price says what happened, volume says how many people cared.",
+  "detail": "Thin moves reverse easily; heavy moves print levels that hold. Volume confirms breakouts (see strategy 28), weights oscillators (MFI), and powers cumulative tools like OBV. On the Market screen the volume bars under the candles let you judge every move's sincerity.",
+  "read": "A close at a new high on shrinking volume is a warning; on exploding volume it's a statement.",
+  "used_by": [
+   "09_vwap_pullback",
+   "25_mfi_flow_reversal",
+   "27_obv_trend_breakout",
+   "28_volume_spike_breakout",
+   "30_elder_ray_power"
+  ]
+ },
+ {
+  "id": "elder_ray",
+  "name": "Elder-Ray",
+  "family": "Volume & Flow",
+  "kind": "indicator",
+  "formula": "Bull power = high − EMA(13); Bear power = low − EMA(13)",
+  "summary": "Measures the raw reach of buyers (highs above the EMA) and sellers (lows below it) — who is actually pushing further?",
+  "detail": "Alexander Elder's bars show, in price terms, how far each side can shove price from the crowd's average. Bulls 'win' when bull power is positive and rising; the interesting reversal cue is bear power lifting back through zero (sellers losing reach). Strategy 30 enters on that bear-power failure while bulls stay positive and exits when bull power rolls over.",
+  "read": "Think tug-of-war: the side whose power crosses zero just lost the rope.",
+  "used_by": [
+   "30_elder_ray_power"
+  ]
+ },
+ {
+  "id": "atr",
+  "name": "Average True Range (ATR)",
+  "family": "Volatility",
+  "kind": "indicator",
+  "formula": "ATR(n) = Wilder-smoothed average of max(H−L, |H−Cprev|, |L−Cprev|)",
+  "summary": "The standard ruler for 'how much does this market move per candle?' Every volatility-scaled stop in the bot uses it.",
+  "detail": "True range captures the full reach of a candle including gaps; ATR averages it. If ATR is $1,200, a $400 pullback is nothing; if ATR is $80 it's enormous. Supertrend (5), Keltner (7), Chandelier (35) and the regime switcher (41) all scale their bands/stops by ATR so they adapt to the market's current temperament.",
+  "read": "Stops in ATR units = same statistical distance in calm and stormy markets alike.",
+  "used_by": [
+   "05_supertrend_atr",
+   "07_keltner_breakout",
+   "35_chandelier_trend_ride",
+   "41_volatility_regime_switcher"
+  ]
+ },
+ {
+  "id": "volatility_squeeze",
+  "name": "TTM Volatility Squeeze",
+  "family": "Volatility",
+  "kind": "indicator",
+  "formula": "squeeze when Bollinger bands (20, 2) sit inside Keltner (20, 1.5)",
+  "summary": "When both volatility envelopes collide, a coiled spring is loading — the release often fires a real breakout.",
+  "detail": "Bollinger bands measure statistical deviation, Keltner measures ATR range. When Bollinger shrinks inside Keltner, volatility is unusually compressed; energy builds until the bands 'fire' apart. Strategy 29 buys the release candle if close holds above the middle band and rides until price falls back below it. Chop compressors make the loudest bangs.",
+  "read": "Compression ≠ direction. The trade only happens on the release, taking direction from the middle band.",
+  "used_by": [
+   "29_volatility_squeeze"
+  ]
+ },
+ {
+  "id": "dca",
+  "name": "Dollar-Cost Averaging (DCA)",
+  "family": "Execution & Money Management",
+  "kind": "execution",
+  "formula": "fixed purchases on a schedule, optionally scaled up on dips",
+  "summary": "Buying on a timer instead of a signal: it turns 'when should I buy?' into 'I buy regularly' — and averages out the price.",
+  "detail": "DCA removes timing risk: the same notional at regular intervals means more coins when price is low, fewer when high. The bot's variant (11) buys hourly and DOUBLES the order when the trailing 24h is red — buying the dip harder, but on a schedule, with no market-timing judgment. It accumulates a ladder of lots and never tries to sell the top.",
+  "read": "DCA is the strategy most suitable for real money psychology: boring, automatic, and disciplined.",
+  "used_by": [
+   "11_dynamic_dca",
+   "36_martingale_dip"
+  ]
+ },
+ {
+  "id": "grid",
+  "name": "Grid trading",
+  "family": "Execution & Money Management",
+  "kind": "execution",
+  "formula": "limit buy every X% down, sell each lot X% above its buy (round trips)",
+  "summary": "A ladder of resting orders that harvests volatility: buy the dips and sell the bounces automatically, over and over.",
+  "detail": "The arithmetic grid (12) places 5 buy levels below the anchor price and takes profit exactly one step above each fill — every completed round trip banks the step profit minus two fees. If price trends away, the whole ladder re-anchors to the new price and stale inventory is liquidated. Grids shine in ranges and bleed slowly in one-way trends.",
+  "read": "The account's live state shows the ladder, round trips and re-anchors — a beautiful thing to watch in chop.",
+  "used_by": [
+   "12_arithmetic_grid"
+  ]
+ },
+ {
+  "id": "martingale",
+  "name": "Martingale",
+  "family": "Execution & Money Management",
+  "kind": "execution",
+  "formula": "double the bet after every loss (here: double the buy after every 2% dip)",
+  "summary": "The gambler's escalation: each dip is bought twice as hard, betting the price eventually bounces. Powerful — and dangerous if it doesn't.",
+  "detail": "Averaging down with doubling turns small bounces into full recoveries fast, but the cash needed grows exponentially with dip depth. Strategy 36 doubles each step up to a hard cap of 4 steps (100→200→400→800) and can only double while cash allows — the cap is the difference between a system and a suicide pact.",
+  "read": "Watch 'steps' in its live state and remember: the cap and cash limits are the entire risk model.",
+  "used_by": [
+   "36_martingale_dip"
+  ]
+ },
+ {
+  "id": "pyramiding",
+  "name": "Pyramiding / Anti-Martingale",
+  "family": "Execution & Money Management",
+  "kind": "execution",
+  "formula": "add to winners as they advance (opposite of martingale)",
+  "summary": "Bet bigger on what's working: each new leg up adds a fresh lot, and a trail below the peak protects the whole stack.",
+  "detail": "Anti-martingale logic says your best trades deserve more capital. Strategy 37 enters on a 20-candle high breakout, adds up to 3 more lots at each +2% leg, and exits everything 3% below the running peak. Losses are always small (one leg), winners can compound several legs — asymmetry in your favour.",
+  "read": "Compare with 36 in the same family: one doubles losers, the other doubles winners. Guess which curve is healthier.",
+  "used_by": [
+   "37_anti_martingale_pyramid"
+  ]
+ },
+ {
+  "id": "kelly",
+  "name": "Kelly criterion",
+  "family": "Execution & Money Management",
+  "kind": "execution",
+  "formula": "f* = p − (1−p)/b  (p = win rate, b = avg win / avg loss)",
+  "summary": "The mathematician's answer to 'how much should I bet?': a fraction derived from your edge — big enough to matter, small enough to survive.",
+  "detail": "Full Kelly maximises long-run growth but is brutally volatile, so practitioners bet a fraction of it. Strategy 38 estimates p and b from its own closed trades, requires at least 10 to trust them, caps at half-Kelly and 50%, and — the elegant part — stands aside entirely when the edge is negative. Sizing IS the strategy.",
+  "read": "Its live state shows the current Kelly fraction and the p/b it came from — real adaptive risk management.",
+  "used_by": [
+   "38_kelly_fraction_sizer"
+  ]
+ },
+ {
+  "id": "consensus",
+  "name": "Consensus / voting",
+  "family": "Execution & Money Management",
+  "kind": "execution",
+  "formula": "trade only when ≥ N of M independent signals agree",
+  "summary": "Don't trust any single indicator: make five vote and require a majority. Fewer trades, better ones.",
+  "detail": "Every indicator has blind spots — RSI lies in trends, crossovers whipsaw in chop. Strategy 39 polls RSI, EMA cross, MACD, Bollinger and StochRSI: +1 bullish, −1 bearish each, and trades only at ±3 of 5. The cost is fewer signals; the benefit is that disagreement (score 0) never gets traded at all.",
+  "read": "Live state shows the five votes and the score — when they split 3-2 you can see why it sat out.",
+  "used_by": [
+   "20_ema_ribbon_consensus",
+   "39_multi_indicator_consensus"
+  ]
+ },
+ {
+  "id": "confluence",
+  "name": "Confluence",
+  "family": "Execution & Money Management",
+  "kind": "basics",
+  "formula": "stacking independent reasons for the same trade",
+  "summary": "One signal is an opinion, three agreeing signals are a case. Confluence strategies demand evidence from different toolboxes.",
+  "detail": "Strategy 40 stacks a trend filter (price above SMA200, SMA50 above SMA200) with a dip trigger (RSI < 35) — buying weakness only inside strength. Strategy 32's Fibonacci dip and 41's regime choice are confluence in another form. The mental model: independent evidence that agrees is exponentially harder to be wrong about.",
+  "read": "Each filter removes a whole class of false signals — at the price of fewer entries.",
+  "used_by": [
+   "39_multi_indicator_consensus",
+   "40_trend_pullback_confluence"
+  ]
+ },
+ {
+  "id": "regime_switching",
+  "name": "Regime switching",
+  "family": "Execution & Money Management",
+  "kind": "execution",
+  "formula": "measure the market state (e.g. ATR percentile); pick the strategy that suits it",
+  "summary": "One strategy for all weather is a fantasy. Regime strategies ask 'what kind of market is this?' first, then trade accordingly.",
+  "detail": "Strategy 41 measures where current ATR sits in its own 100-candle history: high volatility (top 30%) favours fading moves with Bollinger; low volatility (bottom 30%) favours joining breakouts with Donchian; the middle is untradeable noise and it sits out. Same account, two behaviours, chosen by an objective regime meter.",
+  "read": "Live state prints the current ATR percentile and the active sub-regime — check which mode it's in.",
+  "used_by": [
+   "41_volatility_regime_switcher"
+  ]
+ },
+ {
+  "id": "allocation",
+  "name": "Portfolio allocation",
+  "family": "Execution & Money Management",
+  "kind": "execution",
+  "formula": "deciding WHEN to deploy capital based on the ensemble, not a single market signal",
+  "summary": "Meta-decision: is the whole portfolio healthy enough to trade at all right now?",
+  "detail": "Strategy 42 reads (never writes) its 41 siblings' returns. If the median sibling is profitable, the market is tradeable and it rides the best-performing leader's behaviour; if the median is underwater, it stands aside in cash. It's a 'market regime via crowd wisdom' filter — and the bot's one deliberate exception to account isolation.",
+  "read": "Its state shows the ensemble median and the current leader — a live health-check of the whole experiment.",
+  "used_by": [
+   "42_sibling_performance_allocator"
+  ]
+ },
+ {
+  "id": "ensemble",
+  "name": "Ensemble",
+  "family": "Execution & Money Management",
+  "kind": "basics",
+  "formula": "many independent models, one aggregated decision",
+  "summary": "The whole bot is an ensemble: 42 independent accounts, each an experiment, judged together rather than alone.",
+  "detail": "A single strategy is a hypothesis; 42 is a laboratory. Because accounts are isolated, one blow-up costs 1/42 of capital instead of everything, and the ensemble's average tells you more about 'does systematic trading work on BTC right now' than any one curve. Some strategies are designed to shine in specific regimes — that's the point of the zoo.",
+  "read": "Judge the portfolio on its distribution (Analytics page), and individual strategies on whether they behaved as designed.",
+  "used_by": [
+   "42_sibling_performance_allocator"
+  ]
+ },
+ {
+  "id": "lot",
+  "name": "Lots & FIFO",
+  "family": "Execution & Money Management",
+  "kind": "basics",
+  "formula": "each buy = one lot; sells close the oldest lot first (FIFO)",
+  "summary": "Accumulating strategies buy many small lots. FIFO matching means a sale closes the oldest coins first, which decides which PnL is realized when.",
+  "detail": "DCA, grid and martingale accounts hold ladders of lots at different prices. The broker matches every sale to the oldest open lot (first in, first out), realizes that lot's PnL and fee, and repeats until the order is filled. Lot books are visible per strategy — the clearest window into how an accumulator thinks.",
+  "read": "FIFO means the first coins you bought are the first you sell: realized PnL follows the oldest lots.",
+  "used_by": [
+   "11_dynamic_dca",
+   "12_arithmetic_grid",
+   "36_martingale_dip"
+  ]
+ },
+ {
+  "id": "mark_to_market",
+  "name": "Mark-to-market",
+  "family": "Execution & Money Management",
+  "kind": "basics",
+  "formula": "revalue holdings at the latest price every tick",
+  "summary": "Paper equity = cash + coins × current price, refreshed on every candle, whether or not the strategy traded.",
+  "detail": "Even a flat, position-holding strategy's equity moves with BTC every 15 minutes. That unrealized swing is real risk and appears on equity curves before any coin is sold. When you see a strategy's curve tracking the market, it's mark-to-market — not necessarily a new trade.",
+  "read": "On lesson pages, separate realized PnL (closed trades) from unrealized PnL (open lots) before judging.",
+  "used_by": []
+ },
+ {
+  "id": "meta_strategy",
+  "name": "Meta-strategy",
+  "family": "Execution & Money Management",
+  "kind": "basics",
+  "formula": "a strategy about strategies (consensus votes, regime choice, allocator)",
+  "summary": "Instead of reading raw price, meta-strategies read other signals — or other accounts — and manage the 'when to trade' question.",
+  "detail": "Strategies 39-42 form the Composite & Hybrid category: majority voting, filter + trigger stacks, regime switching and ensemble allocation. They trade less, think more, and are the closest thing in the bot to a portfolio manager. Great study material for how real allocators build systems.",
+  "read": "Meta-strategies are judged on decision quality, not trade count — a quiet month can be a good one.",
+  "used_by": [
+   "39_multi_indicator_consensus",
+   "41_volatility_regime_switcher",
+   "42_sibling_performance_allocator"
+  ]
+ },
+ {
+  "id": "half_kelly",
+  "name": "Fractional Kelly",
+  "family": "Execution & Money Management",
+  "kind": "execution",
+  "formula": "bet a fraction (e.g. 50%) of the full Kelly amount",
+  "summary": "Full Kelly maximizes growth but assumes your edge estimate is perfect — it never is. Halving it keeps most of the growth with far less drama.",
+  "detail": "Small errors in win-rate estimates blow up under full Kelly; fractional Kelly is the standard industry compromise. Strategy 38 runs half-Kelly capped at 50% of cash and requires 10 closed trades before it trusts its own statistics — before that it trades at a fixed 10% default.",
+  "read": "If you remember one formula from this academy, make it Kelly — it's the link between edge and survival.",
+  "used_by": [
+   "38_kelly_fraction_sizer"
+  ]
+ }
+]

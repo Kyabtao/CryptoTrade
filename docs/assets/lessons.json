@@ -1,0 +1,3160 @@
+[
+ {
+  "id": "01_rsi_mean_reversion",
+  "name": "RSI Mean Reversion",
+  "category": "Momentum & Trend Following",
+  "difficulty": 1,
+  "level": "Beginner",
+  "warmup": 20,
+  "single_position": true,
+  "entry": "RSI(14) < 30 (oversold)",
+  "exit": "RSI(14) > 70 (overbought)",
+  "params": {
+   "rsi_period": {
+    "default": 14,
+    "what": "How many candles RSI looks back.",
+    "effect": "Shorter = more reactive, more false signals. Longer = smoother, later entries."
+   },
+   "rsi_buy": {
+    "default": 30.0,
+    "what": "RSI level that counts as oversold and triggers the buy.",
+    "effect": "Lower = only extreme panics bought, fewer but better-bounce entries."
+   },
+   "rsi_sell": {
+    "default": 70.0,
+    "what": "RSI level that counts as overbought and triggers the sell.",
+    "effect": "Lower = exits earlier with profit locked in, but misses late legs."
+   },
+   "alloc": {
+    "default": null,
+    "what": "Share of the account's available cash spent on a single entry.",
+    "effect": "None = the global default (95% of cash) applies. Lower it to trade smaller."
+   }
+  },
+  "summary": "Buy when the market is panicking (RSI below 30), sell when it's euphoric (RSI above 70). The classic 'fade the extremes' starter strategy.",
+  "idea": "Prices whip back and forth around a fair value. When RSI drops below 30 the recent move has been unusually one-sided — and in a normal market, gravity pulls price back. This account buys the panic and exits the euphoria.",
+  "how": [
+   "Compute RSI(14) on every closed candle.",
+   "RSI < 30 (oversold): buy with nearly all available cash (95% default).",
+   "Hold while RSI wanders between 30 and 70 — no fiddling.",
+   "RSI > 70 (overbought): sell the whole position.",
+   "No stop-loss, no take-profit: the RSI thresholds are the entire rulebook."
+  ],
+  "strengths": [
+   "Simple, transparent, and easy to reason about.",
+   "Buys exactly when everyone else is scared — good entries in ranging markets.",
+   "Two parameters, no curve-fitting knobs."
+  ],
+  "weaknesses": [
+   "In a strong downtrend it catches falling knives: oversold keeps getting more oversold.",
+   "Sells at RSI 70, which in a raging uptrend is far too early.",
+   "No trend filter — it fades trends as happily as it fades noise."
+  ],
+  "when": [
+   "Works best when BTC is range-bound (chop between clear levels).",
+   "Suffers most in strong directional phases — both up (early exits) and down (early buys)."
+  ],
+  "mistakes": [
+   "Reading 'RSI 25' as a guaranteed bounce — it's a stretched rubber band, not a promise.",
+   "Loosening the sell threshold to 'let winners run' — that turns it into a different (trend) strategy.",
+   "Forgetting it's long-only: in a crash this account just buys the whole way down."
+  ],
+  "watch": [
+   "Position badge: it should be long right after big red candles, flat right after big green ones.",
+   "Compare its curve with strategy 02 — one fades moves, the other chases them."
+  ],
+  "concepts": [
+   "rsi",
+   "mean_reversion",
+   "oscillator",
+   "long_only",
+   "support_resistance"
+  ],
+  "related": [
+   "24_zscore_mean_reversion",
+   "06_bollinger_mean_reversion",
+   "02_dual_ema_crossover"
+  ]
+ },
+ {
+  "id": "02_dual_ema_crossover",
+  "name": "Dual EMA Crossover (9/21)",
+  "category": "Momentum & Trend Following",
+  "difficulty": 1,
+  "level": "Beginner",
+  "warmup": 30,
+  "single_position": true,
+  "entry": "EMA9 crosses above EMA21",
+  "exit": "EMA9 crosses below EMA21",
+  "params": {
+   "fast": {
+    "default": 9,
+    "what": "The quick EMA that leads.",
+    "effect": "Smaller = crosses sooner with more whipsaws."
+   },
+   "slow": {
+    "default": 21,
+    "what": "The EMA that defines the prevailing mood.",
+    "effect": "Larger = fewer, later, higher-quality crosses."
+   },
+   "alloc": {
+    "default": null,
+    "what": "Share of the account's available cash spent on a single entry.",
+    "effect": "None = the global default (95% of cash) applies. Lower it to trade smaller."
+   }
+  },
+  "summary": "The most famous trend signal in trading: when the fast EMA crosses above the slow one, buy; when it crosses back below, sell.",
+  "idea": "A fast moving average represents today's mood, a slow one last month's. When the fast line overtakes the slow line, momentum has shifted up — the trend follower's cue to join.",
+  "how": [
+   "Track EMA(9) (fast) and EMA(21) (slow) of closes.",
+   "Fast crosses ABOVE slow: buy with available cash.",
+   "Ride while fast stays above slow.",
+   "Fast crosses BELOW slow: sell everything.",
+   "Classic trend-following: late entries, no targets, exits only on trend reversal."
+  ],
+  "strengths": [
+   "Captures the meat of sustained trends automatically.",
+   "Zero subjectivity — the rule either fired or it didn't.",
+   "Works on every timeframe and asset class."
+  ],
+  "weaknesses": [
+   "Whipsaw hell in sideways markets: buy the cross, sell the cross, repeat at a loss.",
+   "Entries are late — you buy after the move already started.",
+   "The two EMAs are highly correlated, so 'two confirmations' is really one opinion."
+  ],
+  "when": [
+   "Trending markets with follow-through (BTC trending phases).",
+   "Chop and tight ranges produce repeated small losses."
+  ],
+  "mistakes": [
+   "Switching EMA lengths after losses ('optimizing' into curve-fitting).",
+   "Expecting it to call tops — it confirms trends, it doesn't predict them.",
+   "Judging it over a few trades; trend systems need many cycles to show their edge."
+  ],
+  "watch": [
+   "Strategy state shows the EMA values each tick — you can see the gap widen in trends.",
+   "Pair mentally with strategy 01: when 01 loses, 02 usually wins (and vice versa)."
+  ],
+  "concepts": [
+   "ema",
+   "trend",
+   "momentum",
+   "warmup"
+  ],
+  "related": [
+   "04_triple_moving_average",
+   "03_macd_histogram_reversal",
+   "20_ema_ribbon_consensus"
+  ]
+ },
+ {
+  "id": "03_macd_histogram_reversal",
+  "name": "MACD Signal Crossover",
+  "category": "Momentum & Trend Following",
+  "difficulty": 2,
+  "level": "Intermediate",
+  "warmup": 45,
+  "single_position": true,
+  "entry": "MACD line crosses above signal",
+  "exit": "MACD line crosses below signal",
+  "params": {
+   "fast": {
+    "default": 12,
+    "what": "Fast EMA of MACD.",
+    "effect": "Smaller = more sensitive to short-term moves."
+   },
+   "slow": {
+    "default": 26,
+    "what": "Slow EMA of MACD.",
+    "effect": "Larger = smoother, slower momentum baseline."
+   },
+   "signal": {
+    "default": 9,
+    "what": "Smoothing of the MACD line itself.",
+    "effect": "Smaller = signal crosses more often (more trades)."
+   },
+   "alloc": {
+    "default": null,
+    "what": "Share of the account's available cash spent on a single entry.",
+    "effect": "None = the global default (95% of cash) applies. Lower it to trade smaller."
+   }
+  },
+  "summary": "A momentum-change radar: MACD is the gap between fast and slow momentum, and crossing its signal line marks the turn.",
+  "idea": "MACD subtracts a 26-period EMA from a 12-period one, so it rises while short-term momentum outruns long-term momentum. The 9-EMA signal line smooths it; their crossing is a cleaner, momentum-flavoured cousin of the EMA crossover.",
+  "how": [
+   "Compute MACD line (12−26 EMAs), signal (9 EMA of MACD) and histogram.",
+   "Histogram turns positive (MACD crossed above signal): buy.",
+   "Hold while momentum stays with you.",
+   "Histogram turns negative (MACD crossed below signal): sell.",
+   "The histogram sign, not its size, drives decisions."
+  ],
+  "strengths": [
+   "Combines trend and momentum in one number.",
+   "The signal cross filters out tiny meaningless momentum ripples.",
+   "Very widely followed — its signals attract real money."
+  ],
+  "weaknesses": [
+   "Laggy: built on EMAs of EMAs, so turns arrive after price turned.",
+   "In flat markets the histogram saws around zero, whipsawing the account.",
+   "Doesn't distinguish strong vs weak trends (no ADX-style filter)."
+  ],
+  "when": [
+   "Moderate, persistent trends.",
+   "Bad in low-volatility chop and around major news reversals."
+  ],
+  "mistakes": [
+   "Reading histogram HEIGHT as strength — this strategy only uses its sign.",
+   "Forgetting the defaults (12/26/9) are 1970s stock parameters, not BTC gospel.",
+   "Expecting early reversals; MACD confirms after the fact by design."
+  ],
+  "watch": [
+   "State shows the histogram value with its sign — it flips only on crosses.",
+   "Long stretches of near-zero histogram = chop; expect whipsaws then."
+  ],
+  "concepts": [
+   "macd",
+   "momentum",
+   "ema",
+   "trend"
+  ],
+  "related": [
+   "02_dual_ema_crossover",
+   "19_trix_momentum",
+   "39_multi_indicator_consensus"
+  ]
+ },
+ {
+  "id": "04_triple_moving_average",
+  "name": "Triple MA Trend (20/50/200)",
+  "category": "Momentum & Trend Following",
+  "difficulty": 1,
+  "level": "Beginner",
+  "warmup": 200,
+  "single_position": true,
+  "entry": "SMA20 > SMA50 > SMA200 aligned",
+  "exit": "SMA20 drops below SMA50",
+  "params": {
+   "fast": {
+    "default": 20,
+    "what": "Shortest average, fastest to react.",
+    "effect": "Smaller = stack breaks sooner, both entries and exits."
+   },
+   "mid": {
+    "default": 50,
+    "what": "Middle average, medium trend.",
+    "effect": "The line whose breach triggers the exit."
+   },
+   "slow": {
+    "default": 200,
+    "what": "Longest average, macro regime line.",
+    "effect": "Larger = more history needed, more stable regime filter."
+   },
+   "alloc": {
+    "default": null,
+    "what": "Share of the account's available cash spent on a single entry.",
+    "effect": "None = the global default (95% of cash) applies. Lower it to trade smaller."
+   }
+  },
+  "summary": "The trend-stack strategy: only buy when SMA 20 > 50 > 200 — the whole market structure agrees the trend is up.",
+  "idea": "One moving average is an opinion; three nested ones are a hierarchy. When the short sits above the medium above the long, every timeframe agrees: dips are being bought in an uptrend. When the 20 falls under the 50, the first layer of the stack has broken.",
+  "how": [
+   "Compute SMA(20), SMA(50) and SMA(200) of closes.",
+   "All three aligned 20 > 50 > 200: buy (the full stack is bullish).",
+   "Stay long while the stack holds.",
+   "SMA20 drops below SMA50: sell — the stack's foundation cracked.",
+   "SMA200 needs 200 candles before this account can even think (warm-up 200)."
+  ],
+  "strengths": [
+   "Extremely robust: nested SMAs rarely give contradictory signals.",
+   "Stays in the biggest trends for a long time (the 20/50 breach is a late, strong exit).",
+   "A teachable model of 'multiple timeframe' thinking."
+  ],
+  "weaknesses": [
+   "Very late entries and exits — gives back large parts of moves.",
+   "200-candle warm-up means ~2 days of 15m candles before first signal.",
+   "In a long bear, the stack never aligns and the account just sits in cash (fine, but idle)."
+  ],
+  "when": [
+   "Secular bull phases and strong recoveries.",
+   "Dead money in multi-month chop where the stack flips constantly."
+  ],
+  "mistakes": [
+   "Using it to time exact bottoms — it buys AFTER the turn is confirmed.",
+   "Overriding exits because 'the 200 still looks fine' — the rule is the 20/50 break.",
+   "Comparing its flat bear-market curve to dip-buyers without noting it held cash."
+  ],
+  "watch": [
+   "You can see the three averages in strategy state on aligned days.",
+   "Note how long it held during the last uptrend vs how quickly it exited."
+  ],
+  "concepts": [
+   "sma",
+   "trend",
+   "support_resistance",
+   "warmup"
+  ],
+  "related": [
+   "02_dual_ema_crossover",
+   "20_ema_ribbon_consensus",
+   "35_chandelier_trend_ride"
+  ]
+ },
+ {
+  "id": "05_supertrend_atr",
+  "name": "Supertrend ATR Trailing Stop",
+  "category": "Momentum & Trend Following",
+  "difficulty": 2,
+  "level": "Intermediate",
+  "warmup": 25,
+  "single_position": true,
+  "entry": "Supertrend (ATR 10, ×3) flips bullish",
+  "exit": "flips bearish / stop breached",
+  "params": {
+   "atr_period": {
+    "default": 10,
+    "what": "Lookback for the ATR that sizes the bands.",
+    "effect": "Shorter = stop hugs price tighter, exits sooner."
+   },
+   "multiplier": {
+    "default": 3.0,
+    "what": "How many ATRs the band sits from price.",
+    "effect": "Higher = wider stop, fewer shake-outs, bigger giveback. Lower = tigher, more whipsaws."
+   },
+   "alloc": {
+    "default": null,
+    "what": "Share of the account's available cash spent on a single entry.",
+    "effect": "None = the global default (95% of cash) applies. Lower it to trade smaller."
+   }
+  },
+  "summary": "One ATR-scaled line that acts as trend and trailing stop at once: buy the flip up, ride until it flips down or the stop is hit.",
+  "idea": "Supertrend draws a line at the price midpoint ± 3×ATR. While price stays above it, the line creeps up underneath — a trailing stop that breathes with volatility. When price closes through it, the whole regime has flipped.",
+  "how": [
+   "Compute Supertrend from ATR(10) with a ×3 multiplier.",
+   "Direction flips from bearish to bullish: buy.",
+   "Hold; the Supertrend line is now your trailing stop, updated every candle.",
+   "Exit when price closes below the stop line or the line flips bearish.",
+   "Live state stores the stop and direction each tick."
+  ],
+  "strengths": [
+   "A genuine trailing stop: winners run, losses get cut early.",
+   "ATR scaling means the stop adapts to BTC's changing mood.",
+   "Very few parameters, highly visual logic."
+  ],
+  "weaknesses": [
+   "A single sharp candle against you can flip the line and exit at the worst spot.",
+   "In chop, stops are hit repeatedly — death by a thousand small losses.",
+   "No profit target: profits depend entirely on the trailing mechanism."
+  ],
+  "when": [
+   "Clean trending phases with normal volatility.",
+   "Bad in whipsaw ranges and news-spike candles."
+  ],
+  "mistakes": [
+   "Treating the flip as a prediction — it's a reaction to what already happened.",
+   "Tightening the multiplier to 2 'for less giveback' without expecting more exits.",
+   "Ignoring that gaps/spikes can blow through any stop — paper or real."
+  ],
+  "watch": [
+   "State shows supertrend_stop and direction — compare stop to price each tick.",
+   "The stop should climb with price in trends and sit above price in falls."
+  ],
+  "concepts": [
+   "supertrend",
+   "atr",
+   "trailing_stop",
+   "trend"
+  ],
+  "related": [
+   "15_parabolic_sar",
+   "35_chandelier_trend_ride",
+   "41_volatility_regime_switcher"
+  ]
+ },
+ {
+  "id": "13_adx_dmi_trend",
+  "name": "ADX DMI Trend Strength",
+  "category": "Momentum & Trend Following",
+  "difficulty": 2,
+  "level": "Intermediate",
+  "warmup": 35,
+  "single_position": true,
+  "entry": "ADX(14) > 25 and +DI > −DI",
+  "exit": "ADX < 20 or −DI takes the lead",
+  "params": {
+   "period": {
+    "default": 14,
+    "what": "Lookback for ADX/DMI.",
+    "effect": "Standard 14 balances speed and stability."
+   },
+   "adx_min": {
+    "default": 25.0,
+    "what": "Minimum ADX to accept a new long.",
+    "effect": "Higher = only powerful trends traded, far fewer signals."
+   },
+   "alloc": {
+    "default": null,
+    "what": "Share of the account's available cash spent on a single entry.",
+    "effect": "None = the global default (95% of cash) applies. Lower it to trade smaller."
+   }
+  },
+  "summary": "Trend trading with a strength requirement: +DI over −DI is only tradeable when ADX proves the trend is actually strong.",
+  "idea": "Most crossover systems fail because they trade weak trends. ADX/DMI separates the question: WHO leads (+DI vs −DI) and HOW STRONGLY (ADX). This account only buys when the bulls take the lead in a trend strong enough to be worth joining.",
+  "how": [
+   "Compute ADX(14), +DI and −DI each candle.",
+   "Buy only when +DI crosses above −DI AND ADX ≥ 25 (strong trend, fresh direction).",
+   "Hold while +DI leads.",
+   "Sell when −DI takes over, or when ADX fades below 20 (the trend is dying of weakness).",
+   "The ADX fade-exit is the special sauce: it leaves before the turn completes."
+  ],
+  "strengths": [
+   "Filters out the weak trends that kill naive crossovers.",
+   "Explicit strength-based exit (ADX fade) as well as direction-based.",
+   "Well-researched, institutional-grade indicator family."
+  ],
+  "weaknesses": [
+   "ADX is slow — it confirms strength after the move is obvious.",
+   "Complex math, hard for beginners to debug by eye.",
+   "Strong trends eventually fade; the ADX exit can still give back profit."
+  ],
+  "when": [
+   "Sustained directional markets with momentum.",
+   "Ranges produce few signals — ADX stays low and the account waits (correctly)."
+  ],
+  "mistakes": [
+   "Buying every +DI/−DI cross without checking ADX (that's the whole point of the filter).",
+   "Expecting ADX to predict — it measures what already is.",
+   "Using ADX < 25 as a sell signal — this bot only exits on ADX < 20 or direction flip."
+  ],
+  "watch": [
+   "State prints ADX, +DI, −DI every tick — watch ADX climb during strong trends.",
+   "During calm chop ADX should hover low and the account should stay flat."
+  ],
+  "concepts": [
+   "adx",
+   "trend",
+   "momentum",
+   "breakout"
+  ],
+  "related": [
+   "17_aroon_trend",
+   "05_supertrend_atr",
+   "39_multi_indicator_consensus"
+  ]
+ },
+ {
+  "id": "14_ichimoku_cloud",
+  "name": "Ichimoku Cloud Breakout",
+  "category": "Momentum & Trend Following",
+  "difficulty": 3,
+  "level": "Advanced",
+  "warmup": 80,
+  "single_position": true,
+  "entry": "TK cross above the cloud, cloud green",
+  "exit": "close re-enters the cloud",
+  "params": {
+   "tenkan": {
+    "default": 9,
+    "what": "Fast conversion line period.",
+    "effect": "Shorter = quicker momentum turns."
+   },
+   "kijun": {
+    "default": 26,
+    "what": "Base line period — the 'value' line.",
+    "effect": "The mid-term anchor; its cross with Tenkan triggers exits."
+   },
+   "senkou_b": {
+    "default": 52,
+    "what": "Second cloud boundary period (52).",
+    "effect": "Longer = thicker, more meaningful cloud."
+   },
+   "displacement": {
+    "default": 26,
+    "what": "How far the cloud is shifted forward.",
+    "effect": "Shows future support/resistance; 26 is standard."
+   },
+   "alloc": {
+    "default": null,
+    "what": "Share of the account's available cash spent on a single entry.",
+    "effect": "None = the global default (95% of cash) applies. Lower it to trade smaller."
+   }
+  },
+  "summary": "The Japanese all-in-one system: price above the cloud with Tenkan over Kijun = buy; back inside the cloud or a failed cross = out.",
+  "idea": "Ichimoku shows trend direction (the cloud), momentum (Tenkan/Kijun cross) and future support/resistance (the shifted cloud) in one picture. Trading it is trading a complete world-view rather than a single indicator.",
+  "how": [
+   "Compute Tenkan(9), Kijun(26), and the cloud (Senkou A/B, shifted 26).",
+   "Buy when close is above the cloud TOP and Tenkan > Kijun.",
+   "Hold while the picture stays bullish.",
+   "Sell when close falls back below the cloud bottom, or Tenkan crosses below Kijun.",
+   "Inside the cloud = no man's land: the account never initiates there."
+  ],
+  "strengths": [
+   "Combines trend, momentum and levels into one coherent system.",
+   "The cloud acts as a dynamic support/resistance map.",
+   "Very popular in crypto — its levels are self-watched by many traders."
+  ],
+  "weaknesses": [
+   "Complex: 4+ parameters and several sub-signals to reconcile.",
+   "Slow: needs 80 candles warm-up and its signals lag.",
+   "Cloud computations with displacement are unintuitive to debug."
+  ],
+  "when": [
+   "Clean trends where price travels outside the cloud.",
+   "Awful inside clouds and when the cloud is flat/overlapping."
+  ],
+  "mistakes": [
+   "Buying a Tenkan/Kijun cross while price is INSIDE the cloud — this strategy refuses to.",
+   "Ignoring that a thick cloud is stronger resistance/support than a thin one.",
+   "Mixing Ichimoku timeframes (using daily settings on 15m bars without thought)."
+  ],
+  "watch": [
+   "State doesn't print the cloud — check the Market screen overlay when available.",
+   "It should be long during cloud-top rallies and flat inside clouds."
+  ],
+  "concepts": [
+   "ichimoku",
+   "trend",
+   "support_resistance",
+   "breakout"
+  ],
+  "related": [
+   "04_triple_moving_average",
+   "05_supertrend_atr",
+   "33_pivot_point_bounce"
+  ]
+ },
+ {
+  "id": "15_parabolic_sar",
+  "name": "Parabolic SAR Flip",
+  "category": "Momentum & Trend Following",
+  "difficulty": 2,
+  "level": "Intermediate",
+  "warmup": 15,
+  "single_position": true,
+  "entry": "SAR dot flips below price",
+  "exit": "SAR dot flips above price",
+  "params": {
+   "step": {
+    "default": 0.02,
+    "what": "How fast the SAR accelerates per candle.",
+    "effect": "Higher = stop chases price harder, exits sooner and more often."
+   },
+   "maximum": {
+    "default": 0.2,
+    "what": "Cap on the acceleration factor.",
+    "effect": "Higher cap = tighter end-of-trend stops; standard 0.2."
+   },
+   "alloc": {
+    "default": null,
+    "what": "Share of the account's available cash spent on a single entry.",
+    "effect": "None = the global default (95% of cash) applies. Lower it to trade smaller."
+   }
+  },
+  "summary": "Pure trend-chasing dots: the SAR flip is both the entry signal and a stop that accelerates as the trend ages.",
+  "idea": "Parabolic SAR dots sit under price in uptrends and above in downtrends, accelerating toward price the longer the trend runs. The flip is a complete 'trend changed' statement — this strategy buys flips and lets the dot do all exit thinking.",
+  "how": [
+   "Compute SAR with step 0.02 and maximum 0.2.",
+   "SAR flips from above price to below: buy.",
+   "Hold while price stays above the SAR.",
+   "SAR flips back above price: sell — no second opinions.",
+   "The SAR effectively tightens each candle, so exits arrive faster as trends age."
+  ],
+  "strengths": [
+   "Total objectivity: one dot decides everything.",
+   "Trailing behaviour protects profits as trends mature.",
+   "Very simple state to watch live (dot vs price)."
+  ],
+  "weaknesses": [
+   "Notorious whipsawing in sideways markets — dots flip constantly.",
+   "Acceleration means the exit can be very close to price in long trends (early shake-outs).",
+   "No consideration of volume or strength."
+  ],
+  "when": [
+   "Long smooth trends — the SAR shines when direction persists.",
+   "Chop is its kryptonite."
+  ],
+  "mistakes": [
+   "Using SAR as a top-caller; it flips only after price passes it.",
+   "Raising 'step' to 0.03 for tighter stops without expecting more whipsaws.",
+   "Forgetting warm-up 15: it needs a full SAR cycle to be meaningful."
+  ],
+  "watch": [
+   "Live state holds the SAR value; compare its distance from price.",
+   "Distance shrinks as trends age — a sign the exit is approaching."
+  ],
+  "concepts": [
+   "psar",
+   "trailing_stop",
+   "trend",
+   "momentum"
+  ],
+  "related": [
+   "05_supertrend_atr",
+   "35_chandelier_trend_ride",
+   "02_dual_ema_crossover"
+  ]
+ },
+ {
+  "id": "16_roc_momentum",
+  "name": "ROC Momentum Burst",
+  "category": "Momentum & Trend Following",
+  "difficulty": 1,
+  "level": "Beginner",
+  "warmup": 20,
+  "single_position": true,
+  "entry": "ROC(12) crosses above entry level",
+  "exit": "ROC(12) loses momentum",
+  "params": {
+   "period": {
+    "default": 12,
+    "what": "Lookback for the % change.",
+    "effect": "Shorter = fresher bursts, noisier; longer = smoother trend-ish momentum."
+   },
+   "entry_pct": {
+    "default": 2.0,
+    "what": "Momentum strength required to buy.",
+    "effect": "Higher = only explosive moves traded (fewer, stronger entries)."
+   },
+   "exit_pct": {
+    "default": 0.0,
+    "what": "Momentum level that ends the trade.",
+    "effect": "At 0 it holds until the whole burst decays; above 0 locks profit earlier."
+   },
+   "alloc": {
+    "default": null,
+    "what": "Share of the account's available cash spent on a single entry.",
+    "effect": "None = the global default (95% of cash) applies. Lower it to trade smaller."
+   }
+  },
+  "summary": "Momentum burst, measured bluntly: buy when price moved +2% over 12 candles and sell when that push fully decays.",
+  "idea": "ROC is pure percentage change — no smoothing, no cleverness. A 12-candle ROC above +2% means a real push just happened; momentum traders bet pushes continue. When ROC falls back to 0%, the push is spent and this account leaves.",
+  "how": [
+   "Compute ROC(12): % change of close vs 12 candles ago.",
+   "ROC ≥ +2%: buy (fresh momentum burst).",
+   "Ride while momentum persists.",
+   "ROC ≤ 0%: sell — the entire burst has been given back.",
+   "Exit at exactly zero: no profit target, momentum decay is the only exit."
+  ],
+  "strengths": [
+   "Dead simple and transparent — one percentage.",
+   "Catches violent impulsive moves early (crypto's speciality).",
+   "Exit rule directly measures the bet ('momentum continues') failing."
+  ],
+  "weaknesses": [
+   "Buys AFTER a 2% pop — vulnerable to buying local tops.",
+   "No trend context: a +2% bounce in a bear market also triggers it.",
+   "Zero-exit gives back everything if momentum decays slowly."
+  ],
+  "when": [
+   "Volatile up-impulses (breakouts, short squeezes).",
+   "Slow grind markets never reach +2% in 12 candles — account sits idle."
+  ],
+  "mistakes": [
+   "Assuming ROC predicts — it measures the recent past.",
+   "Treating the 2% default as sacred; it's just a parameter.",
+   "Expecting it to hold through pullbacks — the rule exits at exactly 0%."
+  ],
+  "watch": [
+   "State shows ROC% — see it spike on green candles.",
+   "It should buy only after visible bursts, not during quiet climbs."
+  ],
+  "concepts": [
+   "roc",
+   "momentum",
+   "breakout",
+   "trend"
+  ],
+  "related": [
+   "10_donchian_breakout",
+   "28_volume_spike_breakout",
+   "02_dual_ema_crossover"
+  ]
+ },
+ {
+  "id": "17_aroon_trend",
+  "name": "Aroon Trend",
+  "category": "Momentum & Trend Following",
+  "difficulty": 2,
+  "level": "Intermediate",
+  "warmup": 30,
+  "single_position": true,
+  "entry": "Aroon Up > 70 and Up > Down",
+  "exit": "Aroon Down > 70 or Down > Up",
+  "params": {
+   "period": {
+    "default": 25,
+    "what": "Lookback for counting candles since the last high/low.",
+    "effect": "Shorter = fresher definitions of 'new'."
+   },
+   "strong": {
+    "default": 70.0,
+    "what": "Aroon level required at entry.",
+    "effect": "Higher = only very recent highs qualify (higher conviction, fewer trades)."
+   },
+   "alloc": {
+    "default": null,
+    "what": "Share of the account's available cash spent on a single entry.",
+    "effect": "None = the global default (95% of cash) applies. Lower it to trade smaller."
+   }
+  },
+  "summary": "A freshness meter for highs and lows: buy when new highs are recent and dominant, sell when new lows take over.",
+  "idea": "Aroon asks one question: how long ago did price make its highest/lowest point of the window? Aroon Up ≈ 100 means the high happened just now — the trend is young and alive. Stale extremes mean the trend died. Trading Aroon is trading trend-freshness instead of price.",
+  "how": [
+   "Compute Aroon Up/Down over 25 candles.",
+   "Buy when Aroon Up crosses above Aroon Down while Up ≥ 70 (fresh high, new momentum).",
+   "Hold while Up leads.",
+   "Sell when Aroon Down crosses above Up.",
+   "Note: no strength filter on exit — any Down takeover ends the ride."
+  ],
+  "strengths": [
+   "Measures trend age, which crossovers don't.",
+   "Clean, easy-to-read scale (0-100 both directions).",
+   "Catches trends while they're still young-ish."
+  ],
+  "weaknesses": [
+   "In a fast pullback inside an uptrend, Down can take over and exit prematurely.",
+   "Reads only high/low recency — no price, no volume.",
+   "Whipsaws when highs/lows alternate rapidly."
+  ],
+  "when": [
+   "Steady trends with periodic fresh extremes.",
+   "Bad in tight ranges where highs/lows alternate constantly."
+  ],
+  "mistakes": [
+   "Buying whenever Up > 70 without the cross — the cross (takeover) is the trigger.",
+   "Thinking 100 means 'about to reverse' — it means 'just made a high'.",
+   "Ignoring that 25 is a short window: it's a tactical, not strategic, trend tool."
+  ],
+  "watch": [
+   "State shows Up and Down — they should sit near 100 on fresh highs.",
+   "When both drop below 50, the market has no trend and the account should be flat."
+  ],
+  "concepts": [
+   "aroon",
+   "trend",
+   "momentum",
+   "breakout"
+  ],
+  "related": [
+   "13_adx_dmi_trend",
+   "02_dual_ema_crossover",
+   "16_roc_momentum"
+  ]
+ },
+ {
+  "id": "18_heikin_ashi_trend",
+  "name": "Heikin-Ashi Trend",
+  "category": "Momentum & Trend Following",
+  "difficulty": 2,
+  "level": "Intermediate",
+  "warmup": 12,
+  "single_position": true,
+  "entry": "3 wick-free HA candles, colour flip",
+  "exit": "HA candle flips colour",
+  "params": {
+   "confirm_bars": {
+    "default": 3,
+    "what": "How many clean bars must line up.",
+    "effect": "More = higher conviction, later entries/exits. Fewer = faster, noisier."
+   },
+   "alloc": {
+    "default": null,
+    "what": "Share of the account's available cash spent on a single entry.",
+    "effect": "None = the global default (95% of cash) applies. Lower it to trade smaller."
+   }
+  },
+  "summary": "The no-wick trade: three clean Heikin-Ashi bullish bars in a row means relentless buying — buy the streak, sell the mirror.",
+  "idea": "Heikin-Ashi candles average price into smooth blocks. A body-only bullish bar (no lower wick) means buyers never lost control all period. Three in a row is a streak of pure domination — the bot joins the streak and leaves when sellers produce their own three-bar streak.",
+  "how": [
+   "Convert every candle to Heikin-Ashi form.",
+   "Wait for 3 consecutive bullish bars with NO lower wick: buy.",
+   "Hold while bullish structure continues.",
+   "3 consecutive bearish bars with no upper wick: sell.",
+   "Bar 3 of the bearish streak is the exit — it confirms sellers took over."
+  ],
+  "strengths": [
+   "Beautifully visual — even a beginner can 'see' the signal on a chart.",
+   "The streak requirement filters single-bar noise.",
+   "Symmetrical entry/exit logic is easy to verify."
+  ],
+  "weaknesses": [
+   "Smoothing hides raw price: HA bars lag reality by design.",
+   "3-bar streaks in quiet chop are common and fake.",
+   "No volume or volatility context."
+  ],
+  "when": [
+   "Strong directional waves.",
+   "Chop creates short false streaks in both directions."
+  ],
+  "mistakes": [
+   "Reading raw candles as Heikin-Ashi — the whole point is the transformed version.",
+   "Counting wicks on the body instead of open/low equality.",
+   "Expecting early exits; the 3-bar requirement means giving back some of the turn."
+  ],
+  "watch": [
+   "Trades should cluster in waves — multiple trades per trend, not singles.",
+   "Flat during wick-heavy candles (normal pullbacks create wicks)."
+  ],
+  "concepts": [
+   "heikin_ashi",
+   "trend",
+   "candlestick",
+   "momentum"
+  ],
+  "related": [
+   "31_engulfing_reversal",
+   "02_dual_ema_crossover",
+   "15_parabolic_sar"
+  ]
+ },
+ {
+  "id": "19_trix_momentum",
+  "name": "TRIX Signal Crossover",
+  "category": "Momentum & Trend Following",
+  "difficulty": 3,
+  "level": "Advanced",
+  "warmup": 60,
+  "single_position": true,
+  "entry": "TRIX(15) crosses above its 9-signal",
+  "exit": "TRIX crosses below its signal",
+  "params": {
+   "period": {
+    "default": 15,
+    "what": "EMA length used three times.",
+    "effect": "Larger = even smoother, even slower, fewer signals."
+   },
+   "signal": {
+    "default": 9,
+    "what": "Smoothing of the TRIX line.",
+    "effect": "Smaller = more crosses; larger = fewer, later."
+   },
+   "alloc": {
+    "default": null,
+    "what": "Share of the account's available cash spent on a single entry.",
+    "effect": "None = the global default (95% of cash) applies. Lower it to trade smaller."
+   }
+  },
+  "summary": "Momentum so filtered it only sees the deepest swings: triple-smoothed EMA rate-of-change, traded on signal crosses.",
+  "idea": "TRIX triple-smooths price (EMA of EMA of EMA), then measures that ultra-smooth line's rate of change. Every layer of smoothing strips noise; what remains is the market's deepest momentum pulse. Crossing its own signal line is a major, slow, reliable turn.",
+  "how": [
+   "Compute TRIX(15): % change of triple-EMA.",
+   "Smooth it again into a 9-period signal line.",
+   "TRIX crosses ABOVE signal: buy.",
+   "Hold while TRIX leads.",
+   "TRIX crosses BELOW signal: sell."
+  ],
+  "strengths": [
+   "Extremely robust against noise — trades only deep momentum shifts.",
+   "Near-zero false signals in normal chop (it simply doesn't fire).",
+   "A great study in what smoothing does to a signal."
+  ],
+  "weaknesses": [
+   "Very late: entries can be far from the actual turn.",
+   "60-candle warm-up and heavy smoothing = slow account.",
+   "Triple EMA parameters are abstract — hard to reason about intuitively."
+  ],
+  "when": [
+   "Long persistent trends.",
+   "Useless (but harmless — it stays flat) in chop."
+  ],
+  "mistakes": [
+   "Expecting scalper behaviour from the bot's slowest momentum account.",
+   "Tuning period to 5 'for speed' — that defeats the triple-smoothing design.",
+   "Confusing TRIX units (% per candle of a smoothed line) with price %."
+  ],
+  "watch": [
+   "Trades will be rare — that's correct behaviour.",
+   "Compare its entry quality vs strategy 02's on the same trends."
+  ],
+  "concepts": [
+   "trix",
+   "ema",
+   "momentum",
+   "trend"
+  ],
+  "related": [
+   "03_macd_histogram_reversal",
+   "02_dual_ema_crossover",
+   "04_triple_moving_average"
+  ]
+ },
+ {
+  "id": "20_ema_ribbon_consensus",
+  "name": "EMA Ribbon Consensus",
+  "category": "Momentum & Trend Following",
+  "difficulty": 2,
+  "level": "Intermediate",
+  "warmup": 60,
+  "single_position": true,
+  "entry": "EMA 8/13/21/34/55 fully aligned up",
+  "exit": "any ribbon crossover down",
+  "params": {
+   "periods": {
+    "default": "8,13,21,34,55",
+    "what": "Comma-separated EMA lengths forming the ribbon.",
+    "effect": "More/faster EMAs = more sensitive; classic Fibonacci-ish spacing 8..55 balances speeds."
+   },
+   "alloc": {
+    "default": null,
+    "what": "Share of the account's available cash spent on a single entry.",
+    "effect": "None = the global default (95% of cash) applies. Lower it to trade smaller."
+   }
+  },
+  "summary": "Five EMAs must agree: buy only the fully stacked bullish fan, sell only the fully stacked bearish one.",
+  "idea": "The ribbon (8/13/21/34/55) shows trend at five speeds. When every line is ordered fast-to-slow from top to bottom, ALL timeframes agree — that's not a signal, that's a consensus. Tangled ribbons mean disagreement, and disagreement isn't tradeable.",
+  "how": [
+   "Compute EMAs for 8, 13, 21, 34 and 55.",
+   "Fully ascending stack (8 > 13 > 21 > 34 > 55): buy.",
+   "Hold while the stack stays ordered (even briefly tangled? no — rule is exact).",
+   "Fully descending stack: sell.",
+   "Anything between (tangled): hold whatever you have, enter nothing."
+  ],
+  "strengths": [
+   "The unanimity requirement produces very high-quality trend entries.",
+   "Transparent state: you can literally see the stack order each tick.",
+   "Naturally sits out tangled markets."
+  ],
+  "weaknesses": [
+   "Slow: needs all five aligned, which happens late in trends.",
+   "One recalcitrant EMA (e.g. 55 lagging) blocks entries for a long time.",
+   "In strong trends it can exit on a single small bearish alignment then re-enter — chunky trades."
+  ],
+  "when": [
+   "Textbook trends with orderly pullbacks.",
+   "Messy two-steps-forward-one-back markets keep it tangled (it waits, correctly)."
+  ],
+  "mistakes": [
+   "Reading 'most EMAs stacked' as the signal — the rule demands ALL five ordered.",
+   "Expecting entries near bottoms; unanimity arrives after confirmation.",
+   "Not noticing the exit is also a full alignment — half-hearted down moves don't exit it."
+  ],
+  "watch": [
+   "State can show the five values — check ordering on trade days.",
+   "Ribbon tangles during pullbacks; that's normal and not an exit by itself."
+  ],
+  "concepts": [
+   "ema_ribbon",
+   "ema",
+   "trend",
+   "consensus"
+  ],
+  "related": [
+   "04_triple_moving_average",
+   "02_dual_ema_crossover",
+   "39_multi_indicator_consensus"
+  ]
+ },
+ {
+  "id": "06_bollinger_mean_reversion",
+  "name": "Bollinger Bands Mean Reversion",
+  "category": "Mean Reversion & Channels",
+  "difficulty": 1,
+  "level": "Beginner",
+  "warmup": 25,
+  "single_position": true,
+  "entry": "close < Lower Band (20, 2)",
+  "exit": "close reaches Middle Band",
+  "params": {
+   "period": {
+    "default": 20,
+    "what": "SMA/stdev lookback.",
+    "effect": "20 standard; shorter reacts faster."
+   },
+   "mult": {
+    "default": 2.0,
+    "what": "Band width in standard deviations.",
+    "effect": "2 = ~95% of closes inside. Higher = rarer, more extreme touches."
+   },
+   "alloc": {
+    "default": null,
+    "what": "Share of the account's available cash spent on a single entry.",
+    "effect": "None = the global default (95% of cash) applies. Lower it to trade smaller."
+   }
+  },
+  "summary": "The rubber-band trade: buy when price closes below the lower Bollinger band; sell when it snaps back to the middle.",
+  "idea": "Bollinger bands wrap price in a statistically defined envelope. A close below the lower band means the fall is 2 standard deviations from the mean — unusually stretched. Rubber bands snap back; this account buys the stretch and exits at the mean (middle band), taking the statistical middle and leaving the tails.",
+  "how": [
+   "Compute Bollinger(20, 2): middle SMA +/− 2 stdevs.",
+   "Close below the LOWER band: buy (stretched down).",
+   "Hold while price recovers toward the mean.",
+   "Close reaches the MIDDLE band: sell (reversion complete).",
+   "No stops, no targets — the bands define everything."
+  ],
+  "strengths": [
+   "Statistical basis: touches beyond 2σ are genuinely unusual.",
+   "Self-scaling to volatility — bands widen in storms.",
+   "Objective exit (middle band) removes greed."
+  ],
+  "weaknesses": [
+   "Trends ride the lower band for days — 'stretched' keeps stretching.",
+   "No trend/regime filter (strategy 41 fixes exactly this).",
+   "Sells at the mean, leaving the second half of bounces on the table."
+  ],
+  "when": [
+   "Range markets with wide, honest swings.",
+   "Strong downtrends are its classic failure mode."
+  ],
+  "mistakes": [
+   "Buying every lower-band touch in a crash (add strategy 40's gate mentally).",
+   "Expecting the upper band to matter — exits are at the middle band only.",
+   "Forgetting stdev on 20 candles is itself jumpy."
+  ],
+  "watch": [
+   "Entries should be visible as closes poking below the lower band on the Market screen.",
+   "Exits at the middle band — quick round trips in healthy ranges."
+  ],
+  "concepts": [
+   "bollinger",
+   "mean_reversion",
+   "volatility",
+   "oscillator"
+  ],
+  "related": [
+   "01_rsi_mean_reversion",
+   "24_zscore_mean_reversion",
+   "29_volatility_squeeze"
+  ]
+ },
+ {
+  "id": "07_keltner_breakout",
+  "name": "Keltner Channel Breakout",
+  "category": "Mean Reversion & Channels",
+  "difficulty": 2,
+  "level": "Intermediate",
+  "warmup": 25,
+  "single_position": true,
+  "entry": "close > EMA20 + 2·ATR",
+  "exit": "close falls below EMA20",
+  "params": {
+   "period": {
+    "default": 20,
+    "what": "EMA + ATR lookback.",
+    "effect": "20 standard."
+   },
+   "mult": {
+    "default": 2.0,
+    "what": "Band width in ATRs.",
+    "effect": "2 = two typical ranges beyond the EMA; higher = only huge expansions."
+   },
+   "alloc": {
+    "default": null,
+    "what": "Share of the account's available cash spent on a single entry.",
+    "effect": "None = the global default (95% of cash) applies. Lower it to trade smaller."
+   }
+  },
+  "summary": "Volatility-expansion breakout: buy closes above the ATR-scaled upper Keltner band; exit when price falls back under the middle EMA.",
+  "idea": "Keltner bands size their width with ATR, so the upper band marks 'price moved more than typical ranges allow' — a volatility expansion, not just a statistical stretch. When a close lands beyond it, real energy arrived. This account joins expansions and leaves when price re-enters the channel.",
+  "how": [
+   "Compute Keltner(20, 2): middle EMA(20) +/− 2×ATR(20).",
+   "Close ABOVE the upper band: buy (genuine expansion).",
+   "Hold while price trades above the middle EMA.",
+   "Close falls back BELOW the middle EMA: sell."
+  ],
+  "strengths": [
+   "ATR scaling reads the market's actual recent behaviour.",
+   "Catches real volatility expansions early.",
+   "Clean middle-band exit locks in the expansion's core."
+  ],
+  "weaknesses": [
+   "Upper-band closes can be exhaustion spikes, not starts.",
+   "EMA middle exits early in strong trends (price rarely returns).",
+   "Category 'Mean Reversion & Channels' but behaves like a breakout account."
+  ],
+  "when": [
+   "Volatility bursts after quiet periods.",
+   "Slow trends that never leave the channel produce nothing."
+  ],
+  "mistakes": [
+   "Confusing it with Bollinger fades — same shape, opposite philosophy.",
+   "Expecting ATR and stdev bands to agree; they measure different things.",
+   "Buying wicks above the band — the rule is a CLOSE above."
+  ],
+  "watch": [
+   "Entries should follow wide-range candles that exit the channel on the chart.",
+   "Compare its trades with strategy 06 — one buys the outside, the other the return."
+  ],
+  "concepts": [
+   "keltner",
+   "atr",
+   "breakout",
+   "volatility"
+  ],
+  "related": [
+   "06_bollinger_mean_reversion",
+   "10_donchian_breakout",
+   "29_volatility_squeeze"
+  ]
+ },
+ {
+  "id": "08_stoch_rsi_reversal",
+  "name": "Stochastic RSI Reversal",
+  "category": "Mean Reversion & Channels",
+  "difficulty": 2,
+  "level": "Intermediate",
+  "warmup": 35,
+  "single_position": true,
+  "entry": "%K crosses above %D below 20",
+  "exit": "%K crosses below %D above 80",
+  "params": {
+   "rsi_period": {
+    "default": 14,
+    "what": "Base RSI length.",
+    "effect": "14 standard."
+   },
+   "stoch_period": {
+    "default": 14,
+    "what": "Window ranking RSI's range.",
+    "effect": "14 standard."
+   },
+   "k_period": {
+    "default": 3,
+    "what": "Smoothing of raw StochRSI.",
+    "effect": "3 standard."
+   },
+   "d_period": {
+    "default": 3,
+    "what": "Smoothing of %K into %D.",
+    "effect": "3 standard."
+   },
+   "oversold": {
+    "default": 20.0,
+    "what": "Zone where the buy cross must occur.",
+    "effect": "Lower = only deeper RSI extremes."
+   },
+   "overbought": {
+    "default": 80.0,
+    "what": "Zone where the sell cross must occur.",
+    "effect": "Higher = stricter sell zone."
+   },
+   "alloc": {
+    "default": null,
+    "what": "Share of the account's available cash spent on a single entry.",
+    "effect": "None = the global default (95% of cash) applies. Lower it to trade smaller."
+   }
+  },
+  "summary": "Extreme-of-the-extreme: buy when StochRSI %K turns back above %D while still below 20; sell the mirrored high-side cross.",
+  "idea": "RSI can look oversold for weeks. StochRSI measures where RSI itself sits in its own range — sub-20 means RSI is at a short-term extreme even by RSI standards. Buying the %K/%D cross in that zone catches the exact turn of an extreme oscillator.",
+  "how": [
+   "Compute StochRSI: RSI(14) → stochastic(14) → %K(3), %D = SMA(%K,3).",
+   "Buy when %K crosses ABOVE %D while %K was ≤ 20 (oversold turn).",
+   "Ride the oscillator recovery.",
+   "Sell when %K crosses BELOW %D while %K was ≥ 80."
+  ],
+  "strengths": [
+   "Double-filtered extremes are rarer and more meaningful.",
+   "Cross-based entries avoid buying while the oscillator still falls.",
+   "Standard parameters, widely studied."
+  ],
+  "weaknesses": [
+   "Layers of smoothing = late signals relative to raw price.",
+   "In strong trends StochRSI pins at extremes; crosses misfire or never come.",
+   "Four smoothing parameters are hard to reason about end-to-end."
+  ],
+  "when": [
+   "Sharp but short-lived oversold spells.",
+   "Slow grinds keep StochRSI mid-range (few signals)."
+  ],
+  "mistakes": [
+   "Buying %K < 20 without the %D cross — the cross is the turn evidence.",
+   "Expecting RSI-level semantics; 20 here is extreme-for-RSI, not RSI=20.",
+   "Tuning only one of the four periods without the others."
+  ],
+  "watch": [
+   "State shows %K and %D — entries should follow their sub-20 crossovers.",
+   "Check which candles produced the extreme: volume spikes make them more reliable."
+  ],
+  "concepts": [
+   "stoch_rsi",
+   "rsi",
+   "oscillator",
+   "mean_reversion"
+  ],
+  "related": [
+   "21_williams_r_reversal",
+   "01_rsi_mean_reversion",
+   "39_multi_indicator_consensus"
+  ]
+ },
+ {
+  "id": "21_williams_r_reversal",
+  "name": "Williams %R Reversal",
+  "category": "Mean Reversion & Oscillators",
+  "difficulty": 1,
+  "level": "Beginner",
+  "warmup": 20,
+  "single_position": true,
+  "entry": "%R turns up out of < −80",
+  "exit": "%R turns down out of > −20",
+  "params": {
+   "period": {
+    "default": 14,
+    "what": "Lookback for the high/low range.",
+    "effect": "Shorter = tighter definition of 'recent range'."
+   },
+   "oversold": {
+    "default": -80.0,
+    "what": "The deep zone whose escape triggers the buy.",
+    "effect": "More negative = only more extreme dips qualify."
+   },
+   "overbought": {
+    "default": -20.0,
+    "what": "The zone that ends the trade.",
+    "effect": "Less negative (−10) = sells nearer the top; −20 standard."
+   },
+   "alloc": {
+    "default": null,
+    "what": "Share of the account's available cash spent on a single entry.",
+    "effect": "None = the global default (95% of cash) applies. Lower it to trade smaller."
+   }
+  },
+  "summary": "Where the close sits in the recent range, traded on the TURN: buy %R turning up from below −80, sell it reaching −20.",
+  "idea": "Williams %R is the range position of the close, from 0 (top) to −100 (bottom). Below −80 price closed near the range floor — stretched. This strategy waits for the recovery turn out of the zone instead of buying while still falling.",
+  "how": [
+   "Compute %R(14): close's position in the 14-candle high-low range.",
+   "%R below −80 then turns back above −80: buy (the dip is being bought).",
+   "Hold while %R recovers.",
+   "%R reaches −20 (overbought): sell."
+  ],
+  "strengths": [
+   "Buys turns, not falls — avoids most falling knives.",
+   "One scale (−100..0) makes state easy to read.",
+   "Ranges cleanly with RSI (they usually agree at extremes)."
+  ],
+  "weaknesses": [
+   "In a crash, %R stays pinned below −80 and the turn never comes.",
+   "No trend context — will buy dips inside downtrends.",
+   "The −20 exit is early in strong rallies."
+  ],
+  "when": [
+   "Range markets with sharp but recoverable dips.",
+   "Strong trends defeat it both directions."
+  ],
+  "mistakes": [
+   "Buying the level (−85) instead of the turn (−85 → −79). The code requires the cross.",
+   "Confusing %R direction conventions (some charting tools invert it).",
+   "Forgetting it's close-position only — wicks don't matter."
+  ],
+  "watch": [
+   "State prints %R; entries should follow candles that undercut then reclaim.",
+   "Flat account during straight-down crashes = the turn never fired."
+  ],
+  "concepts": [
+   "williams_r",
+   "mean_reversion",
+   "oscillator",
+   "support_resistance"
+  ],
+  "related": [
+   "01_rsi_mean_reversion",
+   "08_stoch_rsi_reversal",
+   "22_cci_mean_reversion"
+  ]
+ },
+ {
+  "id": "22_cci_mean_reversion",
+  "name": "CCI Mean Reversion",
+  "category": "Mean Reversion & Oscillators",
+  "difficulty": 2,
+  "level": "Intermediate",
+  "warmup": 25,
+  "single_position": true,
+  "entry": "CCI(20) crosses up through −100",
+  "exit": "CCI crosses down through +100",
+  "params": {
+   "period": {
+    "default": 20,
+    "what": "Lookback for CCI's average and deviation.",
+    "effect": "Larger = smoother CCI, later crosses."
+   },
+   "lower": {
+    "default": -100.0,
+    "what": "The oversold line whose up-cross buys.",
+    "effect": "More negative = rarer, more extreme entries."
+   },
+   "upper": {
+    "default": 100.0,
+    "what": "The overbought line whose down-cross sells.",
+    "effect": "Lower (e.g. 80) = earlier exits; standard ±100."
+   },
+   "alloc": {
+    "default": null,
+    "what": "Share of the account's available cash spent on a single entry.",
+    "effect": "None = the global default (95% of cash) applies. Lower it to trade smaller."
+   }
+  },
+  "summary": "Statistical stretch, commodity style: CCI below −100 turning up = buy; above +100 turning down = sell.",
+  "idea": "CCI measures how far the typical price sits from its own average in noise units. Beyond ±100 is unusual — a move that big usually overshoots. This account fades the overshoot, entering on the return through the ±100 lines.",
+  "how": [
+   "Compute CCI(20) from typical price (H+L+C)/3.",
+   "CCI crosses UP through −100: buy (the panic is unwinding).",
+   "Hold while CCI climbs.",
+   "CCI crosses DOWN through +100: sell (the euphoria is unwinding)."
+  ],
+  "strengths": [
+   "Built-in noise scaling: reacts to moves unusual for THIS market.",
+   "Turns (crosses) rather than levels = better timing.",
+   "Works on any instrument despite the 'commodity' name."
+  ],
+  "weaknesses": [
+   "Can sit beyond ±100 for a long time in trends (the cross never comes; you just wait).",
+   "Typical-price averaging hides close behaviour.",
+   "No volume component."
+  ],
+  "when": [
+   "Volatile ranges where overshoots revert.",
+   "Strong trends keep CCI pinned — account idles."
+  ],
+  "mistakes": [
+   "Using CCI as a momentum-chaser; it's a reversion tool here.",
+   "Misreading −100 as the buy point — the buy is the UP-CROSS of it.",
+   "Forgetting 0.015 is baked in: ±100 is a statistical convention, not magic."
+  ],
+  "watch": [
+   "State shows CCI; entries happen right after deep dips, not at them.",
+   "Long flat stretches are the strategy correctly refusing weak setups."
+  ],
+  "concepts": [
+   "cci",
+   "mean_reversion",
+   "oscillator",
+   "volatility"
+  ],
+  "related": [
+   "26_chande_momentum",
+   "21_williams_r_reversal",
+   "01_rsi_mean_reversion"
+  ]
+ },
+ {
+  "id": "23_connors_rsi_pullback",
+  "name": "Connors RSI(2) Pullback",
+  "category": "Mean Reversion & Oscillators",
+  "difficulty": 3,
+  "level": "Advanced",
+  "warmup": 110,
+  "single_position": true,
+  "entry": "Connors RSI(3,2,100) < 10",
+  "exit": "Connors RSI > 90",
+  "params": {
+   "rsi_period": {
+    "default": 3,
+    "what": "Fast RSI length.",
+    "effect": "3 is Connors' standard for short-term stretch."
+   },
+   "streak_period": {
+    "default": 2,
+    "what": "Window for the consecutive-red-candle RSI.",
+    "effect": "Captures how long the fall has run."
+   },
+   "rank_period": {
+    "default": 100,
+    "what": "Lookback for the close's percentile rank.",
+    "effect": "Longer = stricter 'rare' filter."
+   },
+   "buy_below": {
+    "default": 10.0,
+    "what": "Entry threshold.",
+    "effect": "Lower = rarer, deeper pullbacks only."
+   },
+   "sell_above": {
+    "default": 90.0,
+    "what": "Exit threshold.",
+    "effect": "Higher = holds for a fuller recovery."
+   },
+   "alloc": {
+    "default": null,
+    "what": "Share of the account's available cash spent on a single entry.",
+    "effect": "None = the global default (95% of cash) applies. Lower it to trade smaller."
+   }
+  },
+  "summary": "Three oversold lenses at once: fast RSI + down-streak length + 100-day rank, blended below 10 = a serious short-term dip.",
+  "idea": "One oversold reading can be noise; three agreeing oversold readings are a stretched rubber band. CRSI averages RSI(3), a 'streak' RSI (how many red candles in a row) and the close's percentile rank over 100 candles. Below 10 is extreme by any lens — the pullback this account buys.",
+  "how": [
+   "Compute CRSI = (RSI(3) + streak-RSI(2) + rank(100))/3.",
+   "CRSI ≤ 10: buy — a real short-term flush.",
+   "Hold while it recovers.",
+   "CRSI ≥ 90: sell the snap-back."
+  ],
+  "strengths": [
+   "Designed specifically for buying pullbacks that statistically bounce.",
+   "The streak component captures 'down too many days in a row'.",
+   "Research-backed (Connors) with sensible defaults."
+  ],
+  "weaknesses": [
+   "110-candle warm-up — slow start.",
+   "In a real bear, consecutive red streaks keep CRSI low and it keeps buying.",
+   "Aggressive: buys after multi-day drops without a trend filter."
+  ],
+  "when": [
+   "Sharp 3-7 candle drops inside calmer markets.",
+   "Brutal in sustained bear phases."
+  ],
+  "mistakes": [
+   "Thinking RSI(2)-style signals predict bottoms — they measure stretch.",
+   "Not respecting that each extra red day makes the NEXT buy bigger in a falling market.",
+   "Judging it during warm-up (first ~110 candles it cannot trade)."
+  ],
+  "watch": [
+   "Entries should cluster after visible red streaks.",
+   "If it's flat during huge red candles, check warm-up and CRSI level in state."
+  ],
+  "concepts": [
+   "connors_rsi",
+   "rsi",
+   "mean_reversion",
+   "pullback",
+   "streak"
+  ],
+  "related": [
+   "01_rsi_mean_reversion",
+   "40_trend_pullback_confluence",
+   "24_zscore_mean_reversion"
+  ]
+ },
+ {
+  "id": "24_zscore_mean_reversion",
+  "name": "Z-Score Mean Reversion",
+  "category": "Mean Reversion & Oscillators",
+  "difficulty": 2,
+  "level": "Intermediate",
+  "warmup": 25,
+  "single_position": true,
+  "entry": "z-score(20) < −2",
+  "exit": "z-score returns to 0",
+  "params": {
+   "period": {
+    "default": 20,
+    "what": "Lookback for mean and standard deviation.",
+    "effect": "Longer = a more stable 'normal', slower to stretch."
+   },
+   "entry_z": {
+    "default": -2.0,
+    "what": "Stretch required to buy.",
+    "effect": "More negative = only extreme dislocations traded."
+   },
+   "exit_z": {
+    "default": 0.0,
+    "what": "Where reversion is declared done.",
+    "effect": "0 = sell at the mean; negative = sell early; positive = let it overshoot up."
+   },
+   "alloc": {
+    "default": null,
+    "what": "Share of the account's available cash spent on a single entry.",
+    "effect": "None = the global default (95% of cash) applies. Lower it to trade smaller."
+   }
+  },
+  "summary": "The statistical trade: buy price 2 standard deviations below its own average, sell when it returns to the average.",
+  "idea": "A z-score converts price distance into statistical units: −2 means a move this large happens only a few percent of the time. Either something fundamental changed (don't buy) or price is stretched (buy). This account bets on stretch, and defines 'back to normal' as z = 0 — no greedy targets.",
+  "how": [
+   "Compute z = (close − SMA20)/stdev20 each candle.",
+   "z ≤ −2: buy — price statistically stretched downward.",
+   "Hold while price is below its mean.",
+   "z ≥ 0: sell — reversion to the average is complete."
+  ],
+  "strengths": [
+   "Statistically principled: the entry has a real probability story.",
+   "Objective, parameter-light, easy to explain.",
+   "Exits at the mean — a humble, consistent target."
+  ],
+  "weaknesses": [
+   "Assumes mean reversion — false in genuine trend changes.",
+   "Standard deviation on 20 candles is noisy itself.",
+   "No fundamental or news filter; a halving or hack can make −2 the start, not the bottom."
+  ],
+  "when": [
+   "Mean-reverting conditions (normal chop, no regime news).",
+   "Long trends stretch the z-score for weeks."
+  ],
+  "mistakes": [
+   "Assuming 'statistically rare' means 'financially safe'.",
+   "Exiting at positive z to chase — the rule is zero.",
+   "Ignoring that a flat market (tiny stdev) produces wild z-scores from small moves."
+  ],
+  "watch": [
+   "State prints z; it should be deeply negative around entries.",
+   "Watch stdev context on the Market screen — small ranges inflate z."
+  ],
+  "concepts": [
+   "zscore",
+   "mean_reversion",
+   "oscillator",
+   "volatility"
+  ],
+  "related": [
+   "01_rsi_mean_reversion",
+   "06_bollinger_mean_reversion",
+   "25_mfi_flow_reversal"
+  ]
+ },
+ {
+  "id": "25_mfi_flow_reversal",
+  "name": "Money Flow Index Reversal",
+  "category": "Mean Reversion & Oscillators",
+  "difficulty": 1,
+  "level": "Beginner",
+  "warmup": 20,
+  "single_position": true,
+  "entry": "MFI(14) crosses up out of < 20",
+  "exit": "MFI crosses down out of > 80",
+  "params": {
+   "period": {
+    "default": 14,
+    "what": "Lookback for money flow.",
+    "effect": "14 standard; shorter = noisier, more sensitive."
+   },
+   "oversold": {
+    "default": 20.0,
+    "what": "Entry threshold.",
+    "effect": "Lower = only capitulation-grade selling bought."
+   },
+   "overbought": {
+    "default": 80.0,
+    "what": "Exit threshold.",
+    "effect": "Lower = exits earlier with less giveback."
+   },
+   "alloc": {
+    "default": null,
+    "what": "Share of the account's available cash spent on a single entry.",
+    "effect": "None = the global default (95% of cash) applies. Lower it to trade smaller."
+   }
+  },
+  "summary": "RSI with volume honesty: MFI ≤ 20 means selling pressure is exhausted; buy it, sell the ≥ 80 euphoria.",
+  "idea": "Prices move on volume. MFI weights every candle by how much was traded, so a drop to 20 means heavy selling has dominated — and heavy selling that can't push further is what bottoms look like. It's the money-weighted twin of RSI.",
+  "how": [
+   "Compute MFI(14) using typical price × volume.",
+   "MFI ≤ 20: buy (volume-backed oversold).",
+   "Hold while pressure normalizes.",
+   "MFI ≥ 80: sell (volume-backed overbought)."
+  ],
+  "strengths": [
+   "Volume-aware: cheap moves driven by thin volume don't trigger it.",
+   "Simple 0-100 scale like RSI.",
+   "Capitulation readings (≤20) historically mark decent bounces in BTC."
+  ],
+  "weaknesses": [
+   "Still a level-based fade — no trend filter.",
+   "Volume prints on Kraken can be lumpy (aggregated venues).",
+   "Divergences (price low but MFI higher) are ignored by the simple thresholds."
+  ],
+  "when": [
+   "Volume-backed sell-offs that stall.",
+   "Trending markets: MFI pins at extremes and thresholds misfire."
+  ],
+  "mistakes": [
+   "Reading MFI 20 like RSI 30 — thresholds aren't interchangeable.",
+   "Ignoring that volume extremes at news events are different from drift.",
+   "Forgetting warm-up: MFI needs full windows of both price and volume."
+  ],
+  "watch": [
+   "Entries should coincide with high-volume red candles on the Market screen.",
+   "State prints MFI — check it bottomed before entries."
+  ],
+  "concepts": [
+   "mfi",
+   "volume",
+   "mean_reversion",
+   "oscillator"
+  ],
+  "related": [
+   "01_rsi_mean_reversion",
+   "28_volume_spike_breakout",
+   "27_obv_trend_breakout"
+  ]
+ },
+ {
+  "id": "26_chande_momentum",
+  "name": "Chande Momentum Oscillator",
+  "category": "Mean Reversion & Oscillators",
+  "difficulty": 2,
+  "level": "Intermediate",
+  "warmup": 25,
+  "single_position": true,
+  "entry": "CMO(20) crosses up through −50",
+  "exit": "CMO crosses down through +50",
+  "params": {
+   "period": {
+    "default": 20,
+    "what": "Lookback for summing moves.",
+    "effect": "Longer = smoother flow readings."
+   },
+   "entry": {
+    "default": -50.0,
+    "what": "Down-flow line whose up-cross buys.",
+    "effect": "More negative = only deeper flow exhaustion."
+   },
+   "exit": {
+    "default": 50.0,
+    "what": "Up-flow line whose down-cross sells.",
+    "effect": "Lower = earlier exits."
+   },
+   "alloc": {
+    "default": null,
+    "what": "Share of the account's available cash spent on a single entry.",
+    "effect": "None = the global default (95% of cash) applies. Lower it to trade smaller."
+   }
+  },
+  "summary": "Symmetric momentum flow: buy the turn up through −50, sell the turn down through +50.",
+  "idea": "CMO divides net up-move size by total movement, giving a bounded ±100 flow meter where 50 means 'half the recent energy was directional'. Crossing −50 upward is the exhaustion of a heavy down-flow — the same fade-the-extreme idea as CCI, with cleaner math.",
+  "how": [
+   "Compute CMO(20) from up/down move sums.",
+   "CMO crosses UP through −50: buy.",
+   "Hold while up-flow dominates.",
+   "CMO crosses DOWN through +50: sell."
+  ],
+  "strengths": [
+   "Symmetric, bounded, and volume-free but still robust.",
+   "Turn-based entries time dips better than level-based ones.",
+   "Less crowd-followed than RSI — fewer self-fulfilling signals."
+  ],
+  "weaknesses": [
+   "Obscure — harder to find reference material.",
+   "No trend filter, same falling-knife risk as all fades.",
+   "±50 thresholds are convention, not statistics."
+  ],
+  "when": [
+   "Two-sided markets with real up/down flow alternation.",
+   "One-way flows keep CMO pinned and cross-less."
+  ],
+  "mistakes": [
+   "Using CMO like ROC (momentum-chasing) — here it's a reversion turn signal.",
+   "Reading −50 as the level vs the turn through it.",
+   "Overriding exits because the position is green — the flow rule owns the decision."
+  ],
+  "watch": [
+   "Entries should come after extended red runs, on the first strong green candle.",
+   "State prints CMO values around trades."
+  ],
+  "concepts": [
+   "cmo",
+   "momentum",
+   "mean_reversion",
+   "oscillator"
+  ],
+  "related": [
+   "22_cci_mean_reversion",
+   "21_williams_r_reversal",
+   "25_mfi_flow_reversal"
+  ]
+ },
+ {
+  "id": "09_vwap_pullback",
+  "name": "Session VWAP Pullback",
+  "category": "Volume & Volatility",
+  "difficulty": 2,
+  "level": "Intermediate",
+  "warmup": 20,
+  "single_position": true,
+  "entry": "close < VWAP and RSI > 40",
+  "exit": "close ≥ VWAP + 1.5%",
+  "params": {
+   "rsi_period": {
+    "default": 14,
+    "what": "RSI lookback for the health filter.",
+    "effect": "14 standard."
+   },
+   "rsi_min": {
+    "default": 40.0,
+    "what": "Minimum RSI to allow buying a dip.",
+    "effect": "Higher = only mild dips bought (safer, less often)."
+   },
+   "extension_pct": {
+    "default": 1.5,
+    "what": "How far above VWAP triggers the exit.",
+    "effect": "Smaller = tighter profit taking."
+   },
+   "min_session_candles": {
+    "default": 2,
+    "what": "Session age before trading.",
+    "effect": "Higher = waits for a more established VWAP."
+   },
+   "alloc": {
+    "default": null,
+    "what": "Share of the account's available cash spent on a single entry.",
+    "effect": "None = the global default (95% of cash) applies. Lower it to trade smaller."
+   }
+  },
+  "summary": "Institutional fair value: buy dips below the session VWAP while RSI is still healthy; sell 1.5% extensions above it.",
+  "idea": "VWAP is the volume-weighted average price of the session — where big money's average cost sits. Price below VWAP is 'cheap' intraday. This account buys cheap dips that aren't broken (RSI > 40 — the dip is a pullback, not a collapse) and sells when price stretches 1.5% above VWAP.",
+  "how": [
+   "Rebuild VWAP each UTC session from candle typical prices × volume.",
+   "Require the session to be old enough (≥2 candles).",
+   "Close < VWAP and RSI(14) > 40: buy — dip without damage.",
+   "Close ≥ VWAP × 1.015: sell — extension complete."
+  ],
+  "strengths": [
+   "Trades against a genuinely meaningful anchor (real traded value).",
+   "The RSI>40 filter avoids catching broken dips.",
+   "Sessions give the strategy a natural daily rhythm."
+  ],
+  "weaknesses": [
+   "Assumes VWAP acts as gravity — false on strong trend days.",
+   "RSI 40 as 'healthy' is arbitrary.",
+   "Nothing stops it buying repeatedly into a falling session."
+  ],
+  "when": [
+   "Normal two-sided sessions.",
+   "Trend days: price may never dip under VWAP (no entries) or never return (held losses)."
+  ],
+  "mistakes": [
+   "Expecting VWAP support to hold on news days — it often doesn't.",
+   "Forgetting sessions reset: VWAP is per-day, not a 50-candle average.",
+   "Ignoring the RSI filter — it's the difference between pullback and collapse."
+  ],
+  "watch": [
+   "State stores VWAP — compare against price on the Market screen.",
+   "Entries cluster in the early session hours (right after range forms)."
+  ],
+  "concepts": [
+   "vwap",
+   "pullback",
+   "volume",
+   "rsi"
+  ],
+  "related": [
+   "40_trend_pullback_confluence",
+   "01_rsi_mean_reversion",
+   "34_opening_range_breakout"
+  ]
+ },
+ {
+  "id": "10_donchian_breakout",
+  "name": "Donchian Turtle Breakout (20/10)",
+  "category": "Volume & Volatility",
+  "difficulty": 2,
+  "level": "Intermediate",
+  "warmup": 25,
+  "single_position": true,
+  "entry": "close breaks the 20-candle high",
+  "exit": "close breaks the 10-candle low",
+  "params": {
+   "entry_period": {
+    "default": 20,
+    "what": "Window for the breakout high.",
+    "effect": "Longer = bigger, rarer breakouts (later entries)."
+   },
+   "exit_period": {
+    "default": 10,
+    "what": "Window for the exit low.",
+    "effect": "Shorter = exits sooner, smaller losses and givebacks."
+   },
+   "alloc": {
+    "default": null,
+    "what": "Share of the account's available cash spent on a single entry.",
+    "effect": "None = the global default (95% of cash) applies. Lower it to trade smaller."
+   }
+  },
+  "summary": "The Turtle's classic: buy closes above the 20-candle high, exit closes below the 10-candle low.",
+  "idea": "The Turtle Traders made fortunes with one idea: markets that break their recent range keep going. A close above the highest high of 20 candles is a real structural break (strictly prior candles — no self-reference). The 10-candle low exit cuts losers before they grow.",
+  "how": [
+   "Track Donchian channel: 20-candle high (entry), 10-candle low (exit).",
+   "Close breaks above the 20-candle high: buy.",
+   "Hold while price stays above the 10-candle low.",
+   "Close breaks below the 10-candle low: sell.",
+   "Trend-following in its purest, oldest form."
+  ],
+  "strengths": [
+   "Objective, famous, and brutally effective in trends.",
+   "No averaging or smoothing to second-guess.",
+   "Exits cut losses quickly (10-candle low is close to price)."
+  ],
+  "weaknesses": [
+   "Whipsaws in ranges: every range-top close is a false breakout.",
+   "Buys at visible highs — psychologically hard.",
+   "No volatility or volume confirmation."
+  ],
+  "when": [
+   "Explosive directional phases.",
+   "Ranges and descending channels punish it."
+  ],
+  "mistakes": [
+   "Using intra-candle breaks — the rule is a CLOSE beyond the level.",
+   "Widening the exit to 'give winners room' — that's a different strategy.",
+   "Expecting it to catch exact bottoms; it buys strength, by design."
+  ],
+  "watch": [
+   "Entries should be visible on the Market screen as closes above prior highs.",
+   "Trade bursts cluster at the start of trends — compare with strategy 28 (volume-confirmed)."
+  ],
+  "concepts": [
+   "donchian",
+   "breakout",
+   "trend",
+   "support_resistance"
+  ],
+  "related": [
+   "28_volume_spike_breakout",
+   "37_anti_martingale_pyramid",
+   "38_kelly_fraction_sizer"
+  ]
+ },
+ {
+  "id": "27_obv_trend_breakout",
+  "name": "OBV Trend Breakout",
+  "category": "Volume & Volatility",
+  "difficulty": 2,
+  "level": "Intermediate",
+  "warmup": 25,
+  "single_position": true,
+  "entry": "OBV breaks its 20-candle high, close up",
+  "exit": "OBV breaks its 20-candle low",
+  "params": {
+   "lookback": {
+    "default": 20,
+    "what": "Window for OBV and price extremes.",
+    "effect": "Longer = larger-scale flow breaks."
+   },
+   "alloc": {
+    "default": null,
+    "what": "Share of the account's available cash spent on a single entry.",
+    "effect": "None = the global default (95% of cash) applies. Lower it to trade smaller."
+   }
+  },
+  "summary": "The lie-detector breakout: buy only when OBV AND price both break their 20-candle highs together.",
+  "idea": "Price can break a level on a whisper; OBV can't lie — it accumulates every up/down candle's volume. When OBV makes a new 20-candle high and price confirms with its own new high, the breakout is backed by real flow. That's the breakout worth joining.",
+  "how": [
+   "Build OBV: add volume on up closes, subtract on down closes.",
+   "Require OBV above its prior 20-candle range AND",
+   "Close above the prior 20-candle high: buy (double confirmation).",
+   "Hold while flow stays constructive.",
+   "OBV breaks its 20-candle LOW: sell (distribution detected)."
+  ],
+  "strengths": [
+   "Requires price AND flow to agree — filters many fakeouts.",
+   "The OBV-low exit catches quiet distribution before price collapses.",
+   "Rising OBV is visible on charts for intuitive confirmation."
+  ],
+  "weaknesses": [
+   "OBV levels depend on the whole account history — scale is arbitrary.",
+   "In strongly trending markets OBV never makes 'new lows', delaying exits.",
+   "Two confirmations from related quantities still share one worldview."
+  ],
+  "when": [
+   "Breakouts with genuine participation.",
+   "Low-volume drift markets never satisfy the flow test (correctly)."
+  ],
+  "mistakes": [
+   "Reading OBV's absolute level — only its breaks matter.",
+   "Trading price breakouts without the OBV confirmation (that's strategy 10's job).",
+   "Forgetting OBV's starting point distorts nothing but its scale."
+  ],
+  "watch": [
+   "Entries should show elevated volume bars on the Market screen.",
+   "Exits should precede big red candles if distribution is real."
+  ],
+  "concepts": [
+   "obv",
+   "volume",
+   "breakout",
+   "trend"
+  ],
+  "related": [
+   "28_volume_spike_breakout",
+   "10_donchian_breakout",
+   "25_mfi_flow_reversal"
+  ]
+ },
+ {
+  "id": "28_volume_spike_breakout",
+  "name": "Volume Spike Breakout",
+  "category": "Volume & Volatility",
+  "difficulty": 1,
+  "level": "Beginner",
+  "warmup": 25,
+  "single_position": true,
+  "entry": "volume > 2× SMA20 with a 20-candle high break",
+  "exit": "close breaks the 10-candle low",
+  "params": {
+   "lookback": {
+    "default": 20,
+    "what": "Window for volume average and the high.",
+    "effect": "Longer = more established norms to beat."
+   },
+   "volume_mult": {
+    "default": 2.0,
+    "what": "Spike size required.",
+    "effect": "Higher = only exceptional participation traded."
+   },
+   "exit_lookback": {
+    "default": 10,
+    "what": "Window for the exit low.",
+    "effect": "Shorter = tighter exits."
+   },
+   "alloc": {
+    "default": null,
+    "what": "Share of the account's available cash spent on a single entry.",
+    "effect": "None = the global default (95% of cash) applies. Lower it to trade smaller."
+   }
+  },
+  "summary": "The loud breakout: 2× normal volume AND a close above the 20-candle high — real money, real break.",
+  "idea": "Silent breakouts are suspect; loud ones are real. When a candle trades at double the average volume and still closes above the 20-candle high, institutions participated and won. This account joins loud breaks and exits when price closes under the 10-candle low.",
+  "how": [
+   "Compute average volume over the prior 20 candles.",
+   "Latest volume ≥ 2× average AND close > prior 20-candle high: buy.",
+   "Hold while the breakout holds.",
+   "Close breaks below the 10-candle low: sell."
+  ],
+  "strengths": [
+   "Volume confirmation dramatically improves breakout quality.",
+   "Simple, visual, and easy to verify on the Market screen.",
+   "Catches exactly the moves that trend systems profit from."
+  ],
+  "weaknesses": [
+   "Volume spikes at news can be one-candle wonders (fakeouts).",
+   "Requires waiting through quiet markets with no signals.",
+   "No consideration of WHERE the breakout happens (range top vs mid-air)."
+  ],
+  "when": [
+   "High-conviction directional candles after compression.",
+   "Quiet drift produces no entries — and that's fine."
+  ],
+  "mistakes": [
+   "Lowering volume_mult to 1.2 'to trade more' — you're rebuilding strategy 10 with extra steps.",
+   "Ignoring that spike + close are both required, not either.",
+   "Confusing Kraken volume units across pairs."
+  ],
+  "watch": [
+   "Every entry should have a visible volume bar ≥ 2× neighbours on the Market screen.",
+   "Compare trade quality with strategy 10 (no volume filter)."
+  ],
+  "concepts": [
+   "volume_spike",
+   "volume",
+   "breakout",
+   "liquidity"
+  ],
+  "related": [
+   "10_donchian_breakout",
+   "27_obv_trend_breakout",
+   "16_roc_momentum"
+  ]
+ },
+ {
+  "id": "29_volatility_squeeze",
+  "name": "Volatility Squeeze Breakout",
+  "category": "Volume & Volatility",
+  "difficulty": 3,
+  "level": "Advanced",
+  "warmup": 25,
+  "single_position": true,
+  "entry": "TTM squeeze releases, close > mid band",
+  "exit": "close falls below the middle band",
+  "params": {
+   "bb_period": {
+    "default": 20,
+    "what": "Bollinger lookback.",
+    "effect": "Standard 20."
+   },
+   "bb_mult": {
+    "default": 2.0,
+    "what": "Bollinger width in stdevs.",
+    "effect": "2 standard."
+   },
+   "kc_period": {
+    "default": 20,
+    "what": "Keltner EMA lookback.",
+    "effect": "Standard 20."
+   },
+   "kc_mult": {
+    "default": 1.5,
+    "what": "Keltner width in ATRs.",
+    "effect": "1.5 makes the squeeze test meaningful against 2-stdev Bollinger."
+   },
+   "alloc": {
+    "default": null,
+    "what": "Share of the account's available cash spent on a single entry.",
+    "effect": "None = the global default (95% of cash) applies. Lower it to trade smaller."
+   }
+  },
+  "summary": "The coiled spring: when Bollinger bands compress inside Keltner, volatility is loading — buy the release above the middle band.",
+  "idea": "Markets alternate between compression and expansion. When Bollinger (stdev-based) bands squeeze inside Keltner (ATR-based) bands, volatility has died down to statistical extremes — energy is building. When the bands finally fire apart, the bot joins if the release candle closes above the middle band.",
+  "how": [
+   "Compute Bollinger(20, 2) and Keltner(20, 1.5) bands.",
+   "Detect squeeze: Bollinger bands fully inside Keltner bands.",
+   "Wait for the release: bands expand again (squeeze off).",
+   "Release candle closes above the Bollinger middle: buy.",
+   "Exit when close falls back below the middle band."
+  ],
+  "strengths": [
+   "Trades the highest-conviction moments in technical analysis.",
+   "Explicit compression state, explicit release trigger.",
+   "Squeezes are objectively measurable — no eyeballing."
+  ],
+  "weaknesses": [
+   "Squeezes can 'fire' repeatedly without a real move (false releases).",
+   "Long idle periods while compressed.",
+   "Four coupled parameters to reason about."
+  ],
+  "when": [
+   "Calm consolidation followed by expansion — textbook spring setups.",
+   "Continuous trending or continuous chop both suppress signals."
+  ],
+  "mistakes": [
+   "Buying the squeeze itself — the signal is the RELEASE.",
+   "Assuming direction; the close-vs-middle-band test is what picks the side.",
+   "Forgetting both band pairs must be compared on the same candle."
+  ],
+  "watch": [
+   "State shows squeeze state; look at the Market screen for tight Bollinger-in-Keltner windows.",
+   "Entries should appear right after visible compression phases end."
+  ],
+  "concepts": [
+   "volatility_squeeze",
+   "bollinger",
+   "keltner",
+   "volatility",
+   "breakout"
+  ],
+  "related": [
+   "41_volatility_regime_switcher",
+   "10_donchian_breakout",
+   "06_bollinger_mean_reversion"
+  ]
+ },
+ {
+  "id": "30_elder_ray_power",
+  "name": "Elder-Ray Power Shift",
+  "category": "Volume & Volatility",
+  "difficulty": 2,
+  "level": "Intermediate",
+  "warmup": 20,
+  "single_position": true,
+  "entry": "bear power lifts toward 0, bull power > 0",
+  "exit": "bull power rolls over",
+  "params": {
+   "period": {
+    "default": 13,
+    "what": "EMA length both powers use.",
+    "effect": "13 is Elder's standard; longer = slower regime shifts."
+   },
+   "alloc": {
+    "default": null,
+    "what": "Share of the account's available cash spent on a single entry.",
+    "effect": "None = the global default (95% of cash) applies. Lower it to trade smaller."
+   }
+  },
+  "summary": "Tug-of-war with rulers: buy when bear power fails (crosses back above zero) while bulls stay positive; sell when bull power rolls over.",
+  "idea": "Elder-Ray measures how far buyers (high − EMA13) and sellers (low − EMA13) can push from the crowd's center. A rally dies when bear power — how deep sellers reached — stops making new lows and lifts through zero. That's the exact moment to buy: sellers just lost the rope.",
+  "how": [
+   "Compute bull power = high − EMA(13), bear power = low − EMA(13).",
+   "Bear power ≤ 0 last candle, then > 0 now, with bull power positive: buy.",
+   "Hold while buyers keep reach.",
+   "Bull power falls below zero (sellers control the EMA line): sell."
+  ],
+  "strengths": [
+   "Measures force, not just price — who pushed further.",
+   "The bear-power-reclaim entry is a genuine capitulation detector.",
+   "Symmetric long/short logic is elegant to study."
+  ],
+  "weaknesses": [
+   "EMA(13) as 'fair value' is arbitrary.",
+   "Intraday wicks dominate the highs/lows used in the math.",
+   "In slow grinds powers hover near zero and signals turn mushy."
+  ],
+  "when": [
+   "Volatile two-sided markets with real thrusts.",
+   "Dead quiet drift gives ambiguous near-zero readings."
+  ],
+  "mistakes": [
+   "Reading bull power alone — the entry needs the BEAR power failure.",
+   "Forgetting power is measured in dollars from the EMA, not a percentage.",
+   "Judging it on tiny candles where a one-dollar wick flips the sign."
+  ],
+  "watch": [
+   "State stores bull/bear power — entries follow negative-then-positive bear power.",
+   "Power magnitudes shrink in quiet sessions (smaller dollar reach)."
+  ],
+  "concepts": [
+   "elder_ray",
+   "volume",
+   "oscillator",
+   "volatility"
+  ],
+  "related": [
+   "25_mfi_flow_reversal",
+   "01_rsi_mean_reversion",
+   "29_volatility_squeeze"
+  ]
+ },
+ {
+  "id": "31_engulfing_reversal",
+  "name": "Engulfing Candle Reversal",
+  "category": "Price Action",
+  "difficulty": 2,
+  "level": "Intermediate",
+  "warmup": 25,
+  "single_position": true,
+  "entry": "bullish engulfing at a 20-candle low",
+  "exit": "bearish engulfing or stop",
+  "params": {
+   "trend_lookback": {
+    "default": 10,
+    "what": "Candles used to measure the prior trend.",
+    "effect": "Longer = requires deeper trends before acting."
+   },
+   "trend_pct": {
+    "default": 1.0,
+    "what": "Minimum prior move to count as a trend.",
+    "effect": "Higher = only significant trends traded."
+   },
+   "alloc": {
+    "default": null,
+    "what": "Share of the account's available cash spent on a single entry.",
+    "effect": "None = the global default (95% of cash) applies. Lower it to trade smaller."
+   }
+  },
+  "summary": "The candle that swallows its predecessor: bullish engulfing at the end of a 10-candle downtrend = buy; the mirror = sell.",
+  "idea": "A green body that fully covers the previous red body is one candle saying 'all of yesterday's sellers are trapped'. Alone it's noise — after a measured 10-candle downtrend it's a reversal with a crowd behind it. Context is the whole trade.",
+  "how": [
+   "Confirm a real downtrend: close 10 candles ago ≥ 1% above the prior close.",
+   "Look at the last two candles: bullish engulfing (green body fully wraps red body)?",
+   "Yes: buy. The downtrend just got rejected by a bigger counter-candle.",
+   "Exit when an uptrend of similar size produces a bearish engulfing."
+  ],
+  "strengths": [
+   "The trend filter turns a common pattern into a context-aware signal.",
+   "Candle logic is visual and verifiable by eye.",
+   "Fast reaction: reversal detected within one candle."
+  ],
+  "weaknesses": [
+   "Engulfing bars in 15m crypto are frequent — many are noise despite the filter.",
+   "No volume confirmation of the engulfing candle.",
+   "One-candle exits can be shaken out before real reversals develop."
+  ],
+  "when": [
+   "Trend exhaustion zones after clear directional runs.",
+   "Chop produces engulfings everywhere (filtered poorly by short trends)."
+  ],
+  "mistakes": [
+   "Trading engulfings without trend context (the pattern alone is a coin flip).",
+   "Measuring bodies instead of the full-candle rule (body must fully wrap prior BODY).",
+   "Expecting instant follow-through; reversals often retest first."
+  ],
+  "watch": [
+   "Entries should visually match big green candles swallowing red ones at local lows.",
+   "False signals concentrate in ranges — compare with trend filters (40)."
+  ],
+  "concepts": [
+   "engulfing",
+   "candlestick",
+   "support_resistance",
+   "pullback"
+  ],
+  "related": [
+   "40_trend_pullback_confluence",
+   "33_pivot_point_bounce",
+   "32_fibonacci_pullback"
+  ]
+ },
+ {
+  "id": "32_fibonacci_pullback",
+  "name": "Fibonacci Retracement Pullback",
+  "category": "Price Action",
+  "difficulty": 2,
+  "level": "Intermediate",
+  "warmup": 55,
+  "single_position": true,
+  "entry": "pullback into the 0.382–0.618 retracement",
+  "exit": "new swing high taken or stop",
+  "params": {
+   "swing_lookback": {
+    "default": 50,
+    "what": "Window defining the swing high/low.",
+    "effect": "Longer = bigger structural swings."
+   },
+   "entry_level": {
+    "default": "0.618",
+    "what": "Retracement depth that is 'the dip'.",
+    "effect": "0.618 is deep; 0.382 buys shallower dips more often."
+   },
+   "exit_level": {
+    "default": "0.236",
+    "what": "Recovery level that ends the trade.",
+    "effect": "0.236 exits near the highs; higher values exit earlier."
+   },
+   "alloc": {
+    "default": null,
+    "what": "Share of the account's available cash spent on a single entry.",
+    "effect": "None = the global default (95% of cash) applies. Lower it to trade smaller."
+   }
+  },
+  "summary": "The golden dip: in an uptrend, buy the pullback when it reaches the 0.618 retracement of the prior swing; sell the recovery to 0.236.",
+  "idea": "After a swing up, pullbacks often die at Fibonacci levels — 0.618 most of all, because half the market watches it. Strategy 32 waits for an uptrend, lets the dip come all the way into the deep 0.618 zone, and buys when price crosses back above it.",
+  "how": [
+   "Find the last 50-candle swing: its high and low.",
+   "Confirm uptrend: close now > close 50 candles ago.",
+   "Price dips to the 0.618 retracement then closes back above it: buy.",
+   "Ride the recovery.",
+   "Close reaches the 0.236 retracement (shallow zone near the old high): sell."
+  ],
+  "strengths": [
+   "Structural levels (not noise averages) define the trade.",
+   "Deep-entry + early-exit asymmetry is attractive.",
+   "Self-fulfilling to a degree — Fibonacci is widely watched."
+  ],
+  "weaknesses": [
+   "Swing highs/lows from 50 candles can be stale in fast markets.",
+   "Pullbacks can blow THROUGH 0.618 into full reversals — no stop here.",
+   "Level choice (0.618 vs 0.5) is convention, not law."
+  ],
+  "when": [
+   "Orderly uptrends with measured pullbacks.",
+   "Vertical moves rarely retrace politely; crashes blow through all levels."
+  ],
+  "mistakes": [
+   "Buying the level before the reclaim-close — the code buys the cross back above.",
+   "Expecting every 0.618 to hold; it's a probability, not a promise.",
+   "Forgetting the uptrend gate: no trend, no trade."
+  ],
+  "watch": [
+   "Entries should be visible as dips to ~0.618 of a clear swing on the chart.",
+   "Compare with strategy 40 — same idea, different measurement tools."
+  ],
+  "concepts": [
+   "fibonacci",
+   "pullback",
+   "support_resistance",
+   "trend"
+  ],
+  "related": [
+   "40_trend_pullback_confluence",
+   "33_pivot_point_bounce",
+   "01_rsi_mean_reversion"
+  ]
+ },
+ {
+  "id": "33_pivot_point_bounce",
+  "name": "Pivot Point Bounce",
+  "category": "Price Action",
+  "difficulty": 2,
+  "level": "Intermediate",
+  "warmup": 5,
+  "single_position": true,
+  "entry": "bounce off prior-session S1 / pivot",
+  "exit": "prior-session R1 reached",
+  "params": {
+   "alloc": {
+    "default": null,
+    "what": "Cash share per entry.",
+    "effect": "None = the global 95% default applies."
+   }
+  },
+  "summary": "Yesterday's levels, today's map: buy S1 support being reclaimed, sell into R1 resistance.",
+  "idea": "Pivot points derive today's support/resistance from yesterday's high, low and close. They're arithmetic, public, and shared by thousands of traders — which makes them work. This account buys when S1 (first support) is tested and reclaimed, and sells into R1 (first resistance).",
+  "how": [
+   "Each new UTC session: compute P, S1, R1 from the prior session's HLC.",
+   "Prior close at/below S1 and current close back above S1: buy (floor defended).",
+   "Ride toward the pivot.",
+   "Close reaches R1: sell into the ceiling."
+  ],
+  "strengths": [
+   "Levels are objective and shared — crowd gravity works for you.",
+   "Fresh levels every session keep it anchored to current prices.",
+   "Very low warm-up (5 candles)."
+  ],
+  "weaknesses": [
+   "Levels ignore news: a gap through S1 makes the 'reclaim' pattern moot.",
+   "Range-bound by construction — trend days run through R1 and keep going.",
+   "No stop: a broken S1 that keeps falling just holds the position."
+  ],
+  "when": [
+   "Two-sided sessions respecting yesterday's map.",
+   "Trend days and gap sessions invalidate the levels quickly."
+  ],
+  "mistakes": [
+   "Buying S1 touches instead of reclaim closes.",
+   "Using daily pivots on 15m candles — sessions must match (UTC here).",
+   "Treating S1 as a hard floor; it's a defended-but-breakable line."
+  ],
+  "watch": [
+   "State prints the pivot table — compare price against S1/R1 each session.",
+   "Entries should cluster right after undercut-and-reclaim wicks at S1."
+  ],
+  "concepts": [
+   "pivot_points",
+   "support_resistance",
+   "mean_reversion",
+   "trend"
+  ],
+  "related": [
+   "34_opening_range_breakout",
+   "06_bollinger_mean_reversion",
+   "31_engulfing_reversal"
+  ]
+ },
+ {
+  "id": "34_opening_range_breakout",
+  "name": "Opening Range Breakout",
+  "category": "Price Action",
+  "difficulty": 1,
+  "level": "Beginner",
+  "warmup": 10,
+  "single_position": true,
+  "entry": "UTC open + 1h range broken upward",
+  "exit": "back inside the opening range",
+  "params": {
+   "minutes": {
+    "default": 60,
+    "what": "Length of the opening range.",
+    "effect": "Longer = more established range, later signals; 60 is the classic."
+   },
+   "alloc": {
+    "default": null,
+    "what": "Share of the account's available cash spent on a single entry.",
+    "effect": "None = the global default (95% of cash) applies. Lower it to trade smaller."
+   }
+  },
+  "summary": "First hour sets the tone: buy the first close above the UTC opening range high, exit below its low.",
+  "idea": "The opening range (first 60 minutes) captures where the overnight crowd is willing to trade. Whoever breaks it first usually controls the day. This account is a morning observer: it waits for the hour to complete, then trades the first decisive close beyond the range.",
+  "how": [
+   "Each UTC session, measure the opening range: high/low of the first 60 minutes.",
+   "Wait until the range is complete (4+ candles in).",
+   "First close ABOVE the range high: buy — early strength confirmed.",
+   "Close back BELOW the range low: sell — the thesis failed."
+  ],
+  "strengths": [
+   "Simple, time-boxed, and psychologically grounded.",
+   "Only trades once per session at most — disciplined.",
+   "Clear invalidation (range-low break) keeps losses defined."
+  ],
+  "weaknesses": [
+   "One trade window per day — misses afternoon moves entirely.",
+   "Fake range breaks are common in crypto's 24/7 sessions.",
+   "UTC 'open' is arbitrary for a market that never closes."
+  ],
+  "when": [
+   "Sessions with genuine early direction.",
+   "Listless sessions produce range-poke fakeouts both ways."
+  ],
+  "mistakes": [
+   "Trading inside the opening hour — the range is still forming.",
+   "Entering on wicks through the high instead of closes.",
+   "Expecting it to work outside the session structure it was designed for."
+  ],
+  "watch": [
+   "Entries happen only shortly after each UTC hour-mark.",
+   "Check state for the stored range high/low on trade days."
+  ],
+  "concepts": [
+   "opening_range",
+   "breakout",
+   "support_resistance",
+   "trend"
+  ],
+  "related": [
+   "09_vwap_pullback",
+   "33_pivot_point_bounce",
+   "10_donchian_breakout"
+  ]
+ },
+ {
+  "id": "35_chandelier_trend_ride",
+  "name": "Chandelier Exit Trend Ride",
+  "category": "Risk & Trailing",
+  "difficulty": 2,
+  "level": "Intermediate",
+  "warmup": 60,
+  "single_position": true,
+  "entry": "uptrend confirmed, entry on a pullback",
+  "exit": "3×ATR chandelier stop",
+  "params": {
+   "trend_period": {
+    "default": 50,
+    "what": "EMA length for trend confirmation.",
+    "effect": "Longer = later entries, stronger trends only."
+   },
+   "atr_period": {
+    "default": 22,
+    "what": "ATR lookback sizing the stop.",
+    "effect": "22 standard for daily-style stops."
+   },
+   "multiplier": {
+    "default": 3.0,
+    "what": "Stop distance in ATRs.",
+    "effect": "Higher = wider stops, fewer shake-outs, more giveback."
+   },
+   "alloc": {
+    "default": null,
+    "what": "Share of the account's available cash spent on a single entry.",
+    "effect": "None = the global default (95% of cash) applies. Lower it to trade smaller."
+   }
+  },
+  "summary": "Enter on trend confirmation, exit on a stop hung 3×ATR below the highest high since entry — volatility-scaled trend riding.",
+  "idea": "Most trend exits are arbitrary percentages. The chandelier hangs its stop from the ceiling of the move (highest high since entry) minus 3×ATR, so the stop is exactly as wide as the market's current noise. If price falls more than three typical ranges from the peak, the trend is genuinely broken — not just breathing.",
+  "how": [
+   "Confirm uptrend: close crosses above EMA(50).",
+   "Buy the cross.",
+   "Track the chandelier stop = highest high since entry − 3×ATR(22).",
+   "Hold while price stays above the stop.",
+   "Close under the stop: sell — the ride is over."
+  ],
+  "strengths": [
+   "Volatility-scaled exit — correct behaviour in both calm and stormy markets.",
+   "Rides the full trend once in: no premature targets.",
+   "The EMA entry gate keeps it out of counter-trend bounces."
+  ],
+  "weaknesses": [
+   "ATR(22) on 15m candles mixes overnight and daytime volatility.",
+   "3×ATR giveback can be large on volatile BTC.",
+   "EMA(50) confirmation means late entries near local tops sometimes."
+  ],
+  "when": [
+   "Sustained trends with expanding peaks.",
+   "Chop: entries on weak crosses, exits on noise — small repeated losses."
+  ],
+  "mistakes": [
+   "Reading the stop as a target — it's a maximum giveback, not a profit level.",
+   "Using daily ATR intuition on 15m candles.",
+   "Tightening the multiplier after one bad trade (whipsaw feedback loop)."
+  ],
+  "watch": [
+   "State stores chandelier_stop — it should climb with price during the ride.",
+   "Exits should come on the first close that undercuts a multi-candle peak."
+  ],
+  "concepts": [
+   "chandelier_exit",
+   "atr",
+   "trailing_stop",
+   "trend"
+  ],
+  "related": [
+   "05_supertrend_atr",
+   "37_anti_martingale_pyramid",
+   "04_triple_moving_average"
+  ]
+ },
+ {
+  "id": "11_dynamic_dca",
+  "name": "Dynamic DCA (Dip Multiplier)",
+  "category": "Execution-Based & Portfolio",
+  "difficulty": 1,
+  "level": "Beginner",
+  "warmup": 2,
+  "single_position": false,
+  "entry": "every 4th candle, ×2 if 24h is red",
+  "exit": "accumulates; optional take-profit",
+  "params": {
+   "interval_candles": {
+    "default": 4,
+    "what": "Candles between scheduled buys.",
+    "effect": "4 = hourly on 15m candles."
+   },
+   "base_notional": {
+    "default": 50.0,
+    "what": "Regular order size in USDT.",
+    "effect": "Higher = faster accumulation, faster cash burn."
+   },
+   "dip_multiplier": {
+    "default": 2.0,
+    "what": "Order multiplier on red 24h windows.",
+    "effect": "2 = double down on dips; higher is more aggressive."
+   },
+   "lookback_24h": {
+    "default": 96,
+    "what": "Candles defining 'recent' for the dip test.",
+    "effect": "96 = 24 hours of 15m candles."
+   },
+   "take_profit_pct": {
+    "default": null,
+    "what": "Optional whole-stack profit target.",
+    "effect": "None = never sells, pure accumulator."
+   }
+  },
+  "summary": "The disciplined accumulator: buys every hour, twice as much when the last 24h is red — no timing judgement, ever.",
+  "idea": "Nobody can time BTC. DCA doesn't try: it buys a fixed amount hourly, and doubles the order when the trailing 24 hours are down — buying the dip harder but still on a schedule. It builds a ladder of lots and never panics; optional take-profit exits the whole stack at a gain.",
+  "how": [
+   "Every 4th candle (hourly): place a buy of the base notional.",
+   "If the trailing 24h (96 candles) is negative: double the order.",
+   "Skip if the order would exceed available cash.",
+   "Accumulate lots indefinitely (multi-position account).",
+   "Optional: if take_profit_pct is set, sell the whole stack when its average gain hits it."
+  ],
+  "strengths": [
+   "Removes timing emotion completely — the strategy is a schedule.",
+   "Dip-doubling buys more when prices are cheaper.",
+   "No market judgement to get wrong."
+  ],
+  "weaknesses": [
+   "In a long bear it keeps buying into falling prices (that's the plan — painful on paper).",
+   "Cash is finite: dips stop being doubled once affordable cash runs out.",
+   "Without a take-profit it can hold for years below average cost."
+  ],
+  "when": [
+   "Always (it's time-based). Best in volatile-but-eventually-up markets.",
+   "Long secular bears stress it most."
+  ],
+  "mistakes": [
+   "Judging it by win rate — DCA is about average cost, not per-trade hits.",
+   "Expecting it to sell rallies — by default it only buys.",
+   "Forgetting the dip-double still respects the cash constraint."
+  ],
+  "watch": [
+   "Watch 'runs' in state — buys fire exactly every 4 ticks.",
+   "The 24h change in state explains why some orders were doubled."
+  ],
+  "concepts": [
+   "dca",
+   "lot",
+   "position_sizing",
+   "mean_reversion"
+  ],
+  "related": [
+   "36_martingale_dip",
+   "12_arithmetic_grid",
+   "38_kelly_fraction_sizer"
+  ]
+ },
+ {
+  "id": "12_arithmetic_grid",
+  "name": "Fixed-Step Arithmetic Grid",
+  "category": "Execution-Based & Portfolio",
+  "difficulty": 2,
+  "level": "Intermediate",
+  "warmup": 2,
+  "single_position": false,
+  "entry": "limit buys each 1% step down",
+  "exit": "take-profit one step up",
+  "params": {
+   "step_pct": {
+    "default": 1.0,
+    "what": "Price spacing between levels.",
+    "effect": "1% steps must beat ~0.2% round-trip fees — smaller steps get fee-eaten."
+   },
+   "levels_each_side": {
+    "default": 5,
+    "what": "Buy levels below the anchor.",
+    "effect": "More = deeper range coverage, more capital spread thin."
+   },
+   "capital_pct": {
+    "default": 0.95,
+    "what": "Equity share committed to the ladder.",
+    "effect": "Higher = bigger fills per level."
+   },
+   "reanchor_pct": {
+    "default": 6.0,
+    "what": "Drift that triggers a ladder rebuild.",
+    "effect": "Smaller = adapts faster, sells inventory more often."
+   }
+  },
+  "summary": "A machine that sells volatility: resting limit buys every 1% step down, each lot sold one step higher — round trips on autopilot.",
+  "idea": "In a range, every dip is temporary. The grid places 5 buy orders below the current price and sells each filled lot exactly one step higher: a completed round trip banks the step profit (minus two fees). When price trends far away, the whole ladder re-anchors to the new location instead of holding dead inventory.",
+  "how": [
+   "Anchor a ladder at the current price: 5 buy levels below, mirror levels above.",
+   "When price touches a buy level: fill it (limit order).",
+   "When price rises one step above a filled level: sell it — round trip banked.",
+   "If price drifts beyond the channel (6%): liquidate stale inventory and rebuild the ladder at the new price.",
+   "Levels are sized from current equity, so the grid shrinks after losses and compounds after wins."
+  ],
+  "strengths": [
+   "Mechanically harvests range volatility — hundreds of small wins.",
+   "Re-anchoring keeps it alive through trends.",
+   "Beautiful live state: watch the ladder fill and sell in real time."
+  ],
+  "weaknesses": [
+   "Each round trip nets ~0.8% after fees: trends give it no trips, only inventory.",
+   "Re-anchors lock in losses by liquidating underwater lots.",
+   "Range assumption can bleed slowly in one-way markets."
+  ],
+  "when": [
+   "Chop between levels (BTC's favourite pastime).",
+   "Long one-way trends eat it via repeated re-anchor losses."
+  ],
+  "mistakes": [
+   "Setting steps below ~0.4% — fees eat the whole edge.",
+   "Judging it on days without trips; grids earn in bursts.",
+   "Misreading re-anchor sells as strategy failure — they're the designed escape hatch."
+  ],
+  "watch": [
+   "Live grid state: levels, round_trips, rebuilt count.",
+   "Round trips should accumulate during sideways sessions."
+  ],
+  "concepts": [
+   "grid",
+   "lot",
+   "position_sizing",
+   "fee",
+   "slippage"
+  ],
+  "related": [
+   "11_dynamic_dca",
+   "36_martingale_dip",
+   "37_anti_martingale_pyramid"
+  ]
+ },
+ {
+  "id": "36_martingale_dip",
+  "name": "Martingale Dip Accumulator",
+  "category": "Execution-Based & Portfolio",
+  "difficulty": 1,
+  "level": "Beginner",
+  "warmup": 5,
+  "single_position": false,
+  "entry": "each −2% dip, size doubles (max 4 steps)",
+  "exit": "accumulates; optional take-profit",
+  "params": {
+   "dip_pct": {
+    "default": 2.0,
+    "what": "Drop that triggers the next step.",
+    "effect": "Smaller = more frequent escalation."
+   },
+   "base_notional": {
+    "default": 100.0,
+    "what": "First step size.",
+    "effect": "Sets the whole ladder's scale."
+   },
+   "multiplier": {
+    "default": 2.0,
+    "what": "Step growth factor.",
+    "effect": "2 doubles; higher escalates faster toward the cap."
+   },
+   "max_steps": {
+    "default": 4,
+    "what": "Hard cap on doublings.",
+    "effect": "The cap IS the risk management — never remove it."
+   },
+   "take_profit_pct": {
+    "default": null,
+    "what": "Optional whole-stack exit.",
+    "effect": "None = hold through recovery (or forever)."
+   }
+  },
+  "summary": "The gambler's system, safety-capped: every 2% dip doubles the buy — up to 4 steps, and only while cash allows.",
+  "idea": "Martingale logic: if you double each losing bet, one bounce recovers everything. Applied to dips: buy $100, price falls 2%, buy $200, falls again, buy $400... The cap (4 steps) and the cash check are what turn a blow-up machine into a (still spicy) system.",
+  "how": [
+   "Anchor to the running peak price.",
+   "Price drops 2% from the anchor: buy the base notional.",
+   "Each further 2% drop: double the order (100 → 200 → 400 → 800).",
+   "Stop doubling at 4 steps or when the order exceeds available cash.",
+   "Optional take-profit sells the whole stack at a gain; otherwise it holds forever."
+  ],
+  "strengths": [
+   "A single bounce fully recovers deep underwater positions.",
+   "The step cap and cash constraint bound the worst case.",
+   "Simple to understand and to watch."
+  ],
+  "weaknesses": [
+   "Escalation is exponential: steps 3-4 dwarf step 1 in size.",
+   "In a sustained bear the cap forces it to stop buying exactly when things are cheapest.",
+   "Fees apply to every doubling — the ladder leaks 0.2% per round trip."
+  ],
+  "when": [
+   "V-shaped dips in ranging markets.",
+   "Slow grinding bears break its heart (and its average cost)."
+  ],
+  "mistakes": [
+   "Raising max_steps 'for better recovery' — that's how martingales destroy accounts.",
+   "Judging it by unrealized losses mid-drawdown; the design is all-or-nothing-ish.",
+   "Forgetting every doubling must clear fees too."
+  ],
+  "watch": [
+   "State shows steps and anchor_price — see the ladder build during dips.",
+   "The account should recover in one move when price bounces past the anchor."
+  ],
+  "concepts": [
+   "martingale",
+   "dca",
+   "risk_management",
+   "lot"
+  ],
+  "related": [
+   "11_dynamic_dca",
+   "37_anti_martingale_pyramid",
+   "12_arithmetic_grid"
+  ]
+ },
+ {
+  "id": "37_anti_martingale_pyramid",
+  "name": "Anti-Martingale Pyramid",
+  "category": "Execution-Based & Portfolio",
+  "difficulty": 2,
+  "level": "Intermediate",
+  "warmup": 25,
+  "single_position": false,
+  "entry": "20-candle high breakout, adds at each +2% leg",
+  "exit": "3% trail below the tracked peak",
+  "params": {
+   "entry_lookback": {
+    "default": 20,
+    "what": "Breakout window for the first leg.",
+    "effect": "Longer = bigger structural breaks."
+   },
+   "add_pct": {
+    "default": 2.0,
+    "what": "Advance between adds.",
+    "effect": "Smaller = stacks faster in strong trends."
+   },
+   "max_adds": {
+    "default": 3,
+    "what": "Cap on extra legs.",
+    "effect": "Higher = more compounding, bigger reversal risk."
+   },
+   "trail_pct": {
+    "default": 3.0,
+    "what": "Peak-to-exit distance.",
+    "effect": "Tighter = protects more, exits on normal pullbacks."
+   },
+   "size_pct": {
+    "default": 0.3,
+    "what": "Leg size as share of starting balance.",
+    "effect": "Bigger legs = stronger compounding and losses."
+   }
+  },
+  "summary": "The winner's system: add a lot on every +2% leg of a winning breakout, protect everything with a 3% trail below the peak.",
+  "idea": "If martingale doubles losers, anti-martingale adds to winners. Enter on a 20-candle high breakout, then each further 2% rise buys another leg (up to 3 adds, each 30% of starting balance). A 3% trail below the running peak exits the whole pyramid — so losses are always one leg, and winners can stack four.",
+  "how": [
+   "Close breaks the 20-candle high: buy leg #1.",
+   "Each further +2% from the last add: buy another leg (max 3 adds).",
+   "Track the highest price since entry as the peak.",
+   "Price falls 3% below the peak: sell the entire stack.",
+   "Losing trades cost one leg; winners can compound four."
+  ],
+  "strengths": [
+   "Asymmetric by construction: small routine losses, occasional stacked winners.",
+   "The trail converts 'let winners run' into an executable rule.",
+   "Multi-leg structure averages into trends at progressively better context."
+  ],
+  "weaknesses": [
+   "A 3% pullback in a strong trend is normal — it will exit early sometimes.",
+   "Later legs buy near the top of the move if the trend is ending.",
+   "Stacked exposure means a sharp reversal hurts more than a single position."
+  ],
+  "when": [
+   "Power trends with stair-step structure.",
+   "V-shaped reversals after the final add hurt most."
+  ],
+  "mistakes": [
+   "Expecting every trade to pyramid — most will be single-leg exits.",
+   "Loosening the trail to 5% and forgetting giveback grows too.",
+   "Ignoring the add cap: unlimited adds = one reversal wipes many legs."
+  ],
+  "watch": [
+   "State shows adds and peak_price — watch the ladder stack in trends.",
+   "Exits should come after the first 3% reversal from a visible peak."
+  ],
+  "concepts": [
+   "pyramiding",
+   "trailing_stop",
+   "breakout",
+   "position_sizing",
+   "risk_management"
+  ],
+  "related": [
+   "10_donchian_breakout",
+   "35_chandelier_trend_ride",
+   "36_martingale_dip"
+  ]
+ },
+ {
+  "id": "38_kelly_fraction_sizer",
+  "name": "Kelly Fraction Position Sizing",
+  "category": "Execution-Based & Portfolio",
+  "difficulty": 3,
+  "level": "Advanced",
+  "warmup": 25,
+  "single_position": true,
+  "entry": "Donchian(20) breakout, sized by half-Kelly",
+  "exit": "close breaks the 10-candle low",
+  "params": {
+   "entry_period": {
+    "default": 20,
+    "what": "Breakout window.",
+    "effect": "20 classic turtle."
+   },
+   "exit_period": {
+    "default": 10,
+    "what": "Exit window.",
+    "effect": "10 classic turtle."
+   },
+   "min_trades": {
+    "default": 10,
+    "what": "Closed trades before Kelly is trusted.",
+    "effect": "Below this it trades the default 10% — small while learning."
+   },
+   "default_fraction": {
+    "default": 0.1,
+    "what": "Sizing before enough history.",
+    "effect": "10% keeps the learning phase cheap."
+   },
+   "max_fraction": {
+    "default": 0.5,
+    "what": "Absolute cap on any Kelly bet.",
+    "effect": "50% prevents over-betting from noisy estimates."
+   },
+   "kelly_fraction": {
+    "default": 0.5,
+    "what": "Share of full Kelly to bet.",
+    "effect": "0.5 = half-Kelly: most of the growth, half the volatility."
+   }
+  },
+  "summary": "A breakout strategy whose position size is decided by mathematics: Kelly's formula from the account's own trade history — and it stands aside when the edge is negative.",
+  "idea": "Most strategies decide WHEN to trade; Kelly decides HOW MUCH. This account enters Donchian(20) breakouts, then sizes the bet with the Kelly criterion estimated from its own closed trades: f* = p − (1−p)/b. No history (10 trades)? Trade small by default. Negative edge? Don't trade at all. The sizing is the intelligence.",
+  "how": [
+   "Close breaks the 20-candle high: candidate entry.",
+   "Estimate p (win rate) and b (avg win / avg loss) from the account's closed trades.",
+   "Compute full Kelly, halve it, cap at 50% of cash.",
+   "Positive edge: buy sized to the fraction. No/negative edge: stand aside.",
+   "Exit when close breaks the 10-candle low."
+  ],
+  "strengths": [
+   "Adaptive risk: sizes up only after the account proves an edge.",
+   "The negative-edge stand-aside is rare and brilliant.",
+   "Textbook link between trade stats and position sizing."
+  ],
+  "weaknesses": [
+   "Kelly from 10-30 trades is statistically shaky.",
+   "In a small sample a lucky streak can justify huge sizes (cap helps).",
+   "Slow to adapt: estimates update only as trades close."
+  ],
+  "when": [
+   "Long-horizon accounts where trade statistics can accumulate.",
+   "Early on it's tiny (default 10%) — patience required."
+  ],
+  "mistakes": [
+   "Reading the Kelly fraction as a signal — it's a size, decided after the breakout.",
+   "Expecting full-Kelly growth; this account deliberately runs half.",
+   "Forgetting the stand-aside: no edge, no trade — that's a feature."
+  ],
+  "watch": [
+   "State shows the current fraction and its p/b origin.",
+   "Watch the fraction grow after winning streaks and shrink (or zero) after losses."
+  ],
+  "concepts": [
+   "kelly",
+   "half_kelly",
+   "position_sizing",
+   "risk_management",
+   "donchian"
+  ],
+  "related": [
+   "10_donchian_breakout",
+   "39_multi_indicator_consensus",
+   "42_sibling_performance_allocator"
+  ]
+ },
+ {
+  "id": "39_multi_indicator_consensus",
+  "name": "Multi-Indicator Consensus Vote",
+  "category": "Composite & Hybrid",
+  "difficulty": 2,
+  "level": "Intermediate",
+  "warmup": 45,
+  "single_position": true,
+  "entry": "≥3 of 5 independent votes agree",
+  "exit": "≥3 votes turn the other way",
+  "params": {
+   "threshold": {
+    "default": 3,
+    "what": "Votes required for action.",
+    "effect": "3 of 5 = strict majority. Higher = rarer, more certain trades."
+   },
+   "alloc": {
+    "default": null,
+    "what": "Share of the account's available cash spent on a single entry.",
+    "effect": "None = the global default (95% of cash) applies. Lower it to trade smaller."
+   }
+  },
+  "summary": "Five indicators vote, majority rules: buy at +3 of 5 bullish, sell at −3. Disagreement never gets traded.",
+  "idea": "Every indicator has a blind spot — RSI lies in trends, EMAs whipsaw in chop. Instead of trusting one, this account polls five different toolboxes (RSI, EMA cross, MACD, Bollinger, StochRSI). Each casts ±1. When three or more agree, the trade has survived five independent worldviews.",
+  "how": [
+   "Each candle, poll the five voters: RSI(14), EMA 9/21, MACD(12/26/9), Bollinger(20,2), StochRSI(14,14,3,3).",
+   "Each voter says bullish (+1), bearish (−1) or neutral (0).",
+   "Score ≥ +3: buy. Score ≤ −3: sell.",
+   "Scores between: no action — disagreement is information too.",
+   "The state prints every vote so you can audit the score."
+  ],
+  "strengths": [
+   "Filters the whipsaws that plague single-indicator systems.",
+   "Auditable: every vote is recorded in live state.",
+   "Teaches exactly how indicators disagree — a free education."
+  ],
+  "weaknesses": [
+   "The voters share inputs (all use closes) — less independent than they look.",
+   "Majority rule is slow: it needs most voters to flip.",
+   "In a crash all five vote bearish AFTER the fall — late by design."
+  ],
+  "when": [
+   "Markets where half the indicators are right at a time.",
+   "Vicious trends where it arrives late but avoids false early entries."
+  ],
+  "mistakes": [
+   "Adding more voters for 'safety' — correlated voters just double-count.",
+   "Expecting it to catch reversals early; consensus is a confirmation tool.",
+   "Ignoring the individual votes in state — they show WHY it traded."
+  ],
+  "watch": [
+   "State prints all five votes + score — check the split before each trade.",
+   "Score ±1/±2 days with no trades are the strategy working as designed."
+  ],
+  "concepts": [
+   "consensus",
+   "oscillator",
+   "trend",
+   "confluence",
+   "meta_strategy"
+  ],
+  "related": [
+   "40_trend_pullback_confluence",
+   "03_macd_histogram_reversal",
+   "41_volatility_regime_switcher"
+  ]
+ },
+ {
+  "id": "40_trend_pullback_confluence",
+  "name": "Trend + Pullback Confluence",
+  "category": "Composite & Hybrid",
+  "difficulty": 2,
+  "level": "Intermediate",
+  "warmup": 200,
+  "single_position": true,
+  "entry": "RSI(14) < 35 and close > SMA200 > SMA50",
+  "exit": "RSI > 60 or trend breaks",
+  "params": {
+   "trend_period": {
+    "default": 200,
+    "what": "The macro trend line.",
+    "effect": "200: only true regimes pass."
+   },
+   "mid_period": {
+    "default": 50,
+    "what": "The trend-health line whose loss exits.",
+    "effect": "50 balances early exits vs protection."
+   },
+   "rsi_period": {
+    "default": 14,
+    "what": "Dip oscillator length.",
+    "effect": "14 standard."
+   },
+   "rsi_buy": {
+    "default": 35.0,
+    "what": "Weakness required to buy.",
+    "effect": "Lower = only deeper dips inside trends."
+   },
+   "rsi_sell": {
+    "default": 65.0,
+    "what": "Recovery that ends the trade.",
+    "effect": "Higher = rides the full bounce."
+   },
+   "alloc": {
+    "default": null,
+    "what": "Share of the account's available cash spent on a single entry.",
+    "effect": "None = the global default (95% of cash) applies. Lower it to trade smaller."
+   }
+  },
+  "summary": "The two-layer trade: only buy RSI dips when the long-term trend (SMA200 > SMA50) says the market is still up.",
+  "idea": "Naked RSI dip-buying catches falling knives in bear markets. This account fixes that with a gate: only buy weakness (RSI < 35) while price trades above the SMA200 with SMA50 above SMA200 — i.e., dips inside an uptrend. Selling requires RSI > 65 OR losing the SMA50. Trend and timing filters in series.",
+  "how": [
+   "Trend gate: price above SMA200 AND SMA50 > SMA200 (long-term up).",
+   "Dip trigger: RSI(14) < 35 while the gate is open: buy.",
+   "Ride the recovery while the trend holds.",
+   "Exit when RSI > 65 (recovered) or price loses the SMA50."
+  ],
+  "strengths": [
+   "The single best conceptual fix for dip-buying: context above trigger.",
+   "Buys in uptrends only — the exact opposite of catching knives.",
+   "Clear two-layer logic that generalizes to any strategy pair."
+  ],
+  "weaknesses": [
+   "200-candle warm-up and a strict gate = few signals.",
+   "A genuine trend break (price under SMA200) happens AFTER damage.",
+   "Two SMA filters are slower than one — exits lag."
+  ],
+  "when": [
+   "Long uptrends with healthy pullbacks — its home turf.",
+   "Bear markets: gate closed, account idle in cash (correct)."
+  ],
+  "mistakes": [
+   "Buying RSI dips without the gate — that's just strategy 01 again.",
+   "Expecting it to short or fade the breakdown; it only holds cash.",
+   "Ignoring that 'price above SMA200' uses current price — a daily close below flips it."
+  ],
+  "watch": [
+   "The gate state (trend up/down) should visibly close during corrections.",
+   "Entries should be rare and only after shallow dips in uptrends."
+  ],
+  "concepts": [
+   "confluence",
+   "pullback",
+   "rsi",
+   "sma",
+   "trend"
+  ],
+  "related": [
+   "32_fibonacci_pullback",
+   "01_rsi_mean_reversion",
+   "04_triple_moving_average"
+  ]
+ },
+ {
+  "id": "41_volatility_regime_switcher",
+  "name": "Volatility Regime Switcher",
+  "category": "Composite & Hybrid",
+  "difficulty": 3,
+  "level": "Advanced",
+  "warmup": 120,
+  "single_position": true,
+  "entry": "ATR percentile ≥ 70 → fade, ≤ 30 → break out",
+  "exit": "per the active sub-regime",
+  "params": {
+   "atr_period": {
+    "default": 14,
+    "what": "ATR lookback for the regime meter.",
+    "effect": "14 standard."
+   },
+   "percentile_lookback": {
+    "default": 100,
+    "what": "History for ranking ATR.",
+    "effect": "100 candles gives a stable 'normal'."
+   },
+   "high_vol": {
+    "default": 70.0,
+    "what": "Percentile that means 'high volatility'.",
+    "effect": "Higher = only truly wild markets fade; lower = fades more often."
+   },
+   "low_vol": {
+    "default": 30.0,
+    "what": "Percentile that means 'low volatility'.",
+    "effect": "Lower = only deep compressions break out."
+   },
+   "bb_period": {
+    "default": 20,
+    "what": "Bollinger lookback in fade mode.",
+    "effect": "20 standard."
+   },
+   "bb_mult": {
+    "default": 2.0,
+    "what": "Band width in fade mode.",
+    "effect": "2 standard."
+   },
+   "entry_period": {
+    "default": 20,
+    "what": "Donchian high window in breakout mode.",
+    "effect": "20 standard."
+   },
+   "exit_period": {
+    "default": 10,
+    "what": "Donchian low window in breakout mode.",
+    "effect": "10 standard."
+   },
+   "alloc": {
+    "default": null,
+    "what": "Share of the account's available cash spent on a single entry.",
+    "effect": "None = the global default (95% of cash) applies. Lower it to trade smaller."
+   }
+  },
+  "summary": "One account, two strategies, chosen by the market's mood: high volatility → fade with Bollinger; low volatility → break out with Donchian; in between → do nothing.",
+  "idea": "Different market states demand different tools. When ATR sits in the top 30% of its own history, ranges are wide and mean reversion works — so it fades with Bollinger. In the bottom 30%, compression precedes breakouts — so it trades Donchian breaks. The middle 40% is noise: it sits out entirely.",
+  "how": [
+   "Measure ATR(14)'s percentile rank over 100 candles.",
+   "Percentile ≥ 70 (high vol): switch to mean-reversion mode — buy closes below the Bollinger lower band, exit at the middle band.",
+   "Percentile ≤ 30 (low vol): switch to breakout mode — buy closes above the 20-candle Donchian high, exit below the 10-candle low.",
+   "30-70 (neutral): no trades at all.",
+   "State prints the current percentile and active regime."
+  ],
+  "strengths": [
+   "Regime awareness is the future of systematic trading — this is its simplest honest form.",
+   "Both sub-strategies run only in the state where they're historically strong.",
+   "The neutral dead-zone prevents chop whipsaws by design."
+  ],
+  "weaknesses": [
+   "Regime switches lag: by the time ATR percentile confirms, half the move is gone.",
+   "Two full sub-strategies to debug.",
+   "Percentile windows are fixed — regime 'normal' drifts over years."
+  ],
+  "when": [
+   "Alternating volatile/quiet phases — it catches both.",
+   "In-between regimes: nothing (the 40% dead zone is deliberate)."
+  ],
+  "mistakes": [
+   "Expecting it to trade every day — the dead zone is the design.",
+   "Treating mode labels as predictions; they describe the last 100 candles.",
+   "Tuning high_vol/low_vol so the dead zone disappears — that's removing the filter."
+  ],
+  "watch": [
+   "State shows ATR percentile and regime — see it flip after volatility bursts.",
+   "Fade-mode entries during wild candles, breakout-mode entries after quiet ones."
+  ],
+  "concepts": [
+   "regime_switching",
+   "atr",
+   "bollinger",
+   "donchian",
+   "volatility",
+   "meta_strategy"
+  ],
+  "related": [
+   "29_volatility_squeeze",
+   "06_bollinger_mean_reversion",
+   "10_donchian_breakout"
+  ]
+ },
+ {
+  "id": "42_sibling_performance_allocator",
+  "name": "Sibling Performance Allocator",
+  "category": "Composite & Hybrid",
+  "difficulty": 3,
+  "level": "Advanced",
+  "warmup": 25,
+  "single_position": true,
+  "entry": "peers' median return ≥ 0 (else stands aside)",
+  "exit": "median return turns negative",
+  "params": {
+   "momentum_lookback": {
+    "default": 20,
+    "what": "Reserved window for momentum measurement (kept for tuning).",
+    "effect": "Not used by the current default logic — a placeholder for experimentation."
+   },
+   "median_floor_pct": {
+    "default": 0.0,
+    "what": "Median sibling return required to participate.",
+    "effect": "0 = trade while the median sibling is at break-even or better. Raise it to demand a healthier ensemble."
+   },
+   "alloc": {
+    "default": null,
+    "what": "Share of the account's available cash spent on a single entry.",
+    "effect": "None = the global default (95% of cash) applies. Lower it to trade smaller."
+   }
+  },
+  "summary": "The crowd-surfer meta-strategy: trade only while the median of the other 41 accounts is making money; ride the leader, stand aside in the slump.",
+  "idea": "The ultimate regime filter is the bot itself: when the median sibling account is profitable, the market is tradeable; when the majority of 41 systems are underwater, it isn't. This account reads (never touches) its siblings' equity, participates while the ensemble median ≥ 0, and mirrors the best performer's behaviour.",
+  "how": [
+   "Each tick, read the return of all 41 sibling accounts.",
+   "Compute the ensemble median return (and find the current leader).",
+   "Median ≥ 0: the market is tradeable — buy in.",
+   "Median < 0: the ensemble is bleeding — stand aside in cash.",
+   "State prints median, peer count and leader for full transparency."
+  ],
+  "strengths": [
+   "A real ensemble/meta signal — 41 diverse strategies voting with their equity.",
+   "Completely mechanical market-health filter.",
+   "Deliberately documented exception to isolation, and read-only."
+  ],
+  "weaknesses": [
+   "Correlated siblings (many trend accounts) make the median less diverse than it looks.",
+   "It participates when the median is fine but can still pick a bad moment.",
+   "Conceptually subtle — the hardest strategy in the zoo to explain quickly."
+  ],
+  "when": [
+   "Any market — it adapts through the ensemble itself.",
+   "The ensemble is only as smart as its weakest correlated cluster."
+  ],
+  "mistakes": [
+   "Judging it by its own curve — it's a meta-bet on the whole experiment.",
+   "Forgetting it does NOT copy the leader's trades; it rides 'participate/stand aside' only.",
+   "Reading its flat periods as failure — standing aside IS the strategy when the ensemble bleeds."
+  ],
+  "watch": [
+   "State prints median_return_pct and leader — compare with the portfolio's total return.",
+   "It should be flat during portfolio-wide slumps and active during broad rallies."
+  ],
+  "concepts": [
+   "allocation",
+   "ensemble",
+   "meta_strategy",
+   "risk_management",
+   "mean_reversion"
+  ],
+  "related": [
+   "39_multi_indicator_consensus",
+   "41_volatility_regime_switcher",
+   "38_kelly_fraction_sizer"
+  ]
+ }
+]

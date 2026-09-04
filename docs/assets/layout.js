@@ -13,10 +13,14 @@ const BOT = {
 
 const NAV_ITEMS = [
   { href: "index.html", label: "Dashboard" },
-  { href: "analytics.html", label: "Analytics" },
   { href: "strategies.html", label: "Strategies" },
-  { href: "trades.html", label: "Trades" },
+  { href: "learn.html", label: "Learn" },
+  { href: "market.html", label: "Market" },
+  { href: "compare.html", label: "Compare" },
+  { href: "portfolio.html", label: "Portfolio" },
+  { href: "analytics.html", label: "Analytics" },
   { href: "risk.html", label: "Risk" },
+  { href: "trades.html", label: "Trades" },
   { href: "profile.html", label: "Profile" },
 ];
 

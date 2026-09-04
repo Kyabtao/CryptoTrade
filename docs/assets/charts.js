@@ -578,3 +578,158 @@ function heatmap(container, rows, opts = {}) {
     </div>`).join("");
   container.innerHTML = `<div class="hm">${html}</div>`;
 }
+
+/* Candlestick chart for the Market screen. `candles` = rows of
+   [ts_ms, open, high, low, close, volume]; `opts.overlays` = indicator
+   series [{name, color, width?, values:[...]}] aligned to candle rows.
+   Drag to zoom, double-click to reset, hover for an OHLCV crosshair. */
+function candleChart(container, candles, opts = {}) {
+  const width = chartWidth(container, 900);
+  const compact = compactChart(container);
+  const height = opts.height || (compact ? 300 : 380);
+  const ml = compact ? 8 : 12, mr = compact ? 8 : 16;
+  const mt = 14;
+  const mb = compact ? 30 : 34;
+  const iw = width - ml - mr;
+  const volH = (opts.showVolume && candles.some((c) => (c[5] || 0) > 0)) ? Math.max(34, height * 0.14) : 0;
+  const ih = height - mt - mb - (volH ? volH + 14 : 0);
+  container.innerHTML = "";
+  if (!candles.length) { container.innerHTML = '<div class="empty">No candles yet — waiting for the next live tick.</div>'; return; }
+
+  const total = candles.length;
+  const zf = opts.zoom ? Math.max(0, opts.zoom.from) : 0;
+  const zt = opts.zoom ? Math.min(total - 1, opts.zoom.to) : total - 1;
+  const view = candles.slice(zf, zt + 1);
+  const n = view.length;
+  if (!n) { container.innerHTML = '<div class="empty">No data in range</div>'; return; }
+
+  const overlays = (opts.overlays || []).filter((s) => s.values && s.visible !== false)
+    .map((s) => ({ ...s, values: s.values.slice(zf, zt + 1) }));
+  const ohlcView = (idx) => ({ o: view[idx][1], h: view[idx][2], l: view[idx][3], c: view[idx][4] });
+
+  let lo = Math.min(...view.map((c) => c[3]));
+  let hi = Math.max(...view.map((c) => c[2]));
+  overlays.forEach((s) => {
+    s.values.forEach((v) => {
+      if (v == null) return;
+      if (v < lo) lo = v;
+      if (v > hi) hi = v;
+    });
+  });
+  if (lo === hi) { lo -= 1; hi += 1; }
+  const pad = (hi - lo) * 0.06;
+  lo -= pad; hi += pad;
+
+  const svg = el("svg", { viewBox: `0 0 ${width} ${height}`, class: "chart" }, container);
+  const slot = iw / n;
+  const X = (i) => ml + slot * i + slot / 2;
+  const Y = (v) => mt + ih - ((v - lo) / (hi - lo)) * ih;
+  const yFmt = opts.yFmt || ((v) => "$" + v.toLocaleString("en-US", { maximumFractionDigits: 0 }));
+  const xTime = (i) => {
+    const d = new Date(view[i][0]);
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) + " " +
+      d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  };
+
+  const step = niceStep(hi - lo, 5);
+  for (let g = Math.ceil(lo / step) * step; g <= hi; g += step) {
+    el("line", { x1: ml, x2: ml + iw, y1: Y(g), y2: Y(g), stroke: "#1c2333" }, svg);
+    svgText(ml - 6, Y(g) + 4, yFmt(g), { "text-anchor": "end", "font-size": 11, fill: "#5f6b82", class: "num" }, svg);
+  }
+  const every = Math.max(1, Math.ceil(n / (compact ? 4 : 9)));
+  for (let i = 0; i < n; i += every) {
+    svgText(X(i), height - (mb - 14), xTime(i), { "text-anchor": "middle", "font-size": 10.5, fill: "#5f6b82", class: "num" }, svg);
+  }
+
+  // volume bars (bottom sub-pane)
+  let vMax = 1e-9;
+  if (volH) view.forEach((c) => (vMax = Math.max(vMax, c[5] || 0)));
+  const vY0 = mt + ih + 14;
+  view.forEach((c, i) => {
+    const up = c[4] >= c[1];
+    const color = up ? "#22c55e" : "#ef4444";
+    // wick
+    el("line", { x1: X(i), x2: X(i), y1: Y(c[2]), y2: Y(c[3]), stroke: color, "stroke-width": 1, opacity: 0.9 }, svg);
+    const bw = Math.max(2, Math.min(slot * 0.72, 17));
+    const bodyTop = Y(Math.max(c[1], c[4]));
+    const bodyBot = Y(Math.min(c[1], c[4]));
+    el("rect", { x: X(i) - bw / 2, y: bodyTop, width: bw, height: Math.max(1, bodyBot - bodyTop), rx: 1, fill: color }, svg);
+    if (volH) {
+      const vh = ((c[5] || 0) / vMax) * (height - mb - vY0);
+      el("rect", { x: X(i) - bw / 2, y: vY0 + (height - mb - vY0) - vh, width: bw, height: vh, fill: color, opacity: 0.32, rx: 1 }, svg);
+    }
+  });
+
+  // overlay indicator lines
+  overlays.forEach((s) => {
+    const pts = s.values.map((v, i) => (v == null ? null : [X(i), Y(v)])).filter(Boolean);
+    if (!pts.length) return;
+    el("path", {
+      d: "M" + pts.map((p) => p.join(",")).join(" L"),
+      fill: "none", stroke: s.color || "#a78bfa", "stroke-width": s.width || 1.6,
+      "stroke-linejoin": "round", "stroke-linecap": "round",
+    }, svg);
+  });
+
+  // crosshair + hover
+  const cross = el("line", { y1: mt, y2: mt + ih, stroke: "#3b82f6", "stroke-width": 1, "stroke-dasharray": "3 3", opacity: 0 }, svg);
+  const tip = document.createElement("div");
+  tip.className = "tooltip";
+  container.style.position = "relative";
+  container.appendChild(tip);
+
+  const hit = el("rect", { x: ml, y: mt, width: iw, height: ih + (volH ? 14 + (height - mb - vY0) : 0), fill: "transparent", style: "cursor:crosshair;touch-action:pan-y" }, svg);
+  const idxAt = (clientX) => {
+    const r = container.getBoundingClientRect();
+    const px = ((clientX - r.left) / r.width) * width;
+    return Math.max(0, Math.min(n - 1, Math.round(((px - ml) / iw) * (n - 1))));
+  };
+  let dragStart = null;
+
+  function showAt(i) {
+    const c = view[i];
+    const up = c[4] >= c[1];
+    cross.setAttribute("x1", X(i)); cross.setAttribute("x2", X(i)); cross.setAttribute("opacity", 1);
+    const rows = overlays.map((s) => {
+      const v = s.values[i];
+      return v == null ? "" : `<div class="t-row"><span class="sw" style="background:${s.color}"></span>${esc(s.name)}<b class="num">${opts.ovFmt ? opts.ovFmt(v) : v.toFixed(2)}</b></div>`;
+    }).join("");
+    tip.innerHTML =
+      `<div class="t-head">${esc(xTime(i))}</div>` +
+      `<div class="t-row"><span class="sw" style="background:${up ? "#22c55e" : "#ef4444"}"></span>O <b class="num">${yFmt(c[1])}</b></div>` +
+      `<div class="t-row"><span class="sw" style="background:${up ? "#22c55e" : "#ef4444"}"></span>H <b class="num">${yFmt(c[2])}</b></div>` +
+      `<div class="t-row"><span class="sw" style="background:${up ? "#22c55e" : "#ef4444"}"></span>L <b class="num">${yFmt(c[3])}</b></div>` +
+      `<div class="t-row"><span class="sw" style="background:${up ? "#22c55e" : "#ef4444"}"></span>C <b class="num">${yFmt(c[4])}</b></div>` +
+      (volH ? `<div class="t-row"><span class="sw" style="background:#3b82f6"></span>Vol <b class="num">${fmtNum(c[5], 4)}</b></div>` : "") +
+      rows;
+    tip.style.opacity = 1;
+    const relX = (X(i) / width) * container.clientWidth;
+    tip.style.left = Math.min(Math.max(relX + 14, 4), container.clientWidth - tip.offsetWidth - 4) + "px";
+    tip.style.top = "8px";
+  }
+  function hide() { cross.setAttribute("opacity", 0); tip.style.opacity = 0; }
+
+  const band = el("rect", { y: mt, height: ih, fill: "rgba(59,130,246,0.14)", opacity: 0 }, svg);
+  hit.addEventListener("pointermove", (e) => {
+    const i = idxAt(e.clientX);
+    showAt(i);
+    if (dragStart != null) {
+      const a = Math.min(dragStart, i), b = Math.max(dragStart, i);
+      band.setAttribute("x", X(a) - slot / 2);
+      band.setAttribute("width", Math.max(1, (b - a + 1) * slot));
+      band.setAttribute("opacity", 1);
+    }
+  });
+  hit.addEventListener("pointerleave", () => { hide(); dragStart = null; band.setAttribute("opacity", 0); });
+  hit.addEventListener("pointerdown", (e) => { dragStart = idxAt(e.clientX); hit.setPointerCapture && hit.setPointerCapture(e.pointerId); });
+  hit.addEventListener("pointerup", (e) => {
+    if (dragStart == null) return;
+    const i = idxAt(e.clientX);
+    const a = Math.min(dragStart, i), b = Math.max(dragStart, i);
+    dragStart = null;
+    band.setAttribute("opacity", 0);
+    if (b - a >= 2 && opts.onZoom) opts.onZoom(zf + a, zf + b);
+  });
+  hit.addEventListener("dblclick", () => { if (opts.onZoom) opts.onZoom(0, total - 1); });
+  return { from: zf, to: zt };
+}

@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CryptoTrade — Strategy Lesson</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <script src="assets/data.js"></script>
+  <script src="assets/charts.js"></script>
+  <script src="assets/layout.js"></script>
+  <script>renderNav("learn.html");</script>
+
+  <div class="wrap">
+    <div class="crumbs" id="crumbs"></div>
+
+    <div class="hero" id="hero">
+      <div class="lesson-head">
+        <div>
+          <div class="lesson-id" id="lid"></div>
+          <h1 id="lname"></h1>
+          <div class="sub" id="lsub"></div>
+          <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center" id="chips"></div>
+        </div>
+        <div class="chip" id="lstat"></div>
+      </div>
+    </div>
+
+    <div class="grid kpis" id="kpis"></div>
+
+    <div class="two-col">
+      <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+        <div class="blk" id="summary"></div>
+        <div class="blk idea" id="idea"></div>
+        <div class="blk" id="how"></div>
+        <div class="blk" id="params"></div>
+        <div class="pro-grid">
+          <div class="blk good" id="strengths"></div>
+          <div class="blk bad" id="weaknesses"></div>
+        </div>
+        <div class="pro-grid">
+          <div class="blk" id="when"></div>
+          <div class="blk" id="mistakes"></div>
+        </div>
+        <div class="blk" id="watch"></div>
+        <div class="blk" id="concepts"></div>
+        <div class="blk" id="related"></div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+        <div class="card" id="liveCard"></div>
+        <div class="card">
+          <h3>Return Over Time <span class="hint">hover · drag to zoom</span></h3>
+          <div class="legend" id="eqLegend"></div>
+          <div id="eqChart" class="chart"></div>
+        </div>
+        <div class="card">
+          <h3>Open Lots</h3>
+          <div class="table-wrap"><table class="data table-narrow">
+            <thead><tr><th>#</th><th class="r">Qty</th><th class="r">Price</th><th class="r">Fee</th></tr></thead>
+            <tbody id="lots"></tbody>
+          </table></div>
+        </div>
+        <div class="card">
+          <h3>Indicator State <span class="hint">live per tick</span></h3>
+          <pre class="json" id="state"></pre>
+        </div>
+        <div class="card">
+          <h3>Recent Trades</h3>
+          <div class="table-wrap"><table class="data table-narrow">
+            <thead><tr><th>Time</th><th>Side</th><th class="r">Price</th><th class="r">Qty</th><th class="r">PnL</th></tr></thead>
+            <tbody id="trades"></tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="lesson-nav" id="pager"></div>
+    <div class="note" style="margin-top:14px">
+      <b>How lessons work.</b> Explanations here are educational and match the actual code in <code>bot.py</code> —
+      “Params” show today's live defaults, “warmup” is how many closed candles a strategy needs before its first
+      signal, and every figure in the right column is the real paper account. Paper results are not financial advice.
+    </div>
+    <div class="footer">CryptoTrade · Academy — lessons generated from <code>scripts/learn_content.py</code></div>
+  </div>
+
+  <script>
+    (async function () {
+      const [lessons, state, history, indicators, catalog] = await Promise.all([
+        loadLessons(), loadState(), loadHistory(), loadIndicators(), loadCatalog(),
+      ]);
+      if (!lessons || !lessons.length) {
+        document.querySelector(".wrap").innerHTML = '<div class="empty">Lessons not found.</div>';
+        return;
+      }
+      const env = enrichState(state);
+      const catById = {};
+      (catalog || []).forEach((c) => (catById[c.id] = c));
+      const indById = {};
+      (indicators || []).forEach((c) => (indById[c.id] = c));
+      const meta = env.meta;
+      renderUpdateMessage(meta);
+
+      const byId = {};
+      lessons.forEach((l) => (byId[l.id] = l));
+      const order = lessons.map((l) => l.id);
+
+      function lessonOf() {
+        const q = new URLSearchParams(location.search).get("id");
+        const found = q && byId[q];
+        return found || byId[order[0]];
+      }
+
+      function render() {
+        const l = lessonOf();
+        if (!l) return;
+        document.title = l.name + " — CryptoTrade Lesson";
+        const a = env.accounts.find((x) => x.id === l.id);
+        const idx = order.indexOf(l.id);
+        const prev = idx > 0 ? order[idx - 1] : null;
+        const next = idx < order.length - 1 ? order[idx + 1] : null;
+        const catMeta = catById[l.id] || {};
+
+        document.getElementById("lid").textContent = l.id;
+        document.getElementById("lname").textContent = l.name;
+        document.getElementById("lsub").innerHTML =
+          "Plain-English lesson for strategy <b>" + esc(l.id) + "</b> · what it does, why it works, what can go wrong";
+        document.getElementById("crumbs").innerHTML =
+          '<a href="index.html">Dashboard</a><span class="sep">›</span>' +
+          '<a href="learn.html">Learn</a><span class="sep">›</span>' +
+          '<a href="learn.html#cat:' + encodeURIComponent(l.category) + '">' + esc(l.category) + "</a>" +
+          '<span class="sep">›</span><span class="cur">' + esc(l.name) + "</span>";
+
+        document.getElementById("chips").innerHTML =
+          `<span class="badge cat">${esc(l.category)}</span>` +
+          `<span class="diff diff-tag diff-${l.difficulty}">${esc(l.level)}</span>` +
+          `<span class="badge flat">warmup ${esc(l.warmup)} candles</span>` +
+          (l.single_position ? '<span class="badge flat">single position</span>' : '<span class="badge multi">multi-lot accumulator</span>') +
+          (l.single_position ? "" : '<span class="badge flat">no hard stop by design</span>');
+
+        const acc = env.accounts.reduce((s, x) => s + x.equity, 0);
+        const pct = ((a ? a.equity : 0) / env.starting - 1) * 100;
+        document.getElementById("lstat").innerHTML =
+          a ? "Paper account <b>" + (a.inPosition ? '<span class="badge long">LONG</span>' : '<span class="badge flat">flat</span>') + "</b>" :
+              "<b>No live data yet</b>";
+
+        document.getElementById("kpis").innerHTML = a ? `
+          ${kpi("Equity", fmtUSD(a.equity), pctClass(a.returnPct))}
+          ${kpi("Return", fmtPct(a.returnPct), pctClass(a.returnPct))}
+          ${kpi("Balance", fmtUSD(a.balance), "")}
+          ${kpi("Holdings", fmtQty(a.holdings), "")}
+          ${kpi("Realized PnL", fmtUSD(a.realizedPnl), pctClass(a.realizedPnl))}
+          ${kpi("Unrealized PnL", fmtUSD(a.unrealizedPnl), pctClass(a.unrealizedPnl))}
+          ${kpi("Fees paid", fmtUSD(a.totalFees), "")}
+          ${kpi("Trades", fmtNum(a.tradesCount), "")}
+          ${kpi("Win rate", a.closedCount ? a.winRate.toFixed(0) + "%" : "—", "")}
+          ${kpi("Best / worst", fmtUSD(a.best) + " / " + fmtUSD(a.worst), "")}
+        ` : "";
+
+        // ---- prose -------------------------------------------------------
+        const list = (arr) => arr.map((s) => "<li>" + esc(s) + "</li>").join("");
+        document.getElementById("summary").innerHTML =
+          `<h3>What it does</h3><p>${esc(l.summary)}</p>
+           <div class="sig" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">
+             <div class="row" style="display:flex;gap:8px"><span class="tag" style="color:var(--text-faint);font-family:var(--mono);font-size:10.5px">IN ▸</span><span style="font-size:12.5px">${esc(l.entry || "—")}</span></div>
+             <div class="row" style="display:flex;gap:8px"><span class="tag" style="color:var(--text-faint);font-family:var(--mono);font-size:10.5px">OUT ▸</span><span style="font-size:12.5px">${esc(l.exit || "—")}</span></div>
+           </div>`;
+        document.getElementById("idea").innerHTML = `<h3>💡 The idea — why it works</h3><p>${esc(l.idea)}</p>`;
+
+        const howHtml = (l.how || []).map((s) => `<li>${esc(s)}</li>`).join("");
+        document.getElementById("how").innerHTML =
+          `<h3>How it decides, step by step</h3><ol class="steps">${howHtml}</ol>` +
+          `<p style="margin:10px 0 0;font-size:12px;color:var(--text-faint)">Signals are evaluated once per closed 15m candle · account ${esc(l.id)}</p>`;
+
+        const pKeys = Object.keys(l.params || {});
+        const pRows = pKeys.length ? pKeys.map((k) => {
+          const p = l.params[k];
+          return `<tr><td class="mono" style="color:var(--gold)">${esc(k)}</td>
+                  <td class="r num">${esc(p && p.default != null ? (typeof p.default === "number" ? fmtNum(p.default, 4) : esc(p.default)) : "—")}</td>
+                  <td>${esc(p.what || "")}</td><td>${esc(p.effect || "")}</td></tr>`;
+        }).join("") : "";
+        document.getElementById("params").innerHTML =
+          `<h3>Parameters explained <span class="hint" style="text-transform:none">defaults from bot.py, injected live</span></h3>
+           <div class="table-wrap"><table class="data">
+             <thead><tr><th>Param</th><th class="r">Default</th><th>What it is</th><th>What changing it does</th></tr></thead>
+             <tbody>${pRows || '<tr><td colspan="4" class="empty">This strategy has no tunable parameters.</td></tr>'}</tbody>
+           </table></div>
+           <p style="margin:8px 0 0;font-size:12px;color:var(--text-faint)">Every strategy can be re-run with overrides (--param id.key=value); the dashboard always shows the defaults the bot actually used.</p>`;
+
+        document.getElementById("strengths").innerHTML = `<h3>Strengths</h3><ul class="tick-list good">${list(l.strengths)}</ul>`;
+        document.getElementById("weaknesses").innerHTML = `<h3>Weaknesses &amp; risks</h3><ul class="tick-list bad">${list(l.weaknesses)}</ul>`;
+        document.getElementById("when").innerHTML = `<h3>When it works best</h3><ul class="tick-list">${list(l.when)}</ul>`;
+        document.getElementById("mistakes").innerHTML = `<h3>Common mistakes</h3><ul class="tick-list warn">${list(l.mistakes)}</ul>`;
+        document.getElementById("watch").innerHTML = `<h3>What to watch in the live account</h3><ul class="tick-list eye">${list(l.watch)}</ul>`;
+
+        const concepts = (l.concepts || []).map((c) => {
+          const info = indById[c];
+          return `<a class="cchip" href="indicators.html#${encodeURIComponent(c)}" title="${info ? esc(info.summary) : ""}"><b>${esc(info ? info.name : c)}</b>${info ? " · " + esc(info.family.split(" & ")[0]) : ""}</a>`;
+        }).join("");
+        document.getElementById("concepts").innerHTML =
+          `<h3>Learn the pieces <span class="hint">click for the indicator glossary</span></h3>
+           <div class="concept-chips">${concepts || '<span class="mini">—</span>'}</div>`;
+
+        const related = (l.related || []).map((rid) => {
+          const r = byId[rid];
+          if (!r) return "";
+          return `<a class="cchip" href="lesson.html?id=${encodeURIComponent(rid)}"><b>${esc(r.name)}</b><span style="opacity:.6">${esc(r.id)}</span></a>`;
+        }).join("");
+        document.getElementById("related").innerHTML =
+          `<h3>Strategies worth comparing with</h3><div class="concept-chips">${related}</div>`;
+
+        // ---- live panel ------------------------------------------------
+        const liveEl = document.getElementById("liveCard");
+        liveEl.innerHTML = a ? `
+          <h3>Live Paper Account <span class="hint">account ${esc(a.id)}</span></h3>
+          ${a.inPosition ? '<div style="margin-bottom:10px"><span class="badge long">LONG</span>' +
+            (a.lots.length > 1 ? ' <span class="badge multi">' + a.lots.length + " lots</span>" : "") +
+            '<span class="badge flat">entry ' + fmtPrice(a.entryPrice) + "</span></div>" : ""}
+          <div class="kv-grid">
+            ${kv("Equity", fmtUSD(a.equity), pctClass(a.returnPct))}
+            ${kv("Cash", fmtUSD(a.balance), "")}
+            ${kv("Holdings", fmtQty(a.holdings) + " BTC", "")}
+            ${kv("Return", fmtPct(a.returnPct), pctClass(a.returnPct))}
+            ${kv("Realized", fmtUSD(a.realizedPnl), pctClass(a.realizedPnl))}
+            ${kv("Unrealized", fmtUSD(a.unrealizedPnl), pctClass(a.unrealizedPnl))}
+            ${kv("Fees", fmtUSD(a.totalFees), "")}
+          </div>
+          <div style="margin-top:8px"><a class="btn" style="display:inline-block" href="compare.html?id=${encodeURIComponent(a.id)}">Compare with others</a></div>
+        ` : '<div class="empty">No live account data for this strategy yet.</div>';
+
+        const lotRows = a && a.lots.length ? a.lots.map((l2, i) =>
+          `<tr><td class="num">${i + 1}</td><td class="r num">${fmtQty(l2.qty)}</td><td class="r num">${fmtPrice(l2.price)}</td><td class="r num">${fmtUSD(l2.fee)}</td></tr>`
+        ).join("") : '<tr><td colspan="4" class="empty">No open lots</td></tr>';
+        document.getElementById("lots").innerHTML = lotRows;
+
+        const st = a && a.strategyState ? a.strategyState : {};
+        document.getElementById("state").textContent = Object.keys(st).length ? JSON.stringify(st, null, 2) : "{}";
+
+        const tradeRows = a && a.trades ? [...a.trades].slice(-12).reverse().map((t) =>
+          `<tr><td class="num">${fmtTs(t.timestamp)}</td><td><span class="badge ${t.side}">${t.side}</span></td>
+           <td class="r num">${fmtPrice(t.price)}</td><td class="r num">${fmtQty(t.qty)}</td>
+           <td class="r num ${pctClass(t.pnl)}">${fmtUSD(t.pnl)}</td></tr>`
+        ).join("") : '<tr><td colspan="5" class="empty">No trades yet</td></tr>';
+        document.getElementById("trades").innerHTML = tradeRows;
+
+        // ---- equity curve ---------------------------------------------
+        const host = document.getElementById("eqChart");
+        const series = [{
+          name: l.name, color: "#3b82f6", area: true, values: history.map((h) => (h.rets && h.rets[l.id] != null ? h.rets[l.id] : null)),
+        }];
+        if (history.length) {
+          series.push({ name: "Portfolio (42 accts)", color: "#97a1b5", dashed: true, values: history.map((h) => h.return_pct) });
+        }
+        let zoom = null;
+        const draw = () => {
+          if (!history.length) { host.innerHTML = '<div class="empty">No history recorded yet — comes after the next tick.</div>'; return; }
+          interactiveLineChart(host, series.filter((s) => s.visible !== false), history.map((h) => fmtTsShort(h.ts)),
+            { height: 200, yFmt: (v) => v.toFixed(2) + "%", zoom, onZoom: (x, y2) => { zoom = { from: x, to: y2 }; draw(); } });
+        };
+        draw();
+        legend(document.getElementById("eqLegend"), series, draw);
+
+        // ---- pager -----------------------------------------------------
+        document.getElementById("pager").innerHTML =
+          (prev ? `<a class="btn" href="lesson.html?id=${encodeURIComponent(prev)}">← ${esc(byId[prev].name)}</a>` : '<span></span>') +
+          '<span class="spacer2"></span>' +
+          `<a class="btn primary" href="learn.html">Back to the library</a>` +
+          (next ? `<a class="btn" href="lesson.html?id=${encodeURIComponent(next)}">${esc(byId[next].name)} →</a>` : "");
+        window.scrollTo(0, 0);
+      }
+
+      function kpi(label, value, cls) {
+        return `<div class="card kpi"><div class="label">${label}</div><div class="value ${cls} num">${value}</div></div>`;
+      }
+      function kv(k, v, cls) { return `<div class="kv"><div class="k">${k}</div><div class="v num ${cls}">${v}</div></div>`; }
+
+      render();
+      window.addEventListener("popstate", render);
+    })().catch((e) => {
+      document.body.innerHTML = '<div class="wrap"><div class="empty">Failed to load lesson: ' + e.message + "</div></div>";
+    });
+  </script>
+</body>
+</html>
