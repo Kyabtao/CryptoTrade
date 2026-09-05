@@ -52,8 +52,19 @@ a:hover { text-decoration: underline; }
   top: 0;
   z-index: 50;
   background: rgba(11, 14, 20, 0.86);
-  backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border);
+  isolation: isolate;
+}
+/* The blur lives on a pseudo element on purpose: `backdrop-filter` on `.nav`
+   itself would make the header the containing block for `position: fixed`
+   descendants, which pinned the phone bottom tab bar inside the header. */
+.nav::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 .nav-inner {
   max-width: 1240px;
@@ -130,7 +141,7 @@ a:hover { text-decoration: underline; }
 
 /* ---------- cards / grid ---------- */
 .grid { display: grid; gap: 16px; }
-.kpis { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.kpis { grid-template-columns: repeat(auto-fit, minmax(min(170px, 100%), 1fr)); }
 .card {
   background: var(--panel);
   border: 1px solid var(--border);
@@ -152,7 +163,7 @@ a:hover { text-decoration: underline; }
 .card h3 .hint { text-transform: none; letter-spacing: 0; font-size: 12px; color: var(--text-faint); font-weight: 400; }
 .kpi { padding: 15px 17px; position: relative; overflow: hidden; }
 .kpi .label { font-size: 12px; color: var(--text-dim); margin-bottom: 7px; }
-.kpi .value { font-size: 22px; font-weight: 700; letter-spacing: -0.4px; }
+.kpi .value { font-size: 22px; font-weight: 700; letter-spacing: -0.4px; overflow-wrap: anywhere; }
 .kpi .sub { font-size: 12px; color: var(--text-faint); margin-top: 4px; }
 
 .pos { color: var(--green); }
@@ -191,7 +202,7 @@ table.data thead th {
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
   position: sticky;
-  top: 58px;
+  top: var(--nav-h, 58px);
   background: var(--panel);
   z-index: 12;
   box-shadow: 0 1px 0 var(--border);
@@ -221,6 +232,8 @@ td.c, th.c { text-align: center !important; }
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.2px;
+  /* A pill must never break in the middle ("warmup" / "30" on two lines). */
+  white-space: nowrap;
 }
 .badge.long { background: var(--green-soft); color: var(--green); }
 .badge.flat { background: var(--panel-2); color: var(--text-faint); border: 1px solid var(--border); }
@@ -269,9 +282,17 @@ td.c, th.c { text-align: center !important; }
 /* ---------- strategy cards ---------- */
 .strat-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  /* min(330px, 100%) — a single column can never be wider than the screen */
+  grid-template-columns: repeat(auto-fill, minmax(min(330px, 100%), 1fr));
   gap: 14px;
 }
+/* Grid/flex items default to `min-width: auto`, so one long unbreakable
+   token (a strategy id, a formula) used to widen the whole column past the
+   viewport. Cards shrink; their long words wrap instead. */
+.strat-grid > *, .grid > * { min-width: 0; }
+.strat-card .id, .lesson-id, .drawer .sid, .drawer .id { overflow-wrap: anywhere; }
+/* an id like 03_macd_histogram_reversal should only split as a last resort */
+.strat-card .id, .lesson-id { overflow-wrap: break-word; }
 .strat-card {
   background: var(--panel);
   border: 1px solid var(--border);
@@ -284,7 +305,10 @@ td.c, th.c { text-align: center !important; }
   gap: 9px;
 }
 .strat-card:hover { border-color: var(--accent); transform: translateY(-2px); }
-.strat-card .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.strat-card .top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 6px 8px; }
+.strat-card .top > :first-child { flex: 1 1 180px; min-width: 0; }
+.strat-card .top .badge { flex: none; max-width: 100%; }
+.strat-card .sig .row > span:last-child { min-width: 0; overflow-wrap: anywhere; }
 .strat-card .id { font-family: var(--mono); font-size: 11px; color: var(--text-faint); }
 .strat-card .name { font-weight: 650; font-size: 14.5px; }
 .strat-card .sig { font-size: 12px; color: var(--text-dim); }
@@ -333,13 +357,14 @@ td.c, th.c { text-align: center !important; }
 
 .kv-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
   gap: 10px;
   margin: 16px 0;
 }
 .kv { background: var(--panel); border: 1px solid var(--border-soft); border-radius: 10px; padding: 10px 12px; }
 .kv .k { font-size: 11px; color: var(--text-faint); text-transform: uppercase; letter-spacing: .4px; }
-.kv .v { font-size: 15px; font-weight: 650; margin-top: 2px; }
+.kv .v { font-size: 15px; font-weight: 650; margin-top: 2px; overflow-wrap: anywhere; }
+.kv .sub { font-size: 11px; color: var(--text-faint); margin-top: 2px; }
 
 pre.json {
   background: #0a0d13;
@@ -404,6 +429,8 @@ pre.json {
 .nav-who .who-text span { font-size: 11px; color: var(--text-faint); }
 
 /* ---------- update message strip ---------- */
+/* the strip re-uses .wrap for alignment only — no page bottom padding here */
+#updateMessage .wrap { padding-bottom: 0; }
 .msg {
   display: flex; align-items: flex-start; gap: 11px;
   margin: 16px 0 0;
@@ -487,7 +514,7 @@ html {
     radial-gradient(circle at top left, rgba(59, 130, 246, 0.16), transparent 30rem),
     radial-gradient(circle at top right, rgba(34, 197, 94, 0.10), transparent 28rem),
     var(--bg);
-  scroll-padding-top: 82px;
+  scroll-padding-top: calc(var(--nav-h, 58px) + 24px);
 }
 
 body {
@@ -560,17 +587,28 @@ button, .btn, .chip-btn, .nav-links a, .nav-who { min-height: 40px; }
 }
 .controls input[type="text"], .controls select { min-height: 42px; }
 
-@media (max-width: 980px) {
+/* ---------- responsive navigation ----------
+   ≥1101px  one row: brand · links · identity chip
+   ≤1100px  brand + chip on row 1, links on their own full-width row (so all
+            ten pages stay visible on tablets instead of silently scrolling)
+   ≤760px   links become a fixed bottom tab bar (thumb reach), auto-scrolled
+            to the active page by layout.js */
+@media (max-width: 1360px) {
   .nav-inner { gap: 12px; }
-  .nav-links { gap: 2px; overflow-x: auto; scrollbar-width: none; }
-  .nav-links::-webkit-scrollbar { display: none; }
-  .nav-links a { white-space: nowrap; }
-  /* Below ~980px the brand + six links + full identity chip no longer fit in
-     one row, which made the links silently scroll (hidden scrollbars, so the
-     last pages looked unreachable). Collapse the chip to its avatar so every
-     link fits from 768px up without horizontal scrolling. */
   .nav-who { padding: 4px; }
   .nav-who .who-text { display: none; }
+}
+@media (max-width: 1100px) {
+  .nav-inner { flex-wrap: wrap; height: auto; padding-top: 8px; row-gap: 4px; }
+  .brand { min-height: 40px; }
+  .nav-links {
+    order: 3; flex: 1 0 100%; margin: 0 -8px; padding: 0 8px 6px;
+    overflow-x: auto; scrollbar-width: none; scroll-snap-type: x proximity;
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent);
+    mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent);
+  }
+  .nav-links::-webkit-scrollbar { display: none; }
+  .nav-links a { white-space: nowrap; scroll-snap-align: start; padding: 6px 12px; min-height: 36px; }
 }
 
 @media (max-width: 760px) {
@@ -581,7 +619,7 @@ button, .btn, .chip-btn, .nav-links a, .nav-who { min-height: 40px; }
     padding-right: max(14px, env(safe-area-inset-right));
     padding-bottom: 46px;
   }
-  .nav-inner { height: 56px; padding: 0 14px; gap: 10px; }
+  .nav-inner { height: 56px; padding: 0 14px; gap: 10px; flex-wrap: nowrap; }
   .brand { font-size: 14px; }
   .brand .logo { width: 30px; height: 30px; border-radius: 9px; }
   .nav-who { padding: 4px; min-width: 38px; }
@@ -607,17 +645,27 @@ button, .btn, .chip-btn, .nav-links a, .nav-who { min-height: 40px; }
     background: rgba(15, 19, 28, 0.94);
     backdrop-filter: blur(14px);
     box-shadow: 0 18px 44px rgba(0, 0, 0, 0.44);
+    scrollbar-width: none;
+    -webkit-mask-image: none;
+    mask-image: none;
   }
+  .nav-links::-webkit-scrollbar { display: none; }
   .nav-links a {
     min-height: 44px;
     padding: 0 13px;
     justify-content: center;
     border-radius: 13px;
+    scroll-snap-align: center;
   }
+  .nav-links a.active { background: var(--accent); color: #fff; }
   .hero { margin: 18px 0 16px; padding: 16px; align-items: stretch; }
   .hero, .profile-head { flex-direction: column; }
   .hero-price { text-align: left; }
-  .chip { width: 100%; justify-content: center; white-space: normal; text-align: center; }
+  .chip { max-width: 100%; white-space: normal; flex-wrap: wrap; line-height: 1.4; }
+  .chip > span { min-width: 0; }
+  .strat-card .top { flex-direction: column; }
+  .strat-card .top .badge { white-space: normal; }
+  .drawer h2, .drawer .sid, .drawer .id { padding-right: 48px; }
   .grid[style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
   .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .card { padding: 14px; border-radius: 13px; }
@@ -668,9 +716,10 @@ button, .btn, .chip-btn, .nav-links a, .nav-who { min-height: 40px; }
   html, body { font-size: 13px; }
   .wrap { padding-left: 10px; padding-right: 10px; }
   .hero { border-radius: 16px; }
-  .kpis { grid-template-columns: 1fr; }
-  .kpi { min-height: auto; }
-  .kpi .value { font-size: 20px; }
+  .kpis { grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr)); gap: 8px; }
+  .kpi { min-height: auto; padding: 12px 13px; }
+  .kpi .value { font-size: 19px; }
+  .kpi .label { font-size: 11.5px; }
   .legend { max-height: 132px; overflow: auto; }
   table.data { min-width: 680px; font-size: 12px; }
   table.data.table-narrow { min-width: 0; }
@@ -692,16 +741,7 @@ button, .btn, .chip-btn, .nav-links a, .nav-who { min-height: 40px; }
    screens (market, compare, portfolio)
    ===================================================================== */
 
-/* nav with more links: keep everything reachable on one row */
-@media (max-width: 1360px) {
-  .nav-inner { gap: 12px; }
-  .nav-who .who-text { display: none; }
-}
-@media (max-width: 1220px) {
-  .nav-links { overflow-x: auto; scrollbar-width: none; }
-  .nav-links::-webkit-scrollbar { display: none; }
-  .nav-links a { white-space: nowrap; }
-}
+/* nav: see the "responsive navigation" block near the top of the file */
 
 /* breadcrumbs */
 .crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: var(--text-faint); margin: 14px 0 2px; }
@@ -716,7 +756,9 @@ button, .btn, .chip-btn, .nav-links a, .nav-who { min-height: 40px; }
 .diff .dots i.on { background: var(--gold); box-shadow: 0 0 6px rgba(245, 158, 11, .7); }
 
 /* lesson layout */
-.lesson-head { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center; }
+.lesson-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: center; }
+.lesson-head > * { min-width: 0; }
+@media (max-width: 560px) { .lesson-head { grid-template-columns: 1fr; } .lesson-head .chip { justify-self: start; } }
 .lesson-id { font-family: var(--mono); font-size: 12px; color: var(--text-faint); letter-spacing: .4px; }
 .two-col { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr); gap: 18px; align-items: start; margin-top: 16px; }
 @media (max-width: 980px) { .two-col { grid-template-columns: 1fr; } }
@@ -747,11 +789,20 @@ button, .btn, .chip-btn, .nav-links a, .nav-who { min-height: 40px; }
 /* concept chips */
 .concept-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .cchip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); background: var(--panel-2); color: var(--text-dim); border-radius: 999px; padding: 5px 12px; font-size: 12.5px; }
+.cchip { max-width: 100%; flex-wrap: wrap; overflow-wrap: anywhere; }
 .cchip:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
 a.cchip b { color: var(--text); font-weight: 600; }
 
 /* lesson cards on learn hub */
-.lesson-card { cursor: pointer; display: flex; flex-direction: column; gap: 8px; }
+.lesson-card { cursor: pointer; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.lesson-card .head { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
+.lesson-card .head > :first-child { flex: 1 1 auto; min-width: 0; }
+.lesson-card .head { flex-wrap: wrap; }
+.lesson-card .head > :first-child { flex-basis: 200px; }
+.lesson-card .head .tags { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; flex: none; max-width: 100%; }
+@media (min-width: 761px) { .lesson-card .head .tags { flex-direction: column; align-items: flex-end; } }
+.lesson-card .title { font-weight: 650; font-size: 14.5px; overflow-wrap: anywhere; }
+.lesson-card .sigline { overflow-wrap: anywhere; }
 .lesson-card .summ { font-size: 12.5px; color: var(--text-dim); line-height: 1.5; flex: 1; }
 .lesson-card .mets { display: flex; flex-wrap: wrap; gap: 5px; }
 .lesson-card .sigline { font-size: 12px; color: var(--text-faint); }
@@ -761,13 +812,15 @@ a.cchip b { color: var(--text); font-weight: 600; }
 .diff-3 { background: var(--red-soft); color: var(--red); }
 
 /* formula / concept cards */
-.formula { font-family: var(--mono); font-size: 11.5px; color: #b9c6de; background: #0a0d13; border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; margin: 8px 0; overflow-x: auto; white-space: nowrap; }
+.formula { font-family: var(--mono); font-size: 11.5px; color: #b9c6de; background: #0a0d13; border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; margin: 8px 0; overflow-x: auto; white-space: nowrap; max-width: 100%; }
+@media (max-width: 760px) { .formula { white-space: pre-wrap; overflow-wrap: anywhere; } }
+.concept-card { min-width: 0; }
 .concept-card .name { font-weight: 650; font-size: 14px; }
 .concept-card .used { margin-top: 8px; font-size: 11.5px; color: var(--text-faint); }
 .concept-card .used a { color: var(--accent); }
 
 /* basics page */
-.toc-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 18px; position: sticky; top: 74px; z-index: 30; }
+.toc-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 18px; position: sticky; top: calc(var(--nav-h, 58px) + 12px); z-index: 30; }
 .toc-chips a { background: rgba(18, 23, 34, .92); backdrop-filter: blur(8px); }
 .basics-section h2 { font-size: 18px; margin: 0 0 4px; }
 .basics-section .sub { color: var(--text-dim); font-size: 12.5px; margin-bottom: 12px; }
@@ -808,3 +861,21 @@ td .stat-bar-wrap .sb-label { color: var(--text-dim); font-size: 12px; font-fami
 
 /* color scale helpers reused by matrix */
 .c-bad { color: var(--red); }
+
+/* ---------- chip rows (hero stats) ---------- */
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+@media (max-width: 760px) { .chip-row { justify-content: flex-start; } }
+
+/* ---------- wallet / balance breakdown ---------- */
+.balbar { display: flex; height: 10px; border-radius: 999px; overflow: hidden; background: var(--border-soft); margin: 4px 0 8px; }
+.balbar .seg { display: block; height: 100%; min-width: 0; }
+.balbar .seg.cash { background: var(--accent); }
+.balbar .seg.mkt { background: var(--gold); }
+.balbar-legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12.5px; color: var(--text-dim); }
+.balbar-legend b { color: var(--text); font-weight: 600; }
+.balbar-legend .sw { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.balbar-legend .sw.cash { background: var(--accent); }
+.balbar-legend .sw.mkt { background: var(--gold); }
+.wallet-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr)); gap: 10px; margin-top: 12px; }
+.kv.accent { border-color: rgba(59, 130, 246, 0.45); }
+.kv.gold-b { border-color: rgba(245, 158, 11, 0.45); }

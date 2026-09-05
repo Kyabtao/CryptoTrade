@@ -70,7 +70,7 @@
       const families = [...new Set(indicators.map((c) => c.family))];
       const famSel = document.getElementById("famFilter");
       famSel.innerHTML = '<option value="">All families</option>' + families.map((f) => `<option>${f}</option>`).join("");
-      document.getElementById("statChip").innerHTML = `<b>${indicators.length}</b> concepts · <b>${(lessons || []).length}</b> lessons`;
+      document.getElementById("statChip").innerHTML = `<span><b>${indicators.length}</b> concepts · <b>${(lessons || []).length}</b> lessons</span>`;
 
       const KIND = {
         indicator: "indicator", basics: "basics", execution: "execution", risk: "risk", chart: "charting", concept: "concept",
@@ -87,9 +87,9 @@
         const more = (c.used_by || []).length > 4 ? ` <span class="mini">+${c.used_by.length - 4}</span>` : "";
         return `
         <div class="card concept-card" onclick="openConcept('${c.id}')" style="cursor:pointer;display:flex;flex-direction:column">
-          <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
-            <div class="name">${esc(c.name)}</div>
-            <span class="badge flat">${esc(c.family.split(" & ")[0])}</span>
+          <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 8px;align-items:flex-start">
+            <div class="name" style="flex:1 1 160px;min-width:0;overflow-wrap:anywhere">${esc(c.name)}</div>
+            <span class="badge flat" style="flex:none">${esc(c.family.split(" & ")[0])}</span>
           </div>
           <div class="formula">${esc(c.formula)}</div>
           <div class="mini" style="flex:1;line-height:1.55">${esc(c.summary)}</div>

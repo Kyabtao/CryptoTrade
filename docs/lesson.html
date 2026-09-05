@@ -142,14 +142,14 @@
         const acc = env.accounts.reduce((s, x) => s + x.equity, 0);
         const pct = ((a ? a.equity : 0) / env.starting - 1) * 100;
         document.getElementById("lstat").innerHTML =
-          a ? "Paper account <b>" + (a.inPosition ? '<span class="badge long">LONG</span>' : '<span class="badge flat">flat</span>') + "</b>" :
-              "<b>No live data yet</b>";
+          a ? '<span>Paper account ' + (a.inPosition ? '<span class="badge long">LONG</span>' : '<span class="badge flat">flat</span>') + "</span>" :
+              "<span><b>No live data yet</b></span>";
 
         document.getElementById("kpis").innerHTML = a ? `
           ${kpi("Equity", fmtUSD(a.equity), pctClass(a.returnPct))}
           ${kpi("Return", fmtPct(a.returnPct), pctClass(a.returnPct))}
-          ${kpi("Balance", fmtUSD(a.balance), "")}
-          ${kpi("Holdings", fmtQty(a.holdings), "")}
+          ${kpi("Liquid cash", fmtUSD(a.balance), "")}
+          ${kpi("In market", fmtUSD(a.marketValue), a.marketValue ? "gold" : "")}
           ${kpi("Realized PnL", fmtUSD(a.realizedPnl), pctClass(a.realizedPnl))}
           ${kpi("Unrealized PnL", fmtUSD(a.unrealizedPnl), pctClass(a.unrealizedPnl))}
           ${kpi("Fees paid", fmtUSD(a.totalFees), "")}
@@ -219,8 +219,9 @@
             '<span class="badge flat">entry ' + fmtPrice(a.entryPrice) + "</span></div>" : ""}
           <div class="kv-grid">
             ${kv("Equity", fmtUSD(a.equity), pctClass(a.returnPct))}
-            ${kv("Cash", fmtUSD(a.balance), "")}
-            ${kv("Holdings", fmtQty(a.holdings) + " BTC", "")}
+            ${kv("Liquid cash", fmtUSD(a.balance), "")}
+            ${kv("In market", fmtUSD(a.marketValue), a.marketValue ? "gold" : "")}
+            ${kv("Holdings", fmtQty(a.holdings) + " " + env.baseAsset, "")}
             ${kv("Return", fmtPct(a.returnPct), pctClass(a.returnPct))}
             ${kv("Realized", fmtUSD(a.realizedPnl), pctClass(a.realizedPnl))}
             ${kv("Unrealized", fmtUSD(a.unrealizedPnl), pctClass(a.unrealizedPnl))}
