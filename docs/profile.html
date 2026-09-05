@@ -27,12 +27,20 @@
 
     <div class="section" style="margin-top:18px">
       <div class="card">
+        <h3>Wallet Breakdown <span class="hint" id="walletHint">liquid cash vs. balance deployed in the market</span></h3>
+        <div id="walletBar"></div>
+        <div class="wallet-grid" id="walletGrid"></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="card">
         <h3>About This Bot</h3>
         <p style="margin:0;color:var(--text-dim);font-size:13.5px" id="about"></p>
       </div>
     </div>
 
-    <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));">
+    <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));">
       <div class="card">
         <h3>Account Rules <span class="hint">enforced by the engine on every tick</span></h3>
         <div class="rules" id="rulesList"></div>
@@ -48,7 +56,7 @@
       </div>
     </div>
 
-    <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));">
+    <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));">
       <div class="card">
         <h3>Execution Rules</h3>
         <div class="rules" id="execRules"></div>
@@ -85,6 +93,7 @@
           <table class="data" id="reg">
             <thead><tr>
               <th>Account ID</th><th>Strategy</th><th class="r">Funded</th><th class="r">Equity</th>
+              <th class="r">Liquid cash</th><th class="r">In market</th>
               <th class="r">Return</th><th class="c">Status</th><th class="r">Trades</th>
             </tr></thead>
             <tbody></tbody>
@@ -132,14 +141,33 @@
       document.querySelectorAll(".hint").forEach((h) => (h.textContent = h.textContent.replace("${created}", created)));
 
       /* ---- KPI strip ---- */
+      const mktShare = env.totalEquity > 0 ? (env.totalMarketValue / env.totalEquity) * 100 : 0;
       document.getElementById("kpis").innerHTML = [
-        { label: "Managed Equity", value: fmtUSD0(env.totalEquity), sub: "virtual", cls: "" },
+        { label: "Total Equity", value: fmtUSD0(env.totalEquity), sub: "cash + market value · virtual", cls: "" },
+        { label: "Liquid Cash", value: fmtUSD0(env.totalCash), sub: env.quoteAsset + " in wallet · " + (100 - mktShare).toFixed(1) + "% of equity", cls: "" },
+        { label: "In Market", value: fmtUSD0(env.totalMarketValue), sub: fmtQty(env.totalHoldings) + " " + env.baseAsset + " · " + mktShare.toFixed(1) + "% deployed", cls: env.totalMarketValue ? "gold" : "" },
         { label: "Lifetime Return", value: fmtPct(env.totalReturnPct), sub: "since " + created, cls: pctClass(env.totalReturnPct) },
         { label: "Runs Completed", value: fmtNum(m.run_count), sub: fmtNum(m.candles_processed) + " candles", cls: "" },
         { label: "Trades Executed", value: fmtNum(env.totalTrades), sub: "all simulated", cls: "" },
         { label: "Fees Paid", value: fmtUSD(env.totalFees), sub: ((r.fee_rate ?? 0.001) * 100).toFixed(2) + "% per side", cls: "" },
         { label: "Open Positions", value: fmtNum(env.openCount), sub: "long only", cls: env.openCount ? "gold" : "" },
       ].map((k) => `<div class="card kpi"><div class="label">${esc(k.label)}</div><div class="value num ${k.cls}">${k.value}</div><div class="sub">${esc(k.sub)}</div></div>`).join("");
+
+      /* ---- wallet breakdown ---- */
+      document.getElementById("walletBar").innerHTML = balanceBar(env, { asset: env.baseAsset });
+      document.getElementById("walletHint").textContent =
+        `${env.openCount} of ${env.accounts.length} accounts hold ${env.baseAsset} · marked at ${fmtPrice(env.price)} ${env.quoteAsset}`;
+      const wkv = (k, v, cls, sub) => `<div class="kv ${cls || ""}"><div class="k">${esc(k)}</div><div class="v num">${v}</div>${sub ? `<div class="sub">${esc(sub)}</div>` : ""}</div>`;
+      const mtm = env.totalMarketValue - env.totalCostBasis;
+      document.getElementById("walletGrid").innerHTML = [
+        wkv("Funded capital", fmtUSD(env.totalFunded), "", `${env.accounts.length} × ${fmtUSD0(env.starting)}`),
+        wkv("Liquid cash (" + env.quoteAsset + ")", fmtUSD(env.totalCash), "accent", "available to trade right now"),
+        wkv("Held in market (" + env.baseAsset + ")", fmtQty(env.totalHoldings) + " " + env.baseAsset, "gold-b", "= " + fmtUSD(env.totalMarketValue) + " at last price"),
+        wkv("Cost of open positions", fmtUSD(env.totalCostBasis), "", "what was paid for the " + env.baseAsset + " held"),
+        wkv("Open PnL (mark-to-market)", `<span class="${pctClass(mtm)}">${fmtUSD(mtm)}</span>`, "", "market value − cost basis"),
+        wkv("Total equity", fmtUSD(env.totalEquity), "", "liquid cash + market value"),
+        wkv("Net PnL vs funded", `<span class="${pctClass(env.totalEquity - env.totalFunded)}">${fmtUSD(env.totalEquity - env.totalFunded)}</span>`, "", "after " + fmtUSD(env.totalFees) + " fees"),
+      ].join("");
 
       /* ---- rule lists ---- */
       const money = (v) => "$" + fmtNum(v, 2);
@@ -247,6 +275,8 @@
             <td style="font-weight:600">${esc(a.name)}</td>
             <td class="r num">${fmtUSD0(a.raw.starting_balance || env.starting)}</td>
             <td class="r num">${fmtUSD(a.equity)}</td>
+            <td class="r num">${fmtUSD(a.balance)}</td>
+            <td class="r num ${a.marketValue ? "gold" : "neu"}">${a.marketValue ? fmtUSD(a.marketValue) : "—"}</td>
             <td class="r num ${pctClass(a.returnPct)}">${fmtPct(a.returnPct)}</td>
             <td class="c">${a.inPosition ? '<span class="badge long">LONG</span>' : '<span class="badge flat">flat</span>'}</td>
             <td class="r num">${a.tradesCount}</td>

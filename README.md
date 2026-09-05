@@ -38,12 +38,12 @@ build step and no server-side code:
 
 | Page | What it shows |
 |---|---|
-| [`docs/index.html`](docs/index.html) | KPIs, zoomable portfolio equity curve, per-strategy return curve, return distribution, category performance, capital-deployment donut, risk/reward scatter and a sortable/filterable leaderboard |
+| [`docs/index.html`](docs/index.html) | KPIs (total equity split into liquid cash and value in the market), zoomable portfolio equity curve, per-strategy return curve, return distribution, category performance, capital-deployment donut, risk/reward scatter and a sortable/filterable leaderboard |
 | [`docs/analytics.html`](docs/analytics.html) | Cross-sectional analysis: strategy comparison chart (top/bottom/spread), return heatmap across ticks, histogram, fees-vs-PnL scatter, equity share by category and a rankings table with max drawdown, volatility and return/vol |
 | [`docs/strategies.html`](docs/strategies.html) | All 42 strategies with their entry/exit logic, parameters, warm-up and live state; click any card for its return curve, indicator state, open lots and trade history |
 | [`docs/trades.html`](docs/trades.html) | Every simulated fill, plus a cumulative realized-PnL curve, fill-size histogram and buy/sell split; filterable by account/side/reason and paginated |
 | [`docs/risk.html`](docs/risk.html) | Portfolio drawdown, buy-and-hold vs. portfolio return, exposure and unrealized PnL per account, and the live open-position table |
-| [`docs/profile.html`](docs/profile.html) | The bot's profile — who it is, its full account rulebook, live configuration, trading record, equity curve and sub-account register |
+| [`docs/profile.html`](docs/profile.html) | The bot's profile — who it is, its full account rulebook, live configuration, **wallet breakdown (liquid cash vs. balance held in the market, cost basis, open PnL)**, trading record, equity curve and a sub-account register with per-account cash / in-market columns |
 | [`docs/learn.html`](docs/learn.html) | Academy hub: searchable/filterable library of the 42 lessons with live stats per strategy and suggested reading paths |
 | [`docs/lesson.html`](docs/lesson.html) | Full lesson per strategy (`?id=<slug>`): plain-English idea, how it works, strengths/weaknesses, mistakes, watch-outs, real defaults with explanations, related lessons, indicator links and live account panels |
 | [`docs/basics.html`](docs/basics.html) | Beginner course: markets, candles, trends, indicators, strategy families, how the bot works, reading results, money & risk |

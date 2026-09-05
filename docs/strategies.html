@@ -18,7 +18,7 @@
         <h1>Strategy Library &amp; Analysis</h1>
         <div class="sub">All 42 sub-accounts, their signal logic and live paper-trading state</div>
       </div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end">
+      <div class="chip-row">
         <a class="chip" href="learn.html" style="text-decoration:none">📚 Learn each strategy →</a>
         <a class="chip" href="compare.html" style="text-decoration:none">⚖️ Compare</a>
         <span class="chip">⏱ warmup = candles needed before a strategy may signal</span>
@@ -174,12 +174,14 @@
             <div id="stratChart" class="chart"></div>
           </div>
 
+          <h3 style="margin:16px 0 8px;font-size:13px;color:var(--text-dim)">Wallet <span class="hint" style="font-weight:400">liquid cash vs. value held in the market</span></h3>
+          ${balanceBar(a, { asset: env.baseAsset })}
           <div class="kv-grid">
-            ${kv("Equity", fmtUSD(a.equity), "")}
-            ${kv("Return", fmtPct(a.returnPct), pctClass(a.returnPct))}
-            ${kv("Balance", fmtUSD(a.balance), "")}
-            ${kv("Holdings", fmtQty(a.holdings), "")}
-            ${kv("Entry Price", fmtPrice(a.entryPrice), "")}
+            ${kv("Total Equity", fmtUSD(a.equity), "", "cash + market value")}
+            ${kv("Return", fmtPct(a.returnPct), pctClass(a.returnPct), "vs " + fmtUSD0(a.raw.starting_balance || env.starting) + " funded")}
+            ${kv("Liquid Cash", fmtUSD(a.balance), "accent", env.quoteAsset + " available to trade")}
+            ${kv("In Market", fmtUSD(a.marketValue), "gold-b", fmtQty(a.holdings) + " " + env.baseAsset + " @ last price")}
+            ${kv("Entry Price", fmtPrice(a.entryPrice), "", a.inPosition ? "cost basis " + fmtUSD(a.costBasis) : "flat")}
             ${kv("Realized PnL", fmtUSD(a.realizedPnl), pctClass(a.realizedPnl))}
             ${kv("Unrealized PnL", fmtUSD(a.unrealizedPnl), pctClass(a.unrealizedPnl))}
             ${kv("Fees", fmtUSD(a.totalFees), "")}
@@ -224,7 +226,7 @@
         drawer.classList.add("open");
         drawer.onclick = (e) => { if (e.target === drawer) closeDetail(); };
       };
-      function kv(k, v, cls) { return `<div class="kv"><div class="k">${k}</div><div class="v num ${cls}">${v}</div></div>`; }
+      function kv(k, v, cls, sub) { return `<div class="kv ${cls === "accent" || cls === "gold-b" ? cls : ""}"><div class="k">${k}</div><div class="v num ${cls}">${v}</div>${sub ? `<div class="sub">${esc(sub)}</div>` : ""}</div>`; }
       window.closeDetail = function () { document.getElementById("drawer").classList.remove("open"); };
       document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDetail(); });
     })().catch((e) => {

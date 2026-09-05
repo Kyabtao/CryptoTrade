@@ -51,7 +51,7 @@
       </div>
     </div>
 
-    <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));">
+    <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));">
       <div class="card">
         <h3>Return Distribution <span class="hint">latest tick</span></h3>
         <div id="distChart" class="chart"></div>
@@ -62,7 +62,7 @@
       </div>
     </div>
 
-    <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));">
+    <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));">
       <div class="card">
         <h3>Capital Deployment <span class="hint">cash vs. open exposure</span></h3>
         <div id="allocChart" class="chart"></div>
@@ -136,11 +136,11 @@
 
       /* ---- KPIs ---- */
       const kpis = [
-        { label: "Total Virtual Equity", value: fmtUSD0(env.totalEquity), sub: "across " + env.accounts.length + " accounts", cls: "" },
-        { label: "Portfolio Return", value: fmtPct(env.totalReturnPct), sub: "vs $1,000 start each", cls: pctClass(env.totalReturnPct) },
-        { label: "Total Trades", value: fmtNum(env.totalTrades), sub: "buys + sells", cls: "" },
-        { label: "Open Positions", value: fmtNum(env.openCount), sub: "of " + env.accounts.length + " accounts", cls: env.openCount ? "gold" : "" },
-        { label: "Total Fees Paid", value: fmtUSD(env.totalFees), sub: "0.1% per side", cls: "" },
+        { label: "Total Virtual Equity", value: fmtUSD0(env.totalEquity), sub: "cash + market value · " + env.accounts.length + " accounts", cls: "" },
+        { label: "Liquid Cash", value: fmtUSD0(env.totalCash), sub: env.quoteAsset + " in wallet · " + (env.totalEquity ? ((env.totalCash / env.totalEquity) * 100).toFixed(1) : "0.0") + "%", cls: "" },
+        { label: "In Market", value: fmtUSD0(env.totalMarketValue), sub: fmtQty(env.totalHoldings) + " " + env.baseAsset + " · " + env.openCount + " open positions", cls: env.totalMarketValue ? "gold" : "" },
+        { label: "Portfolio Return", value: fmtPct(env.totalReturnPct), sub: "vs " + fmtUSD0(env.starting) + " start each", cls: pctClass(env.totalReturnPct) },
+        { label: "Total Trades", value: fmtNum(env.totalTrades), sub: "buys + sells · " + fmtUSD(env.totalFees) + " fees", cls: "" },
         { label: "Last Price", value: fmtPrice(env.price), sub: env.meta.symbol || "—", cls: "" },
       ];
       document.getElementById("kpis").innerHTML = kpis.map((k) =>

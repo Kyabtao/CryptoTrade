@@ -22,7 +22,7 @@
     </div>
 
     <div class="section">
-      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px">
+      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr));gap:16px">
         <a class="card" href="basics.html" style="display:block;text-decoration:none;color:inherit">
           <h3>🌱 Start here <span class="hint">15 min read</span></h3>
           <div class="mini" style="line-height:1.6">Never traded before? Learn candles, trends, order types, indicators, and how this paper-trading bot actually works — no jargon.</div>
@@ -85,7 +85,7 @@
       const used = new Set();
       (lessons || []).forEach((l) => (l.concepts || []).forEach((c) => used.add(c)));
       document.getElementById("statChip").innerHTML =
-        `<b>${(lessons || []).length}</b> lessons · <b>${diffCount[1]}</b> beginner · <b>${diffCount[2]}</b> intermediate · <b>${diffCount[3]}</b> advanced`;
+        `<span><b>${(lessons || []).length}</b> lessons · <b>${diffCount[1]}</b> beginner · <b>${diffCount[2]}</b> intermediate · <b>${diffCount[3]}</b> advanced</span>`;
       document.getElementById("heroSub").textContent =
         "A full course on every one of the 42 strategies — from \u201Cwhat is a candle?\u201D to half-Kelly position sizing.";
 
@@ -114,12 +114,12 @@
           <span class="mini">Win <b class="num">${a.closedCount ? a.winRate.toFixed(0) + "%" : "—"}</b></span>` : "";
         return `
         <div class="card lesson-card" onclick="location.href='lesson.html?id=${encodeURIComponent(l.id)}'">
-          <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
+          <div class="head">
             <div>
               <div class="lesson-id">${esc2(l.id)}</div>
-              <div style="font-weight:650;font-size:14.5px">${esc2(l.name)}</div>
+              <div class="title">${esc2(l.name)}</div>
             </div>
-            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+            <div class="tags">
               <span class="diff-tag diff-${l.difficulty}">${esc2(l.level)}</span>
               <span class="badge flat">warmup ${esc2(l.warmup)}</span>
             </div>
