@@ -111,6 +111,74 @@ summary. Animations read a single `--gp-motion` switch that flips to `0` under
 `prefers-reduced-motion`, and JS timers are gated on the same preference, so
 reduced-motion users get a static desk.
 
+## Architecture
+
+```
+main.tsx ─ mounts App
+App ─────── 12-col grid; starts the 1 Hz SimulationEngine
+│
+├─ store/deskStore.ts   Zustand store: clock, balance, events, handoffs
+│      ▲ tick() at 1 Hz (startEngine); deterministic seeded PRNG
+│
+├─ data/                seeded generators (all pure, all unit-tested)
+│   balance · events · ridge(+lib/kde) · chord · graph(d3-force) · agents
+│
+├─ lib/                 math + plumbing
+│   prng · fmt · kde · math5d · color · useMeasure · usePrefersReducedMotion
+│   feed (DeskFeed adapter — see below)
+│
+├─ components/viz/      pure SVG visualisations (data in via props)
+│   BalanceChart · RidgePlot · ChordDiagram · Penteract · ForceGraph ·
+│   Histogram · Avatar        (D3 does the math; React owns the DOM)
+│
+└─ components/panels/   one folder-state per dashboard panel, wiring the
+    store into the viz + Card chrome (header, captions, footer)
+```
+
+Data flows one way: generators seed the store; panels select memoised slices;
+viz components are pure functions of their props. Nothing in the shipped
+bundle performs a network request.
+
+## Swapping the mock data for a real feed
+
+The seam is `DeskFeed` in `src/lib/feed.ts`:
+
+```ts
+type DeskFeed = {
+  subscribe: (topic: DeskTopic, cb: (payload: unknown) => void) => () => void;
+};
+```
+
+The app currently adapts the simulation store to this interface
+(`createSimFeed`). To go live, implement `DeskFeed` over a WebSocket — open the
+socket in the constructor, `subscribe(topic, cb)` sends
+`{ subscribe: topic }` and routes matching messages to `cb`, returning an
+unsubscribe that removes the listener — and hand it to your bootstrap instead
+of `createSimFeed`. Topics are `balance`, `events`, `clock`, `handoffs`. The
+panels never see the difference.
+
+## Accessibility & motion
+
+- Semantic headings per card (`h1` desk title, `h2` panels, `h3` roster).
+- Every chart/svg carries a descriptive `aria-label`; KPI segments and the
+  striped bar expose `role="img"` summaries.
+- A skip-to-content link precedes the header.
+- Reduced motion: `usePrefersReducedMotion()` freezes the penteract and force
+  jitter at a static frame, and a CSS backstop in `index.css` switches off all
+  animation/transition under `prefers-reduced-motion`.
+
+## Verification & budgets
+
+- `npm run typecheck | lint | format:check | test | build` are all wired and
+  green; `npm run coverage` produces a V8 coverage report.
+- Bundle at the final milestone: ~76 kB JS + ~8 kB CSS gzipped — far under the
+  400 kB ceiling. Only the five named D3 modules are imported.
+- The build is 404-free by construction: `base: './'`, relative favicon, and
+  the only outbound link is the parent dashboard (`../index.html`).
+- Lighthouse: not runnable in this sandbox (no headless browser). A11y/perf
+  basics above are in place; run `npx lighthouse` locally against
+  `npm run preview` to confirm ≥ 90.
+
 ## Related documents
 
 - [`DECISIONS.md`](DECISIONS.md) — assumptions taken where the brief was

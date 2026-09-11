@@ -140,6 +140,20 @@ No `fetch`, `XMLHttpRequest` or WebSocket exists in the source. The engine
 adapter interface is defined for a future real feed, but nothing in the shipped
 bundle implements it. The footer carries a permanent **SIMULATED DATA** badge.
 
+## 12. Polish & verification scope (milestone 8)
+
+- **Hover feedback** is a single shared `.hoverable` utility (border + shadow +
+  1px lift) applied to every card, so the interaction language is consistent
+  and the reduced-motion backstop disables it in one place.
+- **Lighthouse** could not be run in this sandbox (no headless browser). The
+  perf/a11y _basics_ are in place (semantic headings, aria-labels, skip link,
+  self-hosted `font-display: swap` fonts, tiny bundle, no network at runtime)
+  and the README says how to confirm ≥ 90 locally with `npx lighthouse`
+  against `npm run preview`. This is the one gate that remains unverified here.
+- **Contrast:** the muted label colour `#8a8a86` (~3.4:1 on white) is taken
+  verbatim from the reference; raising it for WCAG AA would break pixel
+  fidelity, so fidelity won. Noted rather than silently changed.
+
 ## 11. PnL and percent derive from the live balance
 
 **Brief:** balance random-walks; "PnL and % derive from it (starting 0.0156 ETH,
