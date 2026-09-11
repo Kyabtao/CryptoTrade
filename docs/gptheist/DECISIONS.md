@@ -6,26 +6,39 @@ revisited deliberately instead of being rediscovered.
 
 ---
 
-## 1. `reference.png` was not present
+## 1. The reference screenshot
 
 **Brief:** "Match its layout, typography, colour palette and data-viz style as
-closely as possible", with the screenshot to be attached as `reference.png` in
-the repo root.
+closely as possible", with the screenshot to be attached as `reference.png`.
 
-**Reality:** no `reference.png` exists in the repository
-(`git ls-files | grep -i png` returns nothing, and the file is absent from the
-working tree).
+**What actually happened:** at the time of the scaffold commit no screenshot
+existed in the repository. The reference then arrived as an inline attachment
+in the session (it was _not_ saved as a workspace file, so there is no binary to
+commit). From milestone 2 onward the desk is designed directly against that
+inline image.
 
-**Decision:** build from the written specification, which is detailed enough to
-fix layout, palette, copy and per-panel content precisely. Panel geometry,
-spacing and type scale follow the written numbers (12-column grid, 16px gaps,
-10–11px uppercase mono labels, 10px card radius). If the screenshot is added
-later, the visual pass becomes a diff against it rather than a rebuild — every
-token lives in one file (`src/theme/theme.css`) and panel structure is one
-folder per panel.
+**Decision:** treat the inline screenshot as the source of truth for layout,
+palette, copy and per-panel content; keep the written spec for behaviour and
+for numbers too small to read off the image. Because every token lives in one
+file (`src/theme/theme.css`) and each panel is one folder, any future visual
+diff is a targeted edit rather than a rebuild. If a `reference.png` binary is
+ever dropped into the repo, commit it next to this file for reproducibility.
 
-**Impact:** low for structure and colour, moderate for pixel-level detail
-(exact paddings, icon shapes, chart stroke weights).
+**Key observations locked in from the image (1024px-wide capture):**
+
+- Header: green rounded-square feather logo; `GPTHEIST DESK` bold + red mono
+  handle after a hairline `|`; right side a dark-green `LIVE` pill with a
+  pulsing yellow-green dot, then `18:48 / 13H` in mono.
+- KPI strip is 4 equal cards; the 4th (APPROVAL GATE) has a 10-segment bar with
+  3 green, an `ENTRY CLEARED` green tag and a corner status dot.
+- Rows: `7/5` (balance history / activity log), `12` (ridge), `6/6` (chord /
+  lattice), `12` (relationship), then a 10-card roster strip.
+- Card chrome has two title styles: `// UPPERCASE MONO` (row 2) and
+  `● Sans Semibold` with a coloured dot (visual rows), plus mono captions
+  top-right / centre and a hairline footer caption.
+
+**Impact:** none on structure; pixel-level detail (exact paddings, avatar art,
+stroke weights) is reproduced from the image in the corresponding milestones.
 
 ## 2. Everything lives in one folder
 
@@ -131,12 +144,13 @@ bundle implements it. The footer carries a permanent **SIMULATED DATA** badge.
 
 ## Open questions
 
-1. **The reference screenshot.** Adding `reference.png` would let the visual
-   pass be verified rather than inferred. Until then, panel-level geometry is
-   derived from the written spec (see §1).
+1. **Reference binary.** The screenshot is available inline but not as a file in
+   the repo. If a `reference.png` is added, commit it in `docs/gptheist/` so the
+   visual pass is reproducible from the repo alone (§1).
 2. **Nav label.** The parent dashboard's items are single words
    ("Dashboard", "Analytics", …). `GPTHEIST` was chosen to match; `Desk` or
-   `Agent Desk` would also fit.
-3. **Bundle budget.** Measured after the visualisation milestones land; the
-   scaffold is far under the 400 kB gzip ceiling and the plan is to keep D3
-   imports to the five named modules.
+   "Agent Desk" would also fit. The question was surfaced to the user and
+   skipped, so the existing `GPTHEIST` label stands.
+3. **Bundle budget.** Measured after each build; currently ~50 kB js + ~7 kB css
+   gzipped, far under the 400 kB ceiling. D3 imports remain the five named
+   modules.

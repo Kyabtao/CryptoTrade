@@ -108,6 +108,23 @@
     animation: none !important;
     transition: none !important;
   }
+
+  /* The pulsing dot inside the green LIVE pill. */
+  .live-dot {
+    background: #eaf57a;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.28) inset;
+    animation: gp-pulse 1.6s ease-in-out infinite;
+  }
+
+  @keyframes gp-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.35;
+    }
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
