@@ -25,7 +25,13 @@ function App() {
 
   return (
     <div className="min-h-screen bg-canvas">
-      <main className="mx-auto grid max-w-[1600px] grid-cols-12 gap-4 px-4 py-4">
+      <a
+        href="#desk-main"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-chip focus:border focus:border-hairline focus:bg-card focus:px-3 focus:py-1 focus:text-xs focus:text-ink"
+      >
+        Skip to content
+      </a>
+      <main id="desk-main" className="mx-auto grid max-w-[1600px] grid-cols-12 gap-4 px-4 py-4">
         <Header />
         <KpiStrip />
         <BalanceHistoryPanel />

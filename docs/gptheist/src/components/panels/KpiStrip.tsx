@@ -15,7 +15,7 @@ function KpiCard({
   return (
     <section
       aria-label={label}
-      className="relative flex flex-col gap-2 rounded-card border border-hairline bg-card px-4 py-3.5 shadow-card"
+      className="hoverable relative flex flex-col gap-2 rounded-card border border-hairline bg-card px-4 py-3.5 shadow-card"
     >
       {corner ? <div className="absolute right-3 top-3">{corner}</div> : null}
       <h2 className="label num text-[10px] tracking-[0.12em] text-muted">{label}</h2>

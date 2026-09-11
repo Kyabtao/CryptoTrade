@@ -16,7 +16,7 @@ export function RosterStrip() {
           <section
             key={agent.code}
             aria-label={agent.name + ' — ' + agent.role}
-            className={`flex flex-col items-center gap-2 rounded-card border bg-card px-2 py-3 shadow-card ${
+            className={`hoverable flex flex-col items-center gap-2 rounded-card border bg-card px-2 py-3 shadow-card ${
               active ? accentBorder(agent.accent) : 'border-hairline'
             }`}
           >

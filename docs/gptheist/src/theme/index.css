@@ -100,6 +100,21 @@
 }
 
 @layer utilities {
+  /* Quiet hover feedback shared by every card on the desk. */
+  .hoverable {
+    transition:
+      border-color 0.15s ease,
+      box-shadow 0.15s ease,
+      transform 0.15s ease;
+  }
+  .hoverable:hover {
+    border-color: #d8d8d2;
+    box-shadow:
+      0 1px 2px rgba(17, 17, 17, 0.04),
+      0 4px 14px -6px rgba(17, 17, 17, 0.14);
+    transform: translateY(-1px);
+  }
+
   /* Kill all animation when the user prefers reduced motion. Panels opt into
      motion by gating their timers on `usePrefersReducedMotion()`, and CSS-only
      decoration (pulses, rotations) is switched off here as a backstop. */

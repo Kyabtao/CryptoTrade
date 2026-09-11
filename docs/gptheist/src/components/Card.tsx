@@ -62,7 +62,7 @@ export function Card({
   return (
     <section
       aria-label={ariaLabel ?? title}
-      className={`relative flex flex-col rounded-card border border-hairline bg-card shadow-card ${className}`}
+      className={`hoverable relative flex flex-col rounded-card border border-hairline bg-card shadow-card ${className}`}
     >
       {corner ? <div className="absolute right-3 top-3">{corner}</div> : null}
 
