@@ -140,6 +140,19 @@ No `fetch`, `XMLHttpRequest` or WebSocket exists in the source. The engine
 adapter interface is defined for a future real feed, but nothing in the shipped
 bundle implements it. The footer carries a permanent **SIMULATED DATA** badge.
 
+## 11. PnL and percent derive from the live balance
+
+**Brief:** balance random-walks; "PnL and % derive from it (starting 0.0156 ETH,
+ETH price constant 3,300 USD)".
+
+**Decision:** the store holds only `balanceEth`; the KPI computes
+`pnlUsd = (balance - start) * 3300` and `pnlPct = (balance - start)/start` each
+render. The reference's three numbers are not mutually consistent at $3,300
+(`0.0189` ETH implies `+$10.89`, not `+$10.97`), so I pinned the *initial*
+balance to `0.018924` — which renders `0.0189 ETH` and derives exactly
+`+$10.97`. The percent then derives as `+21.31%`(the reference shows`+21.18%`, a 0.13pp sub-caption discrepancy I accept in favour of keeping PnL
+and balance exact and internally consistent).
+
 ---
 
 ## Open questions

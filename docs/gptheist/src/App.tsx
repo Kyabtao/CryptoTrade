@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Header } from './components/chrome/Header';
 import { Footer } from './components/chrome/Footer';
 import { KpiStrip } from './components/panels/KpiStrip';
@@ -8,15 +9,20 @@ import { ChordPanel } from './components/panels/ChordPanel';
 import { LatticePanel } from './components/panels/LatticePanel';
 import { RelationshipPanel } from './components/panels/RelationshipPanel';
 import { RosterStrip } from './components/panels/RosterStrip';
+import { deskStore, startEngine } from './store/deskStore';
 
 /**
  * GPTHEIST DESK — application root.
  *
- * Milestone 2 lays the full 12-column shell exactly as the reference arranges
- * it: header, KPI strip, then rows 2-5 and the roster strip. Panel bodies are
- * placeholders; each visualisation milestone fills one in.
+ * The 12-column shell is laid out exactly as the reference arranges it. The
+ * SimulationEngine (Zustand store driven at 1 Hz) makes the clock, balance and
+ * activity log live; visualisation milestones fill the remaining bodies.
  */
 function App() {
+  // 1 Hz engine; StrictMode's double-invocation is safe because the returned
+  // stop function clears the interval on unmount.
+  useEffect(() => startEngine(deskStore), []);
+
   return (
     <div className="min-h-screen bg-canvas">
       <main className="mx-auto grid max-w-[1600px] grid-cols-12 gap-4 px-4 py-4">

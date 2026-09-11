@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { DESK } from '../../config';
 import { fmtClock, fmtEth, fmtPct, fmtUsdSigned } from '../../lib/fmt';
+import { useDesk } from '../../store/deskStore';
 
 function KpiCard({
   label,
@@ -46,24 +47,27 @@ export function SegmentBar({ filled, total }: { filled: number; total: number })
 }
 
 export function KpiStrip() {
+  const balanceEth = useDesk((s) => s.balanceEth);
+  const missionSec = useDesk((s) => s.missionSec);
+
+  // PnL and percent derive from the live balance; ETH price is a constant.
+  const pnlUsd = (balanceEth - DESK.balanceStartEth) * DESK.ethPriceUsd;
+  const pnlPct = ((balanceEth - DESK.balanceStartEth) / DESK.balanceStartEth) * 100;
+
   return (
     <div className="col-span-12 grid grid-cols-2 gap-4 xl:grid-cols-4">
       <KpiCard label="BALANCE / ETH">
-        <p className="num text-[26px] font-bold leading-none text-ink">{fmtEth(DESK.balanceEth)}</p>
+        <p className="num text-[26px] font-bold leading-none text-ink">{fmtEth(balanceEth)}</p>
         <Sub>FROM {fmtEth(DESK.balanceStartEth)}</Sub>
       </KpiCard>
 
       <KpiCard label="TOTAL PNL / USD">
-        <p className="num text-[26px] font-bold leading-none text-pos">
-          {fmtUsdSigned(DESK.pnlUsd)}
-        </p>
-        <Sub>{fmtPct(DESK.pnlPct)}</Sub>
+        <p className="num text-[26px] font-bold leading-none text-pos">{fmtUsdSigned(pnlUsd)}</p>
+        <Sub>{fmtPct(pnlPct)}</Sub>
       </KpiCard>
 
       <KpiCard label="MISSION CLOCK">
-        <p className="num text-[26px] font-bold leading-none text-ink">
-          {fmtClock(DESK.missionClockSec)}
-        </p>
+        <p className="num text-[26px] font-bold leading-none text-ink">{fmtClock(missionSec)}</p>
         <Sub>{DESK.missionWindow}</Sub>
       </KpiCard>
 

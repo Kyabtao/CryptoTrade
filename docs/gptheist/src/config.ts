@@ -12,16 +12,15 @@ export const DESK = {
   handle: 'immortalhowwl',
 
   /** Session wall clock + window */
-  wallClock: '18:48',
+  wallClockMin: 18 * 60 + 48, // 18:48
   sessionStartMin: 16 * 60 + 5, // 16:05
   sessionEndMin: 5 * 60 + 5, // 05:05 (next day)
   sessionHours: 13,
 
-  /** KPI strip */
-  balanceEth: 0.0189,
+  /** KPI strip — balance is the source of truth; PnL and % derive from it. */
   balanceStartEth: 0.0156,
-  pnlUsd: 10.97,
-  pnlPct: 21.18,
+  /** Chosen so the derived PnL renders exactly `+$10.97` at t0 (see DECISIONS). */
+  initialBalanceEth: 0.018924,
   missionClockSec: 163, // 02:43
   missionWindow: '16:05 → 05:05 / 13 HOURS',
 
@@ -37,7 +36,16 @@ export const DESK = {
 
   /** Activity log */
   eventCount: 138,
+
+  /** Handoff chord running totals (advanced by the engine). */
+  handoffs: 111,
+  rejected: 3,
 } as const;
+
+/** Minutes since session start for a given wall-clock minute (session crosses midnight). */
+export function minSinceSessionStart(wallMin: number): number {
+  return (((wallMin - DESK.sessionStartMin) % 1440) + 1440) % 1440;
+}
 
 /** Fixed axis extents for the balance history chart. */
 export const BALANCE_AXIS = {

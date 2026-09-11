@@ -29,3 +29,10 @@ export const AGENTS: readonly Agent[] = [
 export function agentByCode(code: string): Agent | undefined {
   return AGENTS.find((a) => a.code === code);
 }
+
+const ACCENT_BY_CODE = new Map(AGENTS.map((a) => [a.code, a.accent] as const));
+
+/** The accent an agent code is drawn with in the log / chord. */
+export function accentForCode(code: string): Agent['accent'] {
+  return ACCENT_BY_CODE.get(code as Agent['code']) ?? 'amber';
+}
