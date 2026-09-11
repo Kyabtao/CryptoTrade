@@ -52,6 +52,18 @@ export const DESK = {
     tooltipMult: 40.9,
     tooltipSession: 1363,
   },
+
+  /** Relationship Graph Simulation (row 5). */
+  rel: {
+    bearPaths: 518,
+    bullPaths: 1027,
+    pathsSim: 1545,
+    convergencePct: 97,
+    pUp: 0.6,
+    pDown: 0.4,
+    edgeVsBookCents: 23,
+    confidencePct: 95.0,
+  },
 } as const;
 
 /** Minutes since session start for a given wall-clock minute (session crosses midnight). */
