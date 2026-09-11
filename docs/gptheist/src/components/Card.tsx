@@ -46,14 +46,14 @@ export function Card({
 
   const titleNode =
     mode.kind === 'mono' ? (
-      <Heading className="label num text-[11px] font-medium tracking-[0.12em] text-muted">
+      <Heading className="label num min-w-0 text-[11px] font-medium tracking-[0.12em] text-muted">
         <span aria-hidden="true" className="mr-1 text-faint">
           //
         </span>
         {title}
       </Heading>
     ) : (
-      <Heading className="flex items-center gap-2 text-[15px] font-semibold text-ink">
+      <Heading className="flex min-w-0 items-center gap-2 text-[15px] font-semibold text-ink">
         <span aria-hidden="true" className={`size-2 rounded-full ${mode.dotClass}`} />
         {title}
       </Heading>
@@ -66,9 +66,13 @@ export function Card({
     >
       {corner ? <div className="absolute right-3 top-3">{corner}</div> : null}
 
-      <header className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1 px-4 pb-3 pt-4">
+      {/* Two columns from `sm` up (title left, caption right); below that the
+          caption drops under the title so a long one cannot crush it. */}
+      <header className="grid grid-cols-1 items-center gap-x-3 gap-y-1 px-4 pb-3 pt-4 sm:grid-cols-[1fr_auto]">
         {titleNode}
-        <div className="label num justify-self-end text-[10px] text-faint">{right}</div>
+        <div className="label num min-w-0 justify-self-start text-[10px] text-faint sm:justify-self-end">
+          {right}
+        </div>
         {center ? (
           <div className="label num col-span-2 -mt-1 justify-self-center text-[10px] text-faint">
             {center}

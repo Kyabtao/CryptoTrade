@@ -104,13 +104,6 @@ and friends always resolve to the same values.
 | `--gp-teal`     | `#2aa198` | catalyst ring             |
 | `--gp-amber`    | `#e0a100` | caution / pending         |
 
-## Accessibility & motion
-
-Every card exposes a semantic heading and charts carry an `aria-label`
-summary. Animations read a single `--gp-motion` switch that flips to `0` under
-`prefers-reduced-motion`, and JS timers are gated on the same preference, so
-reduced-motion users get a static desk.
-
 ## Architecture
 
 ```
@@ -166,6 +159,33 @@ panels never see the difference.
 - Reduced motion: `usePrefersReducedMotion()` freezes the penteract and force
   jitter at a static frame, and a CSS backstop in `index.css` switches off all
   animation/transition under `prefers-reduced-motion`.
+
+## Responsive behaviour
+
+One 12-column shell, one set of breakpoints (Tailwind defaults — `sm` 640,
+`md` 768, `lg` 1024, `xl` 1280):
+
+| Width       | Shell                                                                                                              |
+| ----------- | ------------------------------------------------------------------------------------------------------------------ |
+| ≥ 1280      | Reference layout: KPI 4-up, 7+5 and 6+6 rows, crew 10-up                                                           |
+| 1024 – 1279 | Same rows; KPI strip drops to 2-up                                                                                 |
+| 768 – 1023  | Every panel full width; chart + stats columns still side by side                                                   |
+| < 768       | Stats columns stack under their chart; crew strip 2-up                                                             |
+| < 640       | Card captions drop under their title; top bar wraps and the `@handle` is dropped; KPI values step down 26px → 21px |
+
+Two guardrails keep that honest:
+
+- `src/test/responsive.test.tsx` pins the class contract — every direct child of
+  `main` is `col-span-12` below `lg`, the `lg`/`xl` rows pack to exactly 12, and
+  the KPI/crew/card-header/top-bar responsive classes are present.
+- `src/test/chartBounds.test.tsx` stubs `getBoundingClientRect` so the real
+  charts lay out at 254 px (a full-width panel on a 320 px phone), 420 px and
+  1180 px, then checks every SVG coordinate and text run against the measured
+  box. It carries its own positive control, so it cannot pass vacuously.
+
+No visualisation has a hard-coded pixel width: each one measures its container
+(`lib/useMeasure.ts`) and returns `null` until it has a size, so charts scale
+instead of overflowing.
 
 ## Verification & budgets
 

@@ -181,3 +181,56 @@ and balance exact and internally consistent).
 3. **Bundle budget.** Measured after each build; currently ~50 kB js + ~7 kB css
    gzipped, far under the 400 kB ceiling. D3 imports remain the five named
    modules.
+
+---
+
+## 13. Responsive audit (device check)
+
+**Question asked:** does the desk hold up across device widths?
+
+**Constraint found first:** this sandbox has no browser and cannot get one.
+Playwright's CDN, Google's `chrome-for-testing` mirror and `deb.debian.org` all
+fail to connect (`000`); only `registry.npmjs.org` is reachable. The Chromium
+system libraries (`libnss3`, `libgbm`, `libatk`, `libcups`) are absent and
+`apt` cannot fetch them. So screenshots and Lighthouse remain out of reach, and
+anything claimed here was measured another way.
+
+**Method.** Two measurements, both driven by real artefacts rather than
+assumption:
+
+1. _Layout + text fit._ Render `<App/>` with the project's own vitest/jsdom
+   setup, parse the **real compiled Tailwind stylesheet** from `dist/`, resolve
+   the cascade per viewport (layer → `min-width` media query → specificity →
+   order, with shorthand/longhand override modelled), walk the box tree
+   (block / grid / flex, including `auto` and `fr` tracks and sparse
+   auto-placement), and measure text with the **real advance widths** of the
+   self-hosted Inter and JetBrains Mono variable fonts. Then flag any element
+   whose content cannot fit its box.
+2. _Chart geometry._ Stub `getBoundingClientRect` so the real charts lay out at
+   the narrowest width the desk produces (254 px) and check every SVG
+   coordinate and text run against the box — now a permanent test
+   (`src/test/chartBounds.test.tsx`).
+
+Both were validated with a **positive control** (inject a guaranteed overflow;
+confirm it is reported) because the first three runs returned a clean result
+that was in fact vacuous — the engine had silently produced `NaN` widths below
+the top-level grid. A green run from this tool now means something.
+
+**Findings and fixes.**
+
+| Width     | Found                                                                               | Fix                                                                                                            |
+| --------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| 320 – 390 | Top-bar title overflowed its box by 13–57 px and would have run under the LIVE pill | `flex-wrap` on the bar and the right-hand cluster; `@handle` + divider `hidden sm:inline`                      |
+| 320 – 360 | APPROVAL GATE KPI (`PALERMO` + `ENTRY CLEARED`) overflowed by 7–27 px               | `flex-wrap` on that row                                                                                        |
+| ≤ 390     | 26 px KPI numerals overflowed a 2-up card by up to 10 px                            | `text-[21px] sm:text-[26px]`                                                                                   |
+| 320       | `Tail Probability Ridge` title crushed to 1.4 px by its long right caption          | Card header is `grid-cols-1 sm:grid-cols-[1fr_auto]`, caption `min-w-0 justify-self-start sm:justify-self-end` |
+
+After the fixes the audit reports **zero horizontal spill from 320 px to
+1600 px**. The only remaining reports are `CLIP` on the activity-log messages,
+which is the intended `truncate` ellipsis, not a fault.
+
+**Still unchecked, stated plainly.** No pixel rendering, so no confirmation of
+vertical rhythm, colour contrast or touch-target size on a real device; the
+bold-weight text widths use a 1.5–3.5 % factor on the variable font's 400-weight
+advances because the metrics table deltas were not read. Lighthouse is still
+not runnable here (see README → Verification & budgets).

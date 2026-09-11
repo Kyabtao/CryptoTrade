@@ -57,17 +57,23 @@ export function KpiStrip() {
   return (
     <div className="col-span-12 grid grid-cols-2 gap-4 xl:grid-cols-4">
       <KpiCard label="BALANCE / ETH">
-        <p className="num text-[26px] font-bold leading-none text-ink">{fmtEth(balanceEth)}</p>
+        <p className="num text-[21px] font-bold leading-none text-ink sm:text-[26px]">
+          {fmtEth(balanceEth)}
+        </p>
         <Sub>FROM {fmtEth(DESK.balanceStartEth)}</Sub>
       </KpiCard>
 
       <KpiCard label="TOTAL PNL / USD">
-        <p className="num text-[26px] font-bold leading-none text-pos">{fmtUsdSigned(pnlUsd)}</p>
+        <p className="num text-[21px] font-bold leading-none text-pos sm:text-[26px]">
+          {fmtUsdSigned(pnlUsd)}
+        </p>
         <Sub>{fmtPct(pnlPct)}</Sub>
       </KpiCard>
 
       <KpiCard label="MISSION CLOCK">
-        <p className="num text-[26px] font-bold leading-none text-ink">{fmtClock(missionSec)}</p>
+        <p className="num text-[21px] font-bold leading-none text-ink sm:text-[26px]">
+          {fmtClock(missionSec)}
+        </p>
         <Sub>{DESK.missionWindow}</Sub>
       </KpiCard>
 
@@ -75,7 +81,7 @@ export function KpiStrip() {
         label="APPROVAL GATE"
         corner={<span aria-hidden="true" className="size-1.5 rounded-full bg-pos" />}
       >
-        <div className="flex items-baseline justify-between gap-2">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
           <p className="num text-lg font-bold leading-none text-ink">{DESK.gate}</p>
           <p className="label num text-[9px] font-semibold text-pos">{DESK.gateTag}</p>
         </div>
