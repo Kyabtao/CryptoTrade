@@ -40,6 +40,18 @@ export const DESK = {
   /** Handoff chord running totals (advanced by the engine). */
   handoffs: 111,
   rejected: 3,
+
+  /** Tail Probability Ridge (row 3). */
+  ridge: {
+    sessions: 1334,
+    tailMassPct: 1.34,
+    impliedMult: 40.0,
+    avgEntryCents: 1.3,
+    bestHit: 81.2,
+    tooltipP: 1.58,
+    tooltipMult: 40.9,
+    tooltipSession: 1363,
+  },
 } as const;
 
 /** Minutes since session start for a given wall-clock minute (session crosses midnight). */
