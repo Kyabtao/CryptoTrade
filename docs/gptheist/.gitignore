@@ -1,0 +1,11 @@
+# Dependencies and build caches stay local. `dist/` IS committed on purpose:
+# the parent `docs/` site is published straight from the repository by GitHub
+# Pages with no build step, so the compiled bundle has to live in git.
+node_modules/
+coverage/
+
+# Editor / OS noise
+.DS_Store
+.idea/
+.vscode/
+*.log

@@ -1,0 +1,122 @@
+/* ------------------------------------------------------------------ *
+ * GPTHEIST DESK — global stylesheet
+ *
+ * Order matters: CSS requires every @import to precede style rules, so
+ * the tokens, Tailwind and the self-hosted fonts are all pulled in here
+ * before anything else.
+ * ------------------------------------------------------------------ */
+
+@import './theme.css';
+@import 'tailwindcss';
+
+/* Self-hosted variable fonts, served from node_modules by Vite. No CDN. */
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/jetbrains-mono';
+
+/* Map the design tokens onto Tailwind's theme namespace. `inline` keeps the
+   utilities pointing at the --gp-* variables, so they stay live. */
+@theme inline {
+  --color-canvas: var(--gp-canvas);
+  --color-card: var(--gp-card);
+  --color-hairline: var(--gp-hairline);
+  --color-hairline-soft: var(--gp-hairline-soft);
+  --color-ink: var(--gp-ink);
+  --color-muted: var(--gp-muted);
+  --color-faint: var(--gp-faint);
+  --color-pos: var(--gp-pos);
+  --color-neg: var(--gp-neg);
+  --color-info: var(--gp-info);
+  --color-node: var(--gp-node);
+  --color-teal: var(--gp-teal);
+  --color-amber: var(--gp-amber);
+
+  --font-sans: var(--gp-font-sans);
+  --font-mono: var(--gp-font-mono);
+
+  --radius-card: var(--gp-radius);
+  --radius-chip: var(--gp-radius-sm);
+
+  --shadow-card: var(--gp-shadow);
+}
+
+@layer base {
+  html {
+    /* Sticky headers and in-page anchors should not hide behind the header. */
+    scroll-padding-top: 88px;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--gp-canvas);
+    color: var(--gp-ink);
+    font-family: var(--gp-font-sans);
+    font-feature-settings:
+      'cv05' 1,
+      'ss03' 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Data everywhere is monospaced and tabular so columns line up. */
+  .num {
+    font-family: var(--gp-font-mono);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+  }
+
+  /* The uppercase, letter-spaced 10-11px label used across every card. */
+  .label {
+    font-family: var(--gp-font-mono);
+    font-size: 10px;
+    line-height: 1.2;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--gp-muted);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--gp-info);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Scrollbars in the activity log stay quiet. */
+  .quiet-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: var(--gp-hairline) transparent;
+  }
+  .quiet-scroll::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .quiet-scroll::-webkit-scrollbar-thumb {
+    background: var(--gp-hairline);
+    border-radius: 8px;
+  }
+  .quiet-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@layer utilities {
+  /* Kill all animation when the user prefers reduced motion. Panels opt into
+     motion by gating their timers on `usePrefersReducedMotion()`, and CSS-only
+     decoration (pulses, rotations) is switched off here as a backstop. */
+  .motion-off,
+  .motion-off * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

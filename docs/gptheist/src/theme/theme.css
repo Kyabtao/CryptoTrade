@@ -1,0 +1,64 @@
+/* ------------------------------------------------------------------ *
+ * GPTHEIST DESK — design tokens
+ *
+ * Single source of truth for the palette and typography. Tailwind
+ * utilities are generated from these variables in ./index.css via
+ * `@theme inline`, so changing a value here changes the whole app.
+ * ------------------------------------------------------------------ */
+
+:root {
+  /* Surfaces */
+  --gp-canvas: #f6f6f4; /* page background, off-white */
+  --gp-card: #ffffff; /* card fill */
+  --gp-hairline: #e6e6e2; /* 1px card border + grid lines */
+  --gp-hairline-soft: #f0f0ec; /* faint inner rules */
+
+  /* Text */
+  --gp-ink: #111111; /* near-black body text */
+  --gp-muted: #8a8a86; /* uppercase, letter-spaced labels */
+  --gp-faint: #b6b6b1; /* captions, axis ticks */
+
+  /* Semantic accents */
+  --gp-pos: #1f9d55; /* positive / live / cleared */
+  --gp-neg: #d33333; /* negative / veto / alert */
+  --gp-info: #2f6fed; /* info / flow */
+  --gp-node: #5b3fa0; /* graph nodes */
+  --gp-teal: #2aa198; /* catalyst ring */
+  --gp-amber: #e0a100; /* caution / pending */
+
+  /* Tinted washes used for shading under curves and cluster fills. */
+  --gp-pos-wash: rgba(31, 157, 85, 0.1);
+  --gp-neg-wash: rgba(221, 51, 51, 0.09);
+  --gp-info-wash: rgba(47, 111, 237, 0.08);
+
+  /* Shape + depth */
+  --gp-radius: 10px;
+  --gp-radius-sm: 6px;
+  --gp-shadow:
+    0 1px 1px rgba(17, 17, 17, 0.03), 0 1px 3px rgba(17, 17, 17, 0.04),
+    0 6px 16px -8px rgba(17, 17, 17, 0.1);
+
+  /* Grid */
+  --gp-gap: 16px;
+  --gp-pad: 16px;
+
+  /* Type */
+  --gp-font-sans:
+    'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
+    Arial, sans-serif;
+  --gp-font-mono:
+    'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo,
+    Consolas, 'Liberation Mono', monospace;
+}
+
+/* Motion: every animation in the desk reads this switch, so a user who asks
+   for reduced motion gets a static desk instead of a rotating one. */
+:root {
+  --gp-motion: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --gp-motion: 0;
+  }
+}
