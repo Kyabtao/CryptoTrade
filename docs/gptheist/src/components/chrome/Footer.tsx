@@ -16,7 +16,7 @@ export function Footer() {
         no exchange, wallet or market API is contacted — all figures are generated locally
       </span>
       <a
-        href="../index.html"
+        href="../../index.html"
         className="num ml-auto text-[11px] font-semibold text-info underline-offset-2 hover:underline"
       >
         ← CryptoTrade dashboard
