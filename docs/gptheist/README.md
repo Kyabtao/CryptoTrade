@@ -193,8 +193,14 @@ instead of overflowing.
   green; `npm run coverage` produces a V8 coverage report.
 - Bundle at the final milestone: ~76 kB JS + ~8 kB CSS gzipped — far under the
   400 kB ceiling. Only the five named D3 modules are imported.
-- The build is 404-free by construction: `base: './'`, relative favicon, and
-  the only outbound link is the parent dashboard (`../index.html`).
+- Every reference the build emits is relative (`base: './'`), so the committed
+  `dist/` serves from any sub-path. The one outbound link — the footer's
+  "CryptoTrade dashboard" — is `../../index.html`: the desk deploys to
+  `docs/gptheist/dist/`, two levels below the dashboard at `docs/index.html`.
+  `Footer.test.tsx` resolves that href against the real deployed path and
+  asserts it lands on `docs/index.html`, because a single `../index.html`
+  quietly resolves to the app's Vite dev entry (`docs/gptheist/index.html`),
+  which exists but renders blank on Pages.
 - Lighthouse: not runnable in this sandbox (no headless browser). A11y/perf
   basics above are in place; run `npx lighthouse` locally against
   `npm run preview` to confirm ≥ 90.
