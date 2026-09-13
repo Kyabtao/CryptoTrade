@@ -22,7 +22,10 @@
       <div class="hero-price">
         <div class="big num" id="heroPrice">—</div>
         <div class="sub" id="heroPriceMeta">—</div>
-        <a class="chip" href="gptheist/dist/index.html" style="margin-top:10px;display:inline-flex;text-decoration:none">🎛 Original GPTHEIST app →</a>
+        <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <a class="chip" href="gptheist/dist/index.html" style="display:inline-flex;text-decoration:none">🎛 Original GPTHEIST app →</a>
+          <button class="chip-btn" id="themeBtn" type="button" title="Switch the desk palette (gptheist cream ↔ site dark)">CREAM</button>
+        </div>
       </div>
     </div>
 
@@ -62,6 +65,23 @@
           <div class="dchart" id="ridgeChart"></div>
         </div>
         <div class="dfoot">PRICE THE DISPERSION · THE TAILS ARE WHERE THE RISK LIVES</div>
+      </section>
+    </div>
+
+    <!-- row 3.5 — 5-D metric lattice (penteract), axes = real metrics -->
+    <div class="desk-grid">
+      <section class="card dcard span12">
+        <div class="dhead">
+          <h3><i class="ddot accent"></i> 5-D Metric Lattice</h3>
+          <span class="dcap">EVERY BOOK ON 5 AXES / ABOVE-BELOW FLEET MEDIAN</span>
+          <span class="dcap num" id="latRot">↻ 0°</span>
+        </div>
+        <div class="dbody lattice">
+          <div class="dstats" id="latStats"></div>
+          <div class="dchart" id="latChart"></div>
+          <div class="daxes" id="latAxes"></div>
+        </div>
+        <div class="dfoot">EVERY AXIS IS A METRIC · A BOOK MUST PASS ALL FIVE</div>
       </section>
     </div>
 
@@ -144,6 +164,17 @@
       const [state, history, catalog] = await Promise.all([loadState(), loadHistory(), loadCatalog()]);
       const env = enrichState(state);
       renderUpdateMessage(env.meta, `${env.accounts.length} sub-accounts · ${history.length} recorded ticks`);
+
+      /* ---------- theme (cream = the gptheist original palette) ---------- */
+      /* applied before the first draw so charts read the right palette */
+      const themeBtn = document.getElementById("themeBtn");
+      let cream = false;
+      try { cream = localStorage.getItem("deskTheme") === "cream"; } catch (e) { /* private mode */ }
+      const applyTheme = () => {
+        document.body.classList.toggle("theme-cream", cream);
+        themeBtn.textContent = cream ? "DARK" : "CREAM";
+      };
+      applyTheme();
 
       /* categories */
       const catById = {};
@@ -259,6 +290,75 @@
       function drawRidge() { deskRidge(document.getElementById("ridgeChart"), frames); }
       redraw.push(drawRidge); drawRidge();
 
+      /* ---------- 5-D metric lattice ---------- */
+      /* five real metrics; each bit = above (or, for fee drag, below) the
+         fleet median — the 42 books scatter across the penteract's 32
+         vertices, coloured by the sign of the vertex's average return */
+      const AXCOLS = ["#3b82f6", "#22c55e", "#f59e0b", "#a78bfa", "#ef4444"];
+      const metric = (a) => ({
+        ret: a.returnPct,
+        act: a.tradesCount,
+        win: a.closedCount ? a.winRate : null,
+        exp: a.equity ? (a.marketValue / a.equity) * 100 : 0,
+        fee: a.equity ? (a.totalFees / a.equity) * 100 : 0,
+      });
+      const mvals = env.accounts.map(metric);
+      const medOf = (key) => {
+        const vs = mvals.map((m) => m[key]).filter((v) => v != null);
+        return vs.length ? dmedian(vs) : 0;
+      };
+      const AXDEF = [
+        { key: "ret", label: "D1 RETURN", color: AXCOLS[0], up: true,
+          med: medOf("ret"), rule: `≥ ${fmtPct(medOf("ret"))} fleet median` },
+        { key: "act", label: "D2 ACTIVITY", color: AXCOLS[1], up: true,
+          med: medOf("act"), rule: `≥ ${fmtNum(medOf("act"), 0)} fills` },
+        { key: "win", label: "D3 WIN RATE", color: AXCOLS[2], up: true,
+          med: (() => { const vs = mvals.map((m) => m.win).filter((v) => v != null); return vs.length ? dmedian(vs) : 0; })(),
+          rule: `closed trades · above median win rate` },
+        { key: "exp", label: "D4 EXPOSURE", color: AXCOLS[3], up: true,
+          med: medOf("exp"), rule: `≥ ${fmtNum(medOf("exp"), 1)}% of equity in market` },
+        { key: "fee", label: "D5 FEE DRAG", color: AXCOLS[4], up: false,
+          med: medOf("fee"), rule: `≤ ${fmtNum(medOf("fee"), 2)}% of equity in fees` },
+      ];
+      const latItems = env.accounts.map((a, i) => {
+        const m = mvals[i];
+        const bits = AXDEF.map((d) => {
+          const v = m[d.key];
+          if (v == null) return 0;
+          return (d.up ? v >= d.med : v <= d.med) ? 1 : 0;
+        });
+        return { id: a.id, name: a.name, cat: a.category, color: categoryColor(a.category, cats), ret: a.returnPct, bits };
+      });
+      const occ32 = Array.from({ length: 32 }, () => []);
+      latItems.forEach((it) => occ32[dBitsKey(it.bits)].push(it));
+      const maxOcc = Math.max(...occ32.map((o) => o.length));
+      const emptyV = occ32.filter((o) => !o.length).length;
+      statRows("latStats", [
+        ["BOOKS MAPPED", latItems.length],
+        ["CROWDED VERTEX", maxOcc ? `${maxOcc} BOOK${maxOcc > 1 ? "S" : ""}` : "—", maxOcc ? "pos" : ""],
+        ["ALL-FAVORABLE", occ32[31].length || "0", occ32[31].length ? "pos" : ""],
+        ["ALL-ADVERSE", occ32[0].length || "0", occ32[0].length ? "neg" : ""],
+        ["EMPTY VERTICES", `${emptyV}/32`],
+        ["AXES LIVE", "5 / 5"],
+      ]);
+      document.getElementById("latAxes").innerHTML = AXDEF.map((d) =>
+        `<div class="daxis"><i style="background:${d.color}"></i><div><b>${esc(d.label)}</b><span>${esc(d.rule)}</span></div></div>`
+      ).join("");
+      let lastFrame = 0;
+      function drawLattice() {
+        deskLattice(document.getElementById("latChart"), latItems, {
+          axes: AXDEF.map((d) => ({ label: d.label, color: d.color })),
+          onFrame: (deg) => {
+            const now = Date.now();
+            if (now - lastFrame > 400) {
+              lastFrame = now;
+              document.getElementById("latRot").textContent = `↻ ${deg}°`;
+            }
+          },
+        });
+      }
+      redraw.push(drawLattice); drawLattice();
+
       /* ---------- row 4: chord + histogram ---------- */
       const nC = cats.length;
       const catIdx = new Map(cats.map((c, i) => [c, i]));
@@ -371,6 +471,14 @@
         spark: grid[env.accounts.indexOf(a)],
         href: "lesson.html?id=" + encodeURIComponent(a.id),
       })));
+
+      /* ---------- theme toggle (charts re-read the palette on redraw) ---------- */
+      themeBtn.addEventListener("click", () => {
+        cream = !cream;
+        try { localStorage.setItem("deskTheme", cream ? "cream" : "dark"); } catch (e) { /* private mode */ }
+        applyTheme();
+        redraw.forEach((f) => f());
+      });
 
       window.addEventListener("resize", debounce(() => redraw.forEach((f) => f())));
     })().catch((e) => {

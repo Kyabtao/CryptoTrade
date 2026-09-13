@@ -1,11 +1,39 @@
 /* CryptoTrade dashboard — "GPTHEIST desk" panels.
 
    Ports the visual grammar of docs/gptheist (caption headers, stat rails,
-   return ridgeline, co-fire chord, force graph, roster strip) onto the main
-   site's real bot data, using the same dependency-free SVG approach as
-   charts.js. D3 is deliberately NOT used here — every layout (chord angles,
-   KDE curves, force simulation) is implemented locally and deterministically.
-   Math.random is avoided so a reload always renders the same picture. */
+   return ridgeline, co-fire chord, force graph, penteract, roster strip) onto
+   the main site's real bot data, using the same dependency-free SVG approach
+   as charts.js. D3 is deliberately NOT used here — every layout (chord
+   angles, KDE curves, force simulation, 5-D rotation/projection) is
+   implemented locally and deterministically. Math.random is avoided so a
+   reload always renders the same picture.
+
+   Palette: SVG presentation attributes do not understand var() reliably in
+   browsers, so every draw pass resolves the live CSS custom properties via
+   dPalette() — which also lets the cream/dark theme flip re-tint charts by
+   simply redrawing them. */
+
+/* ---------- live palette ---------- */
+
+let DP = {};
+
+function dPalette() {
+  const cs = getComputedStyle(document.body);
+  const g = (name, fb) => (cs.getPropertyValue(name) || "").trim() || fb;
+  DP = {
+    panel: g("--panel", "#121722"),
+    panel2: g("--panel-2", "#171d2b"),
+    borderSoft: g("--border-soft", "#1c2333"),
+    text: g("--text", "#e6eaf2"),
+    dim: g("--text-dim", "#97a1b5"),
+    faint: g("--text-faint", "#5f6b82"),
+    accent: g("--accent", "#3b82f6"),
+    green: g("--green", "#22c55e"),
+    red: g("--red", "#ef4444"),
+    iso: g("--iso-stroke", "#414d68"),
+  };
+  return DP;
+}
 
 /* ---------- small math helpers (d-prefixed to avoid collisions) ---------- */
 
@@ -124,6 +152,7 @@ function deskKpis(container, cards) {
 
 /* rows: [{ts, equity}]; opts: {baseline, height} */
 function deskEquityChart(container, rows, opts = {}) {
+  dPalette();
   const width = chartWidth(container, 800);
   const compact = compactChart(container);
   const height = opts.height || (compact ? 210 : 250);
@@ -150,18 +179,18 @@ function deskEquityChart(container, rows, opts = {}) {
   // grid + y labels (3 ticks)
   const step = niceStep(max - min, 3);
   for (let v = Math.ceil(min / step) * step; v <= max; v += step) {
-    el("line", { x1: ml, x2: ml + iw, y1: y(v), y2: y(v), stroke: "var(--border-soft)", "stroke-width": 1 }, svg);
-    svgText(ml - 6, y(v) + 3, "$" + Math.round(v).toLocaleString("en-US"), { "text-anchor": "end", "font-size": 9.5, fill: "var(--text-faint)", class: "mono" }, svg);
+    el("line", { x1: ml, x2: ml + iw, y1: y(v), y2: y(v), stroke: DP.borderSoft, "stroke-width": 1 }, svg);
+    svgText(ml - 6, y(v) + 3, "$" + Math.round(v).toLocaleString("en-US"), { "text-anchor": "end", "font-size": 9.5, fill: DP.faint, class: "mono" }, svg);
   }
   // baseline (funded capital) as dashed reference
   if (opts.baseline != null && opts.baseline > min && opts.baseline < max) {
-    el("line", { x1: ml, x2: ml + iw, y1: y(opts.baseline), y2: y(opts.baseline), stroke: "var(--text-faint)", "stroke-dasharray": "3 4", "stroke-width": 1 }, svg);
-    svgText(ml + iw + 4, y(opts.baseline) + 3, "BASE", { "font-size": 8.5, fill: "var(--text-faint)", class: "mono" }, svg);
+    el("line", { x1: ml, x2: ml + iw, y1: y(opts.baseline), y2: y(opts.baseline), stroke: DP.faint, "stroke-dasharray": "3 4", "stroke-width": 1 }, svg);
+    svgText(ml + iw + 4, y(opts.baseline) + 3, "BASE", { "font-size": 8.5, fill: DP.faint, class: "mono" }, svg);
   }
   // x labels: first / mid / last
   const xlab = [0, Math.floor((rows.length - 1) / 2), rows.length - 1];
   xlab.forEach((i) => {
-    svgText(x(i), height - 6, fmtTsShort(rows[i].ts), { "text-anchor": i === 0 ? "start" : i === rows.length - 1 ? "end" : "middle", "font-size": 9.5, fill: "var(--text-faint)", class: "mono" }, svg);
+    svgText(x(i), height - 6, fmtTsShort(rows[i].ts), { "text-anchor": i === 0 ? "start" : i === rows.length - 1 ? "end" : "middle", "font-size": 9.5, fill: DP.faint, class: "mono" }, svg);
   });
 
   // green/red wash under the line, then the ink line
@@ -170,22 +199,22 @@ function deskEquityChart(container, rows, opts = {}) {
     d: `M ${x(0)},${mt + ih} L ${linePts} L ${x(rows.length - 1)},${mt + ih} Z`,
     fill: up ? "rgba(34,197,94,0.13)" : "rgba(239,68,68,0.12)",
   }, svg);
-  el("path", { d: `M ${linePts}`, fill: "none", stroke: "var(--text)", "stroke-width": 1.7, "stroke-linejoin": "round" }, svg);
+  el("path", { d: `M ${linePts}`, fill: "none", stroke: DP.text, "stroke-width": 1.7, "stroke-linejoin": "round" }, svg);
 
   // current point: red dot + tag (the gptheist signature)
   const cx = x(rows.length - 1), cy = y(last.equity);
-  el("circle", { cx, cy, r: 3.4, fill: "#ef4444", stroke: "var(--panel)", "stroke-width": 1.4 }, svg);
+  el("circle", { cx, cy, r: 3.4, fill: DP.red, stroke: DP.panel, "stroke-width": 1.4 }, svg);
   const tag = "$" + Math.round(last.equity).toLocaleString("en-US");
   const tw = tag.length * 6.2 + 12;
   const tx = Math.min(cx - tw + 6, ml + iw - tw);
   const ty = Math.max(cy - 26, mt - 4);
-  el("rect", { x: tx, y: ty, width: tw, height: 17, rx: 3.5, fill: "var(--panel-2)", stroke: "#ef4444", "stroke-width": 1 }, svg);
-  svgText(tx + tw / 2, ty + 12, tag, { "text-anchor": "middle", "font-size": 10, fill: "var(--text)", class: "mono" }, svg);
+  el("rect", { x: tx, y: ty, width: tw, height: 17, rx: 3.5, fill: DP.panel2, stroke: DP.red, "stroke-width": 1 }, svg);
+  svgText(tx + tw / 2, ty + 12, tag, { "text-anchor": "middle", "font-size": 10, fill: DP.text, class: "mono" }, svg);
 
   // crosshair hover
   const tip = dTip(container);
-  const cross = el("line", { y1: mt, y2: mt + ih, stroke: "var(--text-faint)", "stroke-dasharray": "3 3", visibility: "hidden" }, svg);
-  const hdot = el("circle", { r: 3, fill: "var(--text)", visibility: "hidden" }, svg);
+  const cross = el("line", { y1: mt, y2: mt + ih, stroke: DP.faint, "stroke-dasharray": "3 3", visibility: "hidden" }, svg);
+  const hdot = el("circle", { r: 3, fill: DP.text, visibility: "hidden" }, svg);
   const hit = el("rect", { x: ml, y: mt, width: iw, height: ih, fill: "transparent" }, svg);
   hit.addEventListener("mousemove", (ev) => {
     const r = container.getBoundingClientRect();
@@ -195,10 +224,11 @@ function deskEquityChart(container, rows, opts = {}) {
     cross.setAttribute("visibility", "visible");
     hdot.setAttribute("cx", x(i)); hdot.setAttribute("cy", y(rows[i].equity));
     hdot.setAttribute("visibility", "visible");
-    const d = rows[i].equity - (opts.baseline != null ? opts.baseline : rows[0].equity);
+    const base = opts.baseline != null ? opts.baseline : rows[0].equity;
+    const d = rows[i].equity - base;
     tip.show(
       `<b>${esc(fmtTsShort(rows[i].ts))}</b><span class="num"> ${fmtUSD(rows[i].equity)}</span><br>` +
-      `<span class="${pctClass(d)} num">${(d >= 0 ? "+" : "") + fmtUSD(d).replace("$", "$")}</span> vs base`,
+      `<span class="${pctClass(d)} num">${fmtUSD(d)}</span> vs base`,
       ev
     );
   });
@@ -236,6 +266,7 @@ function deskActivityLog(container, entries, cap = 70) {
    The 0% line is the "strike": the profitable side of the newest curve is
    shaded green, the losing side red. */
 function deskRidge(container, frames, opts = {}) {
+  dPalette();
   const width = chartWidth(container, 980);
   const compact = compactChart(container);
   const height = opts.height || (compact ? 300 : 340);
@@ -270,19 +301,19 @@ function deskRidge(container, frames, opts = {}) {
     c.map((d, s) => `${X(x0 + ((x1 - x0) * s) / steps, i * dxo).toFixed(1)},${(baseY(i) - (d / maxD) * amp).toFixed(1)}`).join(" L ");
 
   // x-axis labels
-  const xTick = (v, anchor) => svgText(X(v, 0), height - 6, (v > 0 ? "+" : "") + v.toFixed(1) + "%", { "text-anchor": anchor, "font-size": 9.5, fill: "var(--text-faint)", class: "mono" }, svg);
+  const xTick = (v, anchor) => svgText(X(v, 0), height - 6, (v > 0 ? "+" : "") + v.toFixed(1) + "%", { "text-anchor": anchor, "font-size": 9.5, fill: DP.faint, class: "mono" }, svg);
   xTick(Math.round((x0 + padX) * 10) / 10, "start");
   xTick(0, "middle");
   xTick(Math.round((x1 - padX) * 10) / 10, "end");
 
   // dashed 0% "strike" through the whole surface
-  el("line", { x1: zeroX, x2: zeroX, y1: mt, y2: baseY(n - 1) + 6, stroke: "#ef4444", "stroke-dasharray": "4 4", "stroke-width": 1, opacity: 0.55 }, svg);
+  el("line", { x1: zeroX, x2: zeroX, y1: mt, y2: baseY(n - 1) + 6, stroke: DP.red, "stroke-dasharray": "4 4", "stroke-width": 1, opacity: 0.55 }, svg);
 
   // draw back → front so nearer ridges occlude the ones behind
   const groups = curves.map((c, i) => {
     const g = el("g", { class: "dridge-g" }, svg);
     const occl = `M ${curvePts(c, i)} L ${X(x1, i * dxo)},${baseY(i)} L ${X(x0, i * dxo)},${baseY(i)} Z`;
-    el("path", { d: occl, fill: "var(--panel)" }, g);
+    el("path", { d: occl, fill: DP.panel }, g);
     return { g, i };
   });
 
@@ -307,15 +338,15 @@ function deskRidge(container, frames, opts = {}) {
   groups.forEach(({ g, i }) => {
     el("path", {
       d: `M ${curvePts(curves[i], i)}`, fill: "none",
-      stroke: i === n - 1 ? "var(--text)" : "#7c8aa5",
+      stroke: i === n - 1 ? DP.text : DP.dim,
       "stroke-width": i === n - 1 ? 1.8 : 1, opacity: i === n - 1 ? 1 : 0.55,
     }, g);
   });
-  svgText(ml + iw + 4, baseY(n - 1) + 3, "NOW", { "font-size": 8.5, fill: "var(--text-faint)", class: "mono" }, svg);
+  svgText(ml + iw + 4, baseY(n - 1) + 3, "NOW", { "font-size": 8.5, fill: DP.faint, class: "mono" }, svg);
 
   // hover: pick the frame under the pointer, highlight it, show its stats
   const tip = dTip(container);
-  const hoverPath = el("path", { fill: "none", stroke: "var(--accent)", "stroke-width": 1.6, visibility: "hidden", "pointer-events": "none" }, svg);
+  const hoverPath = el("path", { fill: "none", stroke: DP.accent, "stroke-width": 1.6, visibility: "hidden", "pointer-events": "none" }, svg);
   const hit = el("rect", { x: 0, y: 0, width, height, fill: "transparent" }, svg);
   hit.addEventListener("mousemove", (ev) => {
     const r = container.getBoundingClientRect();
@@ -407,8 +438,6 @@ function deskChord(container, matrix, labels, colors, opts = {}) {
       ribbons.push(p);
     }
   }
-  // within-category cells → draw as short spokes? Skip: arcs already sized by
-  // their row sum, so internal cohesion shows as arc weight.
 
   const arcEls = groups.map((g, i) => {
     const p = el("path", { d: dArcPath(g.start, g.end, r0, r1), fill: colors[i], class: "darc" }, gArcs);
@@ -449,6 +478,7 @@ function deskChord(container, matrix, labels, colors, opts = {}) {
 /* ---------- return distribution histogram ---------- */
 
 function deskHistogram(container, values, opts = {}) {
+  dPalette();
   const width = chartWidth(container, 460);
   const height = opts.height || 220;
   const ml = 36, mr = 10, mt = 12, mb = 22;
@@ -486,11 +516,11 @@ function deskHistogram(container, values, opts = {}) {
   });
   // zero line
   if (min < 0 && max > 0) {
-    el("line", { x1: x(0), x2: x(0), y1: mt, y2: mt + ih, stroke: "var(--text-faint)", "stroke-dasharray": "3 3" }, svg);
-    svgText(x(0), height - 6, "0%", { "text-anchor": "middle", "font-size": 9.5, fill: "var(--text-faint)", class: "mono" }, svg);
+    el("line", { x1: x(0), x2: x(0), y1: mt, y2: mt + ih, stroke: DP.faint, "stroke-dasharray": "3 3" }, svg);
+    svgText(x(0), height - 6, "0%", { "text-anchor": "middle", "font-size": 9.5, fill: DP.faint, class: "mono" }, svg);
   }
-  svgText(ml, height - 6, fmtPct(min, 1), { "font-size": 9.5, fill: "var(--text-faint)", class: "mono" }, svg);
-  svgText(ml + iw, height - 6, fmtPct(max, 1), { "text-anchor": "end", "font-size": 9.5, fill: "var(--text-faint)", class: "mono" }, svg);
+  svgText(ml, height - 6, fmtPct(min, 1), { "font-size": 9.5, fill: DP.faint, class: "mono" }, svg);
+  svgText(ml + iw, height - 6, fmtPct(max, 1), { "text-anchor": "end", "font-size": 9.5, fill: DP.faint, class: "mono" }, svg);
 }
 
 /* ---------- signal graph (force-directed co-fire web) ---------- */
@@ -551,6 +581,7 @@ function dForceSim(nodes, links, width, height, iterations = 420) {
 /* nodes: [{id,name,cat,color,ret,fills,x,y,r}], links: [{s,t,v}] (v 0..1).
    opts: {height, labelMinDegree, onStatus}. Clicking a node opens its lesson. */
 function deskSignalGraph(container, nodes, links, opts = {}) {
+  dPalette();
   const width = chartWidth(container, 980);
   const height = opts.height || (compactChart(container) ? 360 : 430);
   if (!nodes.simulated) dForceSim(nodes, links, width, height);
@@ -580,13 +611,13 @@ function deskSignalGraph(container, nodes, links, opts = {}) {
     const iso = deg.get(nd) === 0;
     const c = el("circle", {
       cx: nd.x, cy: nd.y, r: iso ? 3.5 : nd.r,
-      fill: iso ? "none" : nd.color, stroke: iso ? "#414d68" : "var(--panel)",
+      fill: iso ? "none" : nd.color, stroke: iso ? DP.iso : DP.panel,
       "stroke-width": iso ? 1.2 : 1.4, opacity: iso ? 0.6 : 1, class: "dnode",
     }, gN);
     c.__n = nd;
     if (deg.get(nd) >= labelMin && !iso) {
       svgText(nd.x, nd.y - nd.r - 5, nd.name.length > 16 ? nd.name.slice(0, 15) + "…" : nd.name, {
-        "text-anchor": "middle", "font-size": 8.5, fill: "var(--text-faint)", class: "mono",
+        "text-anchor": "middle", "font-size": 8.5, fill: DP.faint, class: "mono",
       }, gN).__owner = c;
     }
     return c;
@@ -628,6 +659,163 @@ function deskSignalGraph(container, nodes, links, opts = {}) {
   });
 }
 
+/* ---------- 5-D metric lattice (penteract of the strategy fleet) ---------- */
+
+/* Every strategy is projected onto a 5-dimensional hypercube: each axis is a
+   real metric (return, activity, win rate, exposure, fee efficiency), each
+   bit is above/below the fleet median, so the 42 books scatter across the 32
+   vertices of a penteract. Edges are coloured by the axis they flip; the
+   wireframe rotates through two 5-D planes and projects 5D → 2D. */
+
+function dBitsKey(bits) {
+  let k = 0;
+  bits.forEach((b, i) => { if (b) k |= 1 << i; });
+  return k;
+}
+
+function dRot5(p, a, b) {
+  const ca = Math.cos(a), sa = Math.sin(a), cb = Math.cos(b), sb = Math.sin(b);
+  const [x, y, z, w, v] = p;
+  return [x * ca - w * sa, y * cb - v * sb, z, x * sa + w * ca, y * sb + v * cb];
+}
+
+/* iterative perspective 5D → 4D → 3D → 2D; returns [px, py, depth] where
+   depth is the last projection scale (bigger = closer to the viewer). */
+function dProject5(p) {
+  const D = 2.6;
+  let [x, y, z, w, v] = p;
+  let s = 1 / (D - v);
+  x *= s; y *= s; z *= s; w *= s;
+  s = 1 / (D - w);
+  x *= s; y *= s; z *= s;
+  s = 1 / (D - z);
+  return [x * s, y * s, s];
+}
+
+/* items: [{name, bits:[0|1 ×5], ret, color}]; opts: {height, axes:[{label,color}×5],
+   onFrame(deg), reduced}. Vertices show occupancy; hover a vertex for the
+   books that land on it. */
+function deskLattice(container, items, opts = {}) {
+  dPalette();
+  const width = chartWidth(container, 620);
+  const height = opts.height || Math.max(320, Math.min(460, Math.round(width * 0.9)));
+  const V = 32;
+
+  const occ = Array.from({ length: V }, () => []);
+  items.forEach((it) => occ[dBitsKey(it.bits)].push(it));
+
+  // unit penteract: 32 vertices ±1^5, 80 edges (flip exactly one bit)
+  const coords = [];
+  for (let k = 0; k < V; k++) {
+    coords.push([k & 1, (k >> 1) & 1, (k >> 2) & 1, (k >> 3) & 1, (k >> 4) & 1].map((b) => (b ? 1 : -1)));
+  }
+  const edges = [];
+  for (let k = 0; k < V; k++) {
+    for (let d = 0; d < 5; d++) {
+      const m = k ^ (1 << d);
+      if (m > k) edges.push({ k, m, d });
+    }
+  }
+  const AXCOL = (opts.axes || []).map((a) => a.color);
+  const axColor = (d) => AXCOL[d % Math.max(1, AXCOL.length)] || "#3b82f6";
+
+  const R = Math.min(width, height) / 2 - 26;
+  const cx = width / 2, cy = height / 2;
+  let a = 0.62, b = 0.94;
+  const reduced = opts.reduced ||
+    (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+
+  container.innerHTML = "";
+  const svg = el("svg", {
+    viewBox: `0 0 ${width} ${height}`, class: "chart",
+    "aria-label": "Five-dimensional metric lattice of the 42 strategies, rotating penteract wireframe",
+  }, container);
+  const tip = dTip(container);
+  const gE = el("g", {}, svg), gV = el("g", {}, svg);
+
+  const edgeEls = edges.map((e) =>
+    el("line", { stroke: axColor(e.d), "stroke-width": 1, opacity: 0.4 }, gE)
+  );
+
+  const vertEls = coords.map((_, k) => {
+    const c = el("circle", { r: 3, class: "dnode" }, gV);
+    c.__k = k;
+    return c;
+  });
+
+  function render() {
+    // rotate + project every vertex, then auto-fit into the box
+    const proj = coords.map((p) => dProject5(dRot5(p, a, b)));
+    let m = 0, sMin = Infinity, sMax = -Infinity;
+    proj.forEach(([px, py, s]) => {
+      m = Math.max(m, Math.abs(px), Math.abs(py));
+      sMin = Math.min(sMin, s); sMax = Math.max(sMax, s);
+    });
+    const k = (R * 0.94) / (m || 1);
+    const span = Math.max(1e-9, sMax - sMin);
+    const pos = proj.map(([px, py, s]) => ({
+      x: cx + px * k, y: cy - py * k,
+      depth: (s - sMin) / span, // 0 = far … 1 = near
+    }));
+
+    edges.forEach((e, i) => {
+      const A = pos[e.k], B = pos[e.m];
+      const el2 = edgeEls[i];
+      el2.setAttribute("x1", A.x.toFixed(1)); el2.setAttribute("y1", A.y.toFixed(1));
+      el2.setAttribute("x2", B.x.toFixed(1)); el2.setAttribute("y2", B.y.toFixed(1));
+      el2.setAttribute("opacity", (0.16 + 0.5 * ((A.depth + B.depth) / 2)).toFixed(2));
+    });
+
+    vertEls.forEach((c) => {
+      const g = occ[c.__k], P = pos[c.__k];
+      c.setAttribute("cx", P.x.toFixed(1)); c.setAttribute("cy", P.y.toFixed(1));
+      if (g.length) {
+        const avg = g.reduce((s2, it) => s2 + it.ret, 0) / g.length;
+        c.setAttribute("r", (3.5 + Math.min(4.5, Math.sqrt(g.length) * 1.6)).toFixed(1));
+        c.setAttribute("fill", avg >= 0 ? DP.green : DP.red);
+        c.setAttribute("stroke", DP.panel);
+        c.setAttribute("stroke-width", "1.2");
+        c.setAttribute("opacity", (0.55 + 0.45 * P.depth).toFixed(2));
+        c.__info = `${g.length} BOOK${g.length > 1 ? "S" : ""} HERE<br>` +
+          g.slice(0, 5).map((it) => `<b>${esc(chartLabel(it.name, 22))}</b> <span class="num ${pctClass(it.ret)}">${fmtPct(it.ret)}</span>`).join("<br>") +
+          (g.length > 5 ? `<br>… +${g.length - 5} more` : "") +
+          `<br>vertex avg <span class="num ${pctClass(avg)}">${fmtPct(avg)}</span>`;
+      } else {
+        c.setAttribute("r", "2.6");
+        c.setAttribute("fill", "none");
+        c.setAttribute("stroke", DP.iso);
+        c.setAttribute("stroke-width", "1");
+        c.setAttribute("opacity", "0.5");
+        c.__info = "NO BOOK LANDS HERE";
+      }
+    });
+
+    if (opts.onFrame) {
+      const deg = Math.round(((a * 180) / Math.PI) % 360);
+      opts.onFrame(deg < 0 ? deg + 360 : deg);
+    }
+  }
+
+  vertEls.forEach((c) => {
+    c.addEventListener("mouseenter", (ev) => tip.show(c.__info || "", ev));
+    c.addEventListener("mouseleave", () => tip.hide());
+  });
+
+  render();
+  if (!reduced) {
+    /* token-guarded loop: redrawing the container (theme flip, resize)
+       supersedes the previous animation instead of stacking loops */
+    const token = (container.__latToken = {});
+    const step = () => {
+      if (container.__latToken !== token) return; // a newer draw took over
+      a += 0.0042; b += 0.0026;
+      render();
+      requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+}
+
 /* ---------- roster strip (crew cards) ---------- */
 
 /* cards: [{idx, name, id, cat, color, ret, spark:[…], href}] */
@@ -657,7 +845,7 @@ function dSpark(values, color) {
   const y = (v) => pad + (1 - (v - min) / (max - min)) * (h - 2 * pad);
   const pts = values.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
   const zero = (min < 0 && max > 0)
-    ? `<line x1="${pad}" x2="${w - pad}" y1="${y(0).toFixed(1)}" y2="${y(0).toFixed(1)}" stroke="#3a4468" stroke-width="0.5"/>` : "";
+    ? `<line x1="${pad}" x2="${w - pad}" y1="${y(0).toFixed(1)}" y2="${y(0).toFixed(1)}" stroke="rgba(128,128,128,.5)" stroke-width="0.5"/>` : "";
   return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" aria-hidden="true">${zero}` +
     `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.3" stroke-linejoin="round"/></svg>`;
 }
