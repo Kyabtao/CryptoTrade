@@ -302,3 +302,37 @@ cursor-anchored with the main-site clamp (14px offset, flipped inside the box).
   Tooltips name the hub (or `NODE id`) with the link degree and class.
 - _Penteract_: invisible r=9 hit circles per vertex, grown dot, tooltip with
   the vertex index and its five ±1 coordinates as a sign string.
+
+---
+
+## 16. Chart appearance grammar (11px labels, 2px stroke, bar caps)
+
+**Brief:** the appearance half of chart unification — adopt the main site's
+chart grammar while keeping the desk's light tokens.
+
+**Applied.**
+
+- _Axis labels 8.5/9px → 11px_ on BalanceChart (both axes plus the red value
+  tag, which fits its 52px rect at 39.6px), RidgePlot (x-axis) and ChordDiagram
+  (group codes, bold kept). No margin changes were needed.
+- _Correction to §14:_ the claim that 11px labels would need `M.left` 40→52px
+  was wrong — it used the raw 6-char tick `0.0125`, but labels render at 3dp
+  (`0.013`, 5 chars = 33px), leaving x=1px inside the box. The `chartBounds`
+  guard confirms all three widths empirically.
+- _Series stroke 1.6 → 2px_ on BalanceChart (the main-site `stroke-width 2`).
+  A visible rest-state change, accepted as the brief's explicit ask.
+- _Histogram bars_ `rounded-t-[2px]` → `[3px]` and `opacity: 0.85`, matching
+  the main-site `rx="3" opacity="0.85"` bar treatment.
+- _Gridlines:_ no change — BalanceChart already dashes non-zero lines
+  (`2 4`), which is the requested treatment.
+
+**Deliberately not unified.**
+
+- _RidgePlot tooltip stays light._ `VISUAL_SPEC.md` pins it as a white box, so
+  migrating it to the shared dark `.chart-tip` would break fidelity. It is the
+  one tooltip on the desk that differs, by spec.
+- _ForceGraph pills (7.5px) and APPROVED tag (8px) keep their sizes._ They are
+  annotations, not axis labels, and 11px text physically does not fit the
+  68/84px pills (`CATALYST RING` alone is 79px at 11px mono).
+- _Penteract edges_ keep `strokeWidth 1 / opacity 0.75`: they are lattice
+  edges, not a series line, and have no main-site counterpart.

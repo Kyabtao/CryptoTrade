@@ -28,10 +28,11 @@ export const Histogram = memo(function Histogram({ bars }: { bars: HistogramBar[
       {bars.map((b, i) => (
         <div
           key={i}
-          className="flex-1 rounded-t-[2px]"
+          className="flex-1 rounded-t-[3px]"
           style={{
             height: String(Math.round((b.value / max) * 100)) + '%',
             background: b.color,
+            opacity: 0.85,
           }}
           onPointerMove={() => {
             setHover(i);

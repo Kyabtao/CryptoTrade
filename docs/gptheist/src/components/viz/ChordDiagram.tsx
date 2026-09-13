@@ -275,7 +275,7 @@ export const ChordDiagram = memo(function ChordDiagram({ data }: { data: ChordDa
                   x={n(g.lx)}
                   y={n(g.ly)}
                   textAnchor={g.anchor}
-                  fontSize={8.5}
+                  fontSize={11}
                   fill={g.color}
                   style={{ fontFamily: 'var(--gp-font-mono)', fontWeight: 700 }}
                 >

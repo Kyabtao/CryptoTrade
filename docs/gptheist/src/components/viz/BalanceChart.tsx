@@ -178,7 +178,7 @@ export const BalanceChart = memo(function BalanceChart({ series, balanceEth }: P
               x={26}
               y={11.5}
               textAnchor="middle"
-              fontSize={9}
+              fontSize={11}
               fill="var(--gp-neg)"
               style={MONO}
             >
@@ -193,7 +193,7 @@ export const BalanceChart = memo(function BalanceChart({ series, balanceEth }: P
               x={M.left - 6}
               y={geom.y(t) + 3}
               textAnchor="end"
-              fontSize={8.5}
+              fontSize={11}
               fill="var(--gp-faint)"
               style={MONO}
             >
@@ -206,7 +206,7 @@ export const BalanceChart = memo(function BalanceChart({ series, balanceEth }: P
               x={geom.x(t)}
               y={height - 6}
               textAnchor={i === 0 ? 'start' : i === X_TICKS.length - 1 ? 'end' : 'middle'}
-              fontSize={8.5}
+              fontSize={11}
               fill="var(--gp-faint)"
               style={MONO}
             >
