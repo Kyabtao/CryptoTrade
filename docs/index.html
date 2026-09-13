@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="assets/style.css" />
 </head>
 <body>
+  <script src="assets/theme.js"></script>
   <script src="assets/data.js"></script>
   <script src="assets/charts.js"></script>
   <script src="assets/layout.js"></script>
@@ -186,11 +187,13 @@
       /* ---- return over time ---- */
       const top = [...env.accounts].sort((a, b) => Math.abs(b.returnPct) - Math.abs(a.returnPct)).slice(0, 6);
       const retSeries = [
-        { name: "Portfolio", color: "#e6eaf2", width: 2.6, values: history.map((r) => r.return_pct) },
+        { name: "Portfolio", color: siteInk().text, width: 2.6, values: history.map((r) => r.return_pct) },
         ...top.map((a, i) => ({ name: a.name, color: CAT_COLORS[i], values: history.map((r) => (r.rets && r.rets[a.id] != null ? r.rets[a.id] : null)) })),
       ];
       let retZoom = null;
       function drawRet() {
+        /* re-resolve the theme ink so toggling cream/dark re-tints on redraw */
+        retSeries[0].color = siteInk().text;
         interactiveLineChart(
           document.getElementById("retChart"),
           retSeries.filter((s) => s.visible !== false),

@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="assets/style.css" />
 </head>
 <body>
+  <script src="assets/theme.js"></script>
   <script src="assets/data.js"></script>
   <script src="assets/charts.js"></script>
   <script src="assets/layout.js"></script>
@@ -211,7 +212,7 @@
         // per-strategy interactive return curve
         const series = [
           { name: a.name, color: "#3b82f6", area: true, values: history.map((h) => (h.rets && h.rets[a.id] != null ? h.rets[a.id] : null)) },
-          { name: "Portfolio", color: "#97a1b5", dashed: true, values: history.map((h) => h.return_pct) },
+          { name: "Portfolio", color: siteInk().dim, dashed: true, values: history.map((h) => h.return_pct) },
         ];
         let zoom = null;
         const host = sheet.querySelector("#stratChart");

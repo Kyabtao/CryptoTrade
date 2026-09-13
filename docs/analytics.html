@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="assets/style.css" />
 </head>
 <body>
+  <script src="assets/theme.js"></script>
   <script src="assets/data.js"></script>
   <script src="assets/charts.js"></script>
   <script src="assets/layout.js"></script>
@@ -149,7 +150,7 @@
           name: a.name, color: CAT_COLORS[i % CAT_COLORS.length],
           values: history.map((r) => (r.rets && r.rets[a.id] != null ? r.rets[a.id] : null)),
         }));
-        cmpSeries.unshift({ name: "Portfolio", color: "#e6eaf2", width: 2.6, dashed: true, values: history.map((r) => r.return_pct) });
+        cmpSeries.unshift({ name: "Portfolio", color: siteInk().text, width: 2.6, dashed: true, values: history.map((r) => r.return_pct) });
         cmpZoom = null;
         legend("#cmpLegend", cmpSeries, drawCmp);
         drawCmp();

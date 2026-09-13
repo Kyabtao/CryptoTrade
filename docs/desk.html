@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CryptoTrade — GPTHEIST Desk</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <script src="assets/data.js"></script>
+  <script src="assets/charts.js"></script>
+  <script src="assets/desk.js"></script>
+  <script src="assets/layout.js"></script>
+  <script>renderNav("desk.html");</script>
+
+  <div class="wrap">
+    <div class="hero">
+      <div>
+        <h1>GPTHEIST Desk <span class="dlive"><i></i>LIVE</span></h1>
+        <div class="sub" id="heroSub">the gptheist panel language, rebuilt dependency-free on live bot data</div>
+      </div>
+      <div class="hero-price">
+        <div class="big num" id="heroPrice">—</div>
+        <div class="sub" id="heroPriceMeta">—</div>
+        <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <a class="chip" href="gptheist/dist/index.html" style="display:inline-flex;text-decoration:none">🎛 Original GPTHEIST app →</a>
+          <button class="chip-btn" id="themeBtn" type="button" title="Switch the desk palette (gptheist cream ↔ site dark)">CREAM</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="desk-kpis" id="dkpis"></div>
+
+    <!-- row 2 — equity + activity log (7/5, like the desk's balance/log row) -->
+    <div class="desk-grid" style="margin-top:16px;">
+      <section class="card dcard span7">
+        <div class="dhead">
+          <h3>// Portfolio Equity</h3>
+          <span class="dcap num" id="eqCap">USDT</span>
+        </div>
+        <div class="dchart" id="eqChart"></div>
+        <div class="dfoot">ONE BOOK · 42 ENGINES · ONE CANDLE AT A TIME</div>
+      </section>
+
+      <section class="card dcard span5">
+        <div class="dhead">
+          <h3>// Activity Log</h3>
+          <span class="dcap num" id="logCap">0 FILLS</span>
+        </div>
+        <div class="dlog" id="logList"></div>
+        <div class="dfoot">EVERY FILL LEAVES A TRAIL</div>
+      </section>
+    </div>
+
+    <!-- row 3 — return ridgeline, one density curve per tick -->
+    <div class="desk-grid">
+      <section class="card dcard span12">
+        <div class="dhead">
+          <h3><i class="ddot neu"></i> Return Ridge</h3>
+          <span class="dcap">RETURN CROSS-SECTION / ONE CURVE PER TICK</span>
+          <span class="dcap num">42 BOOKS</span>
+        </div>
+        <div class="dbody">
+          <div class="dstats" id="ridgeStats"></div>
+          <div class="dchart" id="ridgeChart"></div>
+        </div>
+        <div class="dfoot">PRICE THE DISPERSION · THE TAILS ARE WHERE THE RISK LIVES</div>
+      </section>
+    </div>
+
+    <!-- row 3.5 — 5-D metric lattice (penteract), axes = real metrics -->
+    <div class="desk-grid">
+      <section class="card dcard span12">
+        <div class="dhead">
+          <h3><i class="ddot accent"></i> 5-D Metric Lattice</h3>
+          <span class="dcap">EVERY BOOK ON 5 AXES / ABOVE-BELOW FLEET MEDIAN</span>
+          <span class="dcap num" id="latRot">↻ 0°</span>
+        </div>
+        <div class="dbody lattice">
+          <div class="dstats" id="latStats"></div>
+          <div class="dchart" id="latChart"></div>
+          <div class="daxes" id="latAxes"></div>
+        </div>
+        <div class="dfoot">EVERY AXIS IS A METRIC · A BOOK MUST PASS ALL FIVE</div>
+      </section>
+    </div>
+
+    <!-- row 4 — co-fire chord + return distribution (6/6) -->
+    <div class="desk-grid">
+      <section class="card dcard span6">
+        <div class="dhead">
+          <h3><i class="ddot gold"></i> Co-fire Chord</h3>
+          <span class="dcap">WHO FIRES TOGETHER</span>
+          <span class="dcap num" id="chordCap">8 CLUSTERS</span>
+        </div>
+        <div class="dbody">
+          <div class="dstats" id="chordStats"></div>
+          <div class="dchart" id="chordChart"></div>
+        </div>
+        <div class="dfoot">RIBBON = MEAN FILL OVERLAP BETWEEN TWO CLUSTERS</div>
+      </section>
+
+      <section class="card dcard span6">
+        <div class="dhead">
+          <h3><i class="ddot neu"></i> Edge Distribution</h3>
+          <span class="dcap">RETURN CROSS-SECTION / LATEST TICK</span>
+          <span class="dcap num">42 ACCOUNTS</span>
+        </div>
+        <div class="dbody">
+          <div class="dstats" id="histStats"></div>
+          <div class="dchart" id="histChart"></div>
+        </div>
+        <div class="dfoot">GREEN SURVIVES · RED PAYS THE FEES</div>
+      </section>
+    </div>
+
+    <!-- row 5 — signal graph -->
+    <div class="desk-grid">
+      <section class="card dcard span12">
+        <div class="dhead">
+          <h3><i class="ddot neg"></i> Signal Graph</h3>
+          <span class="dcap">STRATEGIES LINKED BY SHARED FILLS</span>
+          <span class="dcap num" id="graphCap">—</span>
+        </div>
+        <div class="dbody">
+          <div class="dstats" id="graphStats"></div>
+          <div>
+            <div class="dchart" id="graphChart"></div>
+            <div class="dcontrols">
+              <label class="mini">co-fire threshold <b class="num" id="thVal">0.25</b></label>
+              <input type="range" id="thSlider" min="10" max="60" step="5" value="25" />
+              <span class="mini dstatus" id="graphStatus"></span>
+            </div>
+            <div class="dlegend" id="catLegend"></div>
+          </div>
+        </div>
+        <div class="dfoot">SHARED FILLS, SHARED FATE · CLICK A NODE FOR ITS LESSON</div>
+      </section>
+    </div>
+
+    <!-- roster strip -->
+    <div class="desk-grid">
+      <section class="card dcard span12">
+        <div class="dhead">
+          <h3>// The Crew</h3>
+          <span class="dcap">TOP 10 BY RETURN</span>
+        </div>
+        <div class="dcrew-strip" id="roster"></div>
+        <div class="dfoot">EVERY CARD LINKS ITS FULL LESSON</div>
+      </section>
+    </div>
+
+    <div class="note">
+      <b>Paper trading only.</b> This page restyles the live bot state in the visual language of the
+      <a href="gptheist/dist/index.html">GPTHEIST app</a> — same numbers as the
+      <a href="index.html">dashboard</a>, no mock data. Co-fire links are measured from actual fill
+      timestamps, not from returns. Not financial advice.
+    </div>
+    <div class="footer">CryptoTrade · state updates every 15 minutes via the scheduled tick</div>
+  </div>
+
+  <script>
+    (async function () {
+      const [state, history, catalog] = await Promise.all([loadState(), loadHistory(), loadCatalog()]);
+      const env = enrichState(state);
+      renderUpdateMessage(env.meta, `${env.accounts.length} sub-accounts · ${history.length} recorded ticks`);
+
+      /* ---------- theme (cream = the gptheist original palette) ---------- */
+      /* applied before the first draw so charts read the right palette */
+      const themeBtn = document.getElementById("themeBtn");
+      let cream = false;
+      try { cream = localStorage.getItem("siteTheme") === "cream"; } catch (e) { /* private mode */ }
+      const applyTheme = () => {
+        document.body.classList.toggle("theme-cream", cream);
+        themeBtn.textContent = cream ? "DARK" : "CREAM";
+      };
+      applyTheme();
+
+      /* categories */
+      const catById = {};
+      (catalog || []).forEach((c) => (catById[c.id] = c));
+      env.accounts.forEach((a) => { a.category = (catById[a.id] || {}).category || "Other"; });
+      const cats = [...new Set((catalog || []).map((c) => c.category).filter(Boolean))];
+      if (!cats.length) cats.push("Other");
+      const CAT_SHORT = {
+        "Momentum & Trend Following": "MOMENTUM",
+        "Mean Reversion & Channels": "MEAN-REV·CH",
+        "Mean Reversion & Oscillators": "MEAN-REV·OSC",
+        "Volume & Volatility": "VOL/VOLAT",
+        "Price Action": "PRICE ACT",
+        "Risk & Trailing": "RISK/TRAIL",
+        "Execution-Based & Portfolio": "EXECUTION",
+        "Composite & Hybrid": "HYBRID",
+      };
+      const catShort = (c) => CAT_SHORT[c] || c.toUpperCase().slice(0, 12);
+
+      /* per-account cumulative return series across ticks (null-safe: carry
+         the last known value, strategies missing from early ticks sit at 0) */
+      const grid = env.accounts.map(() => history.map(() => 0));
+      history.forEach((r, t) => {
+        env.accounts.forEach((a, i) => {
+          const v = r.rets && r.rets[a.id] != null ? r.rets[a.id] : null;
+          grid[i][t] = v != null ? v : (t > 0 ? grid[i][t - 1] : 0);
+        });
+      });
+      const latest = env.accounts.map((a) => a.returnPct);
+
+      /* co-fire sets: the candles on which each account actually filled */
+      const fireSets = env.accounts.map((a) => new Set(a.trades.map((t) => t.candle_ts)));
+      const jacc = (i, j) => djaccard(fireSets[i], fireSets[j]);
+
+      const redraw = [];
+
+      /* ---------- hero ---------- */
+      document.getElementById("heroPrice").textContent = fmtPrice(env.price);
+      document.getElementById("heroPriceMeta").textContent =
+        `${env.meta.symbol || "—"} · ${env.meta.timeframe || "—"} · tick #${env.meta.run_count ?? "—"}`;
+      document.getElementById("heroSub").textContent =
+        `${env.accounts.length} sub-accounts · ${history.length} recorded ticks · last fill ${
+          env.accounts.reduce((m, a) => Math.max(m, a.trades.length ? new Date(a.trades[a.trades.length - 1].timestamp).getTime() : 0), 0)
+            ? fmtTsShort(new Date(env.accounts.reduce((m, a) => Math.max(m, a.trades.length ? new Date(a.trades[a.trades.length - 1].timestamp).getTime() : 0), 0)).toISOString())
+            : "—"}`;
+
+      /* ---------- KPI strip ---------- */
+      const funded = env.totalFunded;
+      const pnl = env.totalEquity - funded;
+      const top = [...env.accounts].sort((a, b) => b.returnPct - a.returnPct);
+      const leader = top[0];
+      const nProfit = env.accounts.filter((a) => a.returnPct > 0).length;
+      const deployPct = env.totalEquity ? (env.totalMarketValue / env.totalEquity) * 100 : 0;
+      deskKpis(document.getElementById("dkpis"), [
+        { label: "TOTAL EQUITY", unit: "/ USDT", value: fmtUSD0(env.totalEquity),
+          sub: `from ${fmtUSD0(funded)} · ${env.accounts.length} accounts` },
+        { label: "TOTAL PNL", unit: "/ USD", value: (pnl >= 0 ? "+" : "−") + fmtUSD0(Math.abs(pnl)).replace("$", "$"),
+          cls: pctClass(pnl), sub: `${fmtPct(env.totalReturnPct)} · best ${esc(leader.name)} ${fmtPct(leader.returnPct)}` },
+        { label: "DEPLOYMENT", unit: "/ IN MARKET", value: fmtNum(deployPct, 1) + "%", cls: deployPct > 1 ? "gold" : "",
+          sub: `${env.openCount} open positions · ${nProfit}/${env.accounts.length} in profit`,
+          seg: { share: nProfit / env.accounts.length } },
+        { label: "LEADER", unit: "/" + (leader.returnPct >= 0 ? " CLEARED" : " ALL RED"),
+          value: chartLabel(leader.name, 20), cls: pctClass(leader.returnPct), dot: leader.returnPct >= 0 ? "pos" : "neg",
+          sub: `${fmtPct(leader.returnPct)} · ${esc(catShort(leader.category))}` },
+      ]);
+
+      /* ---------- row 2: equity + activity log ---------- */
+      const eqRows = history.map((r) => ({ ts: r.ts, equity: r.equity }));
+      document.getElementById("eqCap").textContent = `USDT · ${history.length} TICKS`;
+      function drawEq() { deskEquityChart(document.getElementById("eqChart"), eqRows, { baseline: funded }); }
+      redraw.push(drawEq); drawEq();
+
+      const entries = [];
+      env.accounts.forEach((a, i) => {
+        a.trades.forEach((t) => {
+          entries.push({
+            sort: t.candle_ts || 0,
+            ts: fmtTsShort(t.timestamp),
+            code: a.id.slice(0, 2),
+            color: categoryColor(a.category, cats),
+            name: a.name,
+            side: t.side,
+            msg: (t.side === "buy" ? t.entry_reason : t.exit_reason) || (t.side === "buy" ? "entry" : "exit"),
+            right: t.side === "buy" ? "BUY" : (t.pnl >= 0 ? "+" : "") + fmtUSD(t.pnl),
+            rightCls: t.side === "buy" ? "" : pctClass(t.pnl),
+          });
+        });
+      });
+      entries.sort((a, b) => b.sort - a.sort);
+      document.getElementById("logCap").textContent = `${entries.length} FILLS`;
+      deskActivityLog(document.getElementById("logList"), entries, 70);
+
+      /* ---------- row 3: ridge ---------- */
+      const RIDGE_N = Math.min(16, history.length);
+      const frames = history.slice(-RIDGE_N).map((r, k) => ({
+        ts: r.ts,
+        values: grid.map((row) => row[history.length - RIDGE_N + k]),
+      }));
+      const lastVals = frames.length ? frames[frames.length - 1].values : latest;
+      const bestIdx = lastVals.indexOf(Math.max(...lastVals));
+      const worstIdx = lastVals.indexOf(Math.min(...lastVals));
+      const statRows = (id, rows) => {
+        document.getElementById(id).innerHTML = rows.map((r) =>
+          `<div class="dstat"><span>${r[0]}</span><b class="num ${r[2] || ""}">${r[1]}</b></div>`).join("");
+      };
+      statRows("ridgeStats", [
+        ["TICKS SHOWN", frames.length],
+        ["MEDIAN", fmtPct(dmedian(lastVals)), pctClass(dmedian(lastVals))],
+        ["IN PROFIT", `${lastVals.filter((v) => v > 0).length}/${lastVals.length}`, "pos"],
+        ["BEST", fmtPct(lastVals[bestIdx]), "pos"],
+        ["WORST", fmtPct(lastVals[worstIdx]), "neg"],
+        ["P90 − P10", fmtPct(dquantile(lastVals, 0.9) - dquantile(lastVals, 0.1))],
+      ]);
+      function drawRidge() { deskRidge(document.getElementById("ridgeChart"), frames); }
+      redraw.push(drawRidge); drawRidge();
+
+      /* ---------- 5-D metric lattice ---------- */
+      /* five real metrics; each bit = above (or, for fee drag, below) the
+         fleet median — the 42 books scatter across the penteract's 32
+         vertices, coloured by the sign of the vertex's average return */
+      const AXCOLS = ["#3b82f6", "#22c55e", "#f59e0b", "#a78bfa", "#ef4444"];
+      const metric = (a) => ({
+        ret: a.returnPct,
+        act: a.tradesCount,
+        win: a.closedCount ? a.winRate : null,
+        exp: a.equity ? (a.marketValue / a.equity) * 100 : 0,
+        fee: a.equity ? (a.totalFees / a.equity) * 100 : 0,
+      });
+      const mvals = env.accounts.map(metric);
+      const medOf = (key) => {
+        const vs = mvals.map((m) => m[key]).filter((v) => v != null);
+        return vs.length ? dmedian(vs) : 0;
+      };
+      const AXDEF = [
+        { key: "ret", label: "D1 RETURN", color: AXCOLS[0], up: true,
+          med: medOf("ret"), rule: `≥ ${fmtPct(medOf("ret"))} fleet median` },
+        { key: "act", label: "D2 ACTIVITY", color: AXCOLS[1], up: true,
+          med: medOf("act"), rule: `≥ ${fmtNum(medOf("act"), 0)} fills` },
+        { key: "win", label: "D3 WIN RATE", color: AXCOLS[2], up: true,
+          med: (() => { const vs = mvals.map((m) => m.win).filter((v) => v != null); return vs.length ? dmedian(vs) : 0; })(),
+          rule: `closed trades · above median win rate` },
+        { key: "exp", label: "D4 EXPOSURE", color: AXCOLS[3], up: true,
+          med: medOf("exp"), rule: `≥ ${fmtNum(medOf("exp"), 1)}% of equity in market` },
+        { key: "fee", label: "D5 FEE DRAG", color: AXCOLS[4], up: false,
+          med: medOf("fee"), rule: `≤ ${fmtNum(medOf("fee"), 2)}% of equity in fees` },
+      ];
+      const latItems = env.accounts.map((a, i) => {
+        const m = mvals[i];
+        const bits = AXDEF.map((d) => {
+          const v = m[d.key];
+          if (v == null) return 0;
+          return (d.up ? v >= d.med : v <= d.med) ? 1 : 0;
+        });
+        return { id: a.id, name: a.name, cat: a.category, color: categoryColor(a.category, cats), ret: a.returnPct, bits };
+      });
+      const occ32 = Array.from({ length: 32 }, () => []);
+      latItems.forEach((it) => occ32[dBitsKey(it.bits)].push(it));
+      const maxOcc = Math.max(...occ32.map((o) => o.length));
+      const emptyV = occ32.filter((o) => !o.length).length;
+      statRows("latStats", [
+        ["BOOKS MAPPED", latItems.length],
+        ["CROWDED VERTEX", maxOcc ? `${maxOcc} BOOK${maxOcc > 1 ? "S" : ""}` : "—", maxOcc ? "pos" : ""],
+        ["ALL-FAVORABLE", occ32[31].length || "0", occ32[31].length ? "pos" : ""],
+        ["ALL-ADVERSE", occ32[0].length || "0", occ32[0].length ? "neg" : ""],
+        ["EMPTY VERTICES", `${emptyV}/32`],
+        ["AXES LIVE", "5 / 5"],
+      ]);
+      document.getElementById("latAxes").innerHTML = AXDEF.map((d) =>
+        `<div class="daxis"><i style="background:${d.color}"></i><div><b>${esc(d.label)}</b><span>${esc(d.rule)}</span></div></div>`
+      ).join("");
+      let lastFrame = 0;
+      function drawLattice() {
+        deskLattice(document.getElementById("latChart"), latItems, {
+          axes: AXDEF.map((d) => ({ label: d.label, color: d.color })),
+          onFrame: (deg) => {
+            const now = Date.now();
+            if (now - lastFrame > 400) {
+              lastFrame = now;
+              document.getElementById("latRot").textContent = `↻ ${deg}°`;
+            }
+          },
+        });
+      }
+      redraw.push(drawLattice); drawLattice();
+
+      /* ---------- row 4: chord + histogram ---------- */
+      const nC = cats.length;
+      const catIdx = new Map(cats.map((c, i) => [c, i]));
+      const catSum = Array.from({ length: nC }, () => Array(nC).fill(0));
+      const catCnt = Array.from({ length: nC }, () => Array(nC).fill(0));
+      for (let i = 0; i < env.accounts.length; i++) {
+        for (let j = i + 1; j < env.accounts.length; j++) {
+          const v = jacc(i, j);
+          if (v <= 0) continue;
+          const ci = catIdx.get(env.accounts[i].category), cj = catIdx.get(env.accounts[j].category);
+          if (ci == null || cj == null) continue;
+          catSum[ci][cj] += v; catCnt[ci][cj]++;
+          catSum[cj][ci] += v; catCnt[cj][ci]++;
+        }
+      }
+      const catMat = catSum.map((row, i) => row.map((s, j) => (catCnt[i][j] ? s / catCnt[i][j] : 0)));
+      document.getElementById("chordCap").textContent = `${nC} CLUSTERS`;
+      let strongest = { v: 0, pair: null }, catPairs = 0, catMass = 0;
+      for (let i = 0; i < nC; i++) {
+        for (let j = i + 1; j < nC; j++) {
+          if (catCnt[i][j]) { catPairs++; catMass += catMat[i][j]; }
+          if (catMat[i][j] > strongest.v) strongest = { v: catMat[i][j], pair: [cats[i], cats[j]] };
+        }
+      }
+      statRows("chordStats", [
+        ["CLUSTERS", nC],
+        ["STRATEGIES", env.accounts.length],
+        ["ACTIVE PAIRS", catPairs],
+        ["MEAN OVERLAP", catPairs ? fmtNum(catMass / catPairs, 3) : "—"],
+        ["STRONGEST", strongest.pair ? `${catShort(strongest.pair[0])}↔${catShort(strongest.pair[1])}` : "—"],
+        ["STRENGTH", strongest.pair ? fmtNum(strongest.v, 3) : "—", "pos"],
+      ]);
+      function drawChord() { deskChord(document.getElementById("chordChart"), catMat, cats.map(catShort), cats.map((c) => categoryColor(c, cats))); }
+      redraw.push(drawChord); drawChord();
+
+      statRows("histStats", [
+        ["IN PROFIT", `${nProfit}/${latest.length}`, nProfit * 2 >= latest.length ? "pos" : "neg"],
+        ["MEDIAN", fmtPct(dmedian(latest)), pctClass(dmedian(latest))],
+        ["BEST", fmtPct(Math.max(...latest)), "pos"],
+        ["WORST", fmtPct(Math.min(...latest)), "neg"],
+        ["SPREAD", fmtPct(Math.max(...latest) - Math.min(...latest))],
+      ]);
+      function drawHist() { deskHistogram(document.getElementById("histChart"), latest); }
+      redraw.push(drawHist); drawHist();
+
+      /* ---------- row 5: signal graph ---------- */
+      const gNodes = env.accounts.map((a, i) => ({
+        id: a.id, name: a.name, cat: a.category, color: categoryColor(a.category, cats),
+        ret: a.returnPct, fills: a.tradesCount, x: null, y: null,
+        r: 5 + Math.min(5, Math.sqrt(a.tradesCount) * 1.1),
+      }));
+      const allPairs = [];
+      for (let i = 0; i < gNodes.length; i++) {
+        for (let j = i + 1; j < gNodes.length; j++) {
+          const v = jacc(i, j);
+          if (v > 0) allPairs.push({ i, j, v });
+        }
+      }
+      allPairs.sort((a, b) => b.v - a.v);
+      let threshold = 0.25;
+      const slider = document.getElementById("thSlider");
+      const thVal = document.getElementById("thVal");
+      const statusEl = document.getElementById("graphStatus");
+
+      function graphStats() {
+        const links = allPairs.filter((p) => p.v >= threshold);
+        const deg = Array(gNodes.length).fill(0);
+        links.forEach((p) => { deg[p.i]++; deg[p.j]++; });
+        const maxDeg = Math.max(...deg);
+        const hubIdx = deg.indexOf(maxDeg);
+        const isolated = deg.filter((d) => d === 0).length;
+        const traded = env.accounts.filter((a) => a.tradesCount > 0).length;
+        statRows("graphStats", [
+          ["NODES", gNodes.length],
+          ["WITH FILLS", traded],
+          ["EDGES", links.length, links.length ? "pos" : ""],
+          ["MAX OVERLAP", allPairs.length ? fmtNum(allPairs[0].v, 2) : "—", "pos"],
+          ["TOP PAIR", allPairs.length ? `${gNodes[allPairs[0].i].id.slice(0, 2)}↔${gNodes[allPairs[0].j].id.slice(0, 2)}` : "—"],
+          ["HUB", maxDeg ? `${gNodes[hubIdx].name.split(" ")[0].toUpperCase()} ·${maxDeg}` : "—"],
+          ["ISOLATED", isolated, isolated ? "" : "pos"],
+        ]);
+        document.getElementById("graphCap").textContent = `${gNodes.length} NODES · ${links.length} EDGES`;
+        return links;
+      }
+      function drawGraph() {
+        const links = graphStats().map((p) => ({ s: gNodes[p.i], t: gNodes[p.j], v: p.v }));
+        deskSignalGraph(document.getElementById("graphChart"), gNodes, links, {
+          onStatus: (nd) => {
+            statusEl.textContent = nd ? `→ ${nd.name} · ${nd.fills} fills · ${fmtPct(nd.ret)}` : "";
+          },
+        });
+      }
+      slider.addEventListener("input", () => {
+        threshold = +slider.value / 100;
+        thVal.textContent = fmtNum(threshold, 2);
+        drawGraph();
+      });
+      document.getElementById("catLegend").innerHTML = cats.map((c) => {
+        const n = env.accounts.filter((a) => a.category === c).length;
+        return `<span class="item"><i class="swatch" style="background:${categoryColor(c, cats)}"></i>${esc(catShort(c))} · ${n}</span>`;
+      }).join("");
+      redraw.push(drawGraph); drawGraph();
+
+      /* ---------- roster ---------- */
+      deskRoster(document.getElementById("roster"), top.slice(0, 10).map((a, i) => ({
+        idx: String(i + 1).padStart(2, "0"),
+        name: a.name, id: a.id, cat: catShort(a.category),
+        color: categoryColor(a.category, cats),
+        ret: a.returnPct,
+        spark: grid[env.accounts.indexOf(a)],
+        href: "lesson.html?id=" + encodeURIComponent(a.id),
+      })));
+
+      /* ---------- theme toggle (charts re-read the palette on redraw) ---------- */
+      themeBtn.addEventListener("click", () => {
+        cream = !cream;
+        try { localStorage.setItem("siteTheme", cream ? "cream" : "dark"); } catch (e) { /* private mode */ }
+        applyTheme();
+        redraw.forEach((f) => f());
+      });
+
+      window.addEventListener("resize", debounce(() => redraw.forEach((f) => f())));
+    })().catch((e) => {
+      document.body.innerHTML = '<div class="wrap"><div class="empty">Failed to load data: ' + e.message + "</div></div>";
+    });
+  </script>
+</body>
+</html>

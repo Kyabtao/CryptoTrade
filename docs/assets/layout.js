@@ -22,6 +22,9 @@ const NAV_ITEMS = [
   { href: "risk.html", label: "Risk" },
   { href: "trades.html", label: "Trades" },
   { href: "profile.html", label: "Profile" },
+  // desk.html: the GPTHEIST panel language (ridge, chord, signal graph, crew
+  // cards) rebuilt as plain SVG in the shared chrome, driven by live state.
+  { href: "desk.html", label: "Desk" },
   // A separate self-contained app (Vite + React) built into docs/gptheist/dist/.
   // It ships its own markup and stylesheet and does not use the shared chrome.
   { href: "gptheist/dist/index.html", label: "GPTHEIST" },
@@ -47,6 +50,7 @@ function renderNav(active) {
     <div class="nav-inner">
       <a class="brand" href="index.html"><span class="logo">₿</span> CryptoTrade</a>
       <div class="nav-links" id="navLinks" aria-label="Primary navigation">${links}</div>
+      <button class="chip-btn theme-toggle" id="siteThemeBtn" type="button" aria-pressed="false" title="Switch to cream">☀</button>
       <a class="nav-who" href="profile.html" title="Bot profile &amp; account rules">
         <span class="avatar">${BOT.initials}</span>
         <span class="who-text"><b>${BOT.name}</b><span class="hide-sm">${BOT.handle}</span></span>

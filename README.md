@@ -43,6 +43,7 @@ build step and no server-side code:
 | [`docs/strategies.html`](docs/strategies.html) | All 42 strategies with their entry/exit logic, parameters, warm-up and live state; click any card for its return curve, indicator state, open lots and trade history |
 | [`docs/trades.html`](docs/trades.html) | Every simulated fill, plus a cumulative realized-PnL curve, fill-size histogram and buy/sell split; filterable by account/side/reason and paginated |
 | [`docs/risk.html`](docs/risk.html) | Portfolio drawdown, buy-and-hold vs. portfolio return, exposure and unrealized PnL per account, and the live open-position table |
+| [`docs/desk.html`](docs/desk.html) | GPTHEIST-style desk: the Money-Heist panel language from [`docs/gptheist/`](docs/gptheist/) rebuilt dependency-free on live state — KPI strip with segmented deployment bar, balance-history line with current-value tag, fill-by-fill activity log, return ridgeline (one KDE curve per tick), a rotating 5-D metric lattice (each strategy projected on five above/below-median axes: return, activity, win rate, exposure, fee drag), category co-fire chord, return histogram, a force-directed signal graph linking strategies that fill on the same candles (threshold slider) and a top-10 crew strip with sparklines. A CREAM/DARK toggle flips the whole desk to the gptheist original palette (persisted in `localStorage`); charts respect `prefers-reduced-motion` |
 | [`docs/profile.html`](docs/profile.html) | The bot's profile — who it is, its full account rulebook, live configuration, **wallet breakdown (liquid cash vs. balance held in the market, cost basis, open PnL)**, trading record, equity curve and a sub-account register with per-account cash / in-market columns |
 | [`docs/learn.html`](docs/learn.html) | Academy hub: searchable/filterable library of the 42 lessons with live stats per strategy and suggested reading paths |
 | [`docs/lesson.html`](docs/lesson.html) | Full lesson per strategy (`?id=<slug>`): plain-English idea, how it works, strengths/weaknesses, mistakes, watch-outs, real defaults with explanations, related lessons, indicator links and live account panels |
@@ -56,6 +57,12 @@ Every chart is interactive: hover for a crosshair tooltip, click legend entries
 to toggle series, drag across a chart to zoom into a range and double-click to
 reset. The "last update" details are shown as a dismissible message strip at the
 top of each page rather than inside the navigation bar.
+
+A **☀ / 🌙 toggle in the navigation bar** (plus the CREAM button on the desk)
+flips the whole dashboard to the gptheist original cream palette. The choice
+persists in `localStorage` (`siteTheme`) and every page re-tints on the spot —
+shared charts resolve ink/gridline colours at draw time (`chartInk()` /
+`siteInk()`), then redraw via a synthetic resize event.
 
 ### The bot's identity
 

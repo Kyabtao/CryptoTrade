@@ -2,6 +2,17 @@
 
 const SVGNS = "http://www.w3.org/2000/svg";
 
+/* Ink/gridline colours for the active theme, resolved at draw time — SVG
+   presentation attributes do not understand var(), and the cream theme flips
+   the palette at runtime. Kept in lockstep with assets/theme.js (siteInk)
+   and the body.theme-cream overrides in style.css. */
+function chartInk() {
+  const cream = document.body.classList.contains("theme-cream");
+  return cream
+    ? { text: "#141414", dim: "#56564f", faint: "#8a8a84", axis: "#d5d5cf" }
+    : { text: "#e6eaf2", dim: "#97a1b5", faint: "#5f6b82", axis: "#2a3348" };
+}
+
 /* Run `fn` once after a burst of viewport resize / orientation events settles.
    Charts are drawn against their container width, so rotating a phone/tablet or
    resizing the window must re-render them at the new width (otherwise the SVG
@@ -83,7 +94,7 @@ function lineChart(container, series, labels, opts = {}) {
   for (let g = y0; g <= max; g += step) {
     el("line", { x1: ml, x2: ml + iw, y1: y(g), y2: y(g), stroke: "#1c2333", "stroke-width": 1 }, svg);
     svgText(ml - 8, y(g) + 4, (opts.yFmt || ((v) => v.toLocaleString("en-US", { maximumFractionDigits: 2 })))(g),
-      { "text-anchor": "end", "font-size": 11, fill: "#5f6b82", class: "num" }, svg);
+      { "text-anchor": "end", "font-size": 11, fill: chartInk().faint, class: "num" }, svg);
   }
 
   // x labels
@@ -91,7 +102,7 @@ function lineChart(container, series, labels, opts = {}) {
   const every = Math.max(1, Math.ceil(n / ticks));
   for (let i = 0; i < n; i += every) {
     svgText(x(i), height - 7, (opts.xFmt || ((i) => labels[i] || ""))(i),
-      { "text-anchor": "middle", "font-size": 11, fill: "#5f6b82", class: "num" }, svg);
+      { "text-anchor": "middle", "font-size": 11, fill: chartInk().faint, class: "num" }, svg);
   }
 
   series.forEach((s) => {
@@ -138,7 +149,7 @@ function barChartH(container, items, opts = {}) {
   const svg = el("svg", { viewBox: `0 0 ${width} ${height}`, class: "chart" }, container);
 
   const zeroX = chartX + chartW / 2;
-  el("line", { x1: zeroX, x2: zeroX, y1: 0, y2: height, stroke: "#2a3348", "stroke-width": 1 }, svg);
+  el("line", { x1: zeroX, x2: zeroX, y1: 0, y2: height, stroke: chartInk().axis, "stroke-width": 1 }, svg);
 
   // A value label printed next to a (near) zero-length bar lands right on the
   // axis and collides with the label of the opposite sign. Reserve the centre
@@ -148,7 +159,7 @@ function barChartH(container, items, opts = {}) {
 
   items.forEach((item, i) => {
     const cy = i * (rowH + gap) + rowH / 2 + 2;
-    svgText(labelW, cy + 4, compact ? chartLabel(item.label, 13) : item.label, { "text-anchor": "end", "font-size": compact ? 10.5 : 11.5, fill: "#97a1b5" }, svg);
+    svgText(labelW, cy + 4, compact ? chartLabel(item.label, 13) : item.label, { "text-anchor": "end", "font-size": compact ? 10.5 : 11.5, fill: chartInk().dim }, svg);
     const w = (Math.abs(item.value) / maxAbs) * (chartW / 2);
     const drawW = Math.max(w, 2.5);
     const bx = item.value >= 0 ? zeroX + 2 : zeroX - 2 - drawW;
@@ -157,7 +168,7 @@ function barChartH(container, items, opts = {}) {
     t.textContent = `${item.label}: ${(opts.vFmt || ((v) => fmtPct(v)))(item.value)}`;
     if (w > labelZone) {
       svgText(item.value >= 0 ? bx + drawW + 6 : bx - 6, cy + 4, (opts.vFmt || ((v) => fmtPct(v)))(item.value),
-        { "text-anchor": item.value >= 0 ? "start" : "end", "font-size": 11.5, fill: "#e6eaf2", class: "num" }, svg);
+        { "text-anchor": item.value >= 0 ? "start" : "end", "font-size": 11.5, fill: chartInk().text, class: "num" }, svg);
     }
   });
 }
@@ -187,14 +198,14 @@ function hbarChart(container, items, opts = {}) {
     if (g < vmin || g > vmax) continue;
     const gx = chartX + ((g - vmin) / span) * chartW;
     el("line", { x1: gx, x2: gx, y1: 0, y2: height - 6, stroke: "#1c2333", "stroke-width": 1 }, svg);
-    svgText(gx, height - 1, (opts.xFmt || ((v) => String(Math.round(v))))(g), { "text-anchor": "middle", "font-size": 10, fill: "#5f6b82", class: "num" }, svg);
+    svgText(gx, height - 1, (opts.xFmt || ((v) => String(Math.round(v))))(g), { "text-anchor": "middle", "font-size": 10, fill: chartInk().faint, class: "num" }, svg);
   }
 
   const baseX = chartX + ((vmin - vmin) / span) * chartW; // == chartX
   const valueFmt = opts.vFmt || ((v) => fmtPct(v));
   items.forEach((item, i) => {
     const cy = i * (rowH + gap) + rowH / 2 + 2;
-    svgText(labelW - 8, cy + 4, compact ? chartLabel(item.label, 16) : item.label, { "text-anchor": "end", "font-size": compact ? 10.5 : 11.5, fill: "#97a1b5" }, svg);
+    svgText(labelW - 8, cy + 4, compact ? chartLabel(item.label, 16) : item.label, { "text-anchor": "end", "font-size": compact ? 10.5 : 11.5, fill: chartInk().dim }, svg);
     const bx = baseX;
     const endX = chartX + ((item.value - vmin) / span) * chartW;
     const w = Math.max(Math.abs(endX - bx), item.value > vmin ? 2.5 : 0);
@@ -204,7 +215,7 @@ function hbarChart(container, items, opts = {}) {
     t.textContent = `${item.label}: ${valueFmt(item.value)}`;
     // value label to the right of the bar tip, kept inside the chart
     const labelX = rx + 6;
-    svgText(labelX, cy + 4, valueFmt(item.value), { "text-anchor": "start", "font-size": 11.5, fill: "#e6eaf2", class: "num" }, svg);
+    svgText(labelX, cy + 4, valueFmt(item.value), { "text-anchor": "start", "font-size": 11.5, fill: chartInk().text, class: "num" }, svg);
   });
 }
 
@@ -224,13 +235,13 @@ function barChartV(container, items, opts = {}) {
 
   const y = (v) => mt + ih - ((v - bottom) / (top - bottom)) * ih;
   const zeroY = y(0);
-  el("line", { x1: ml, x2: ml + iw, y1: zeroY, y2: zeroY, stroke: "#2a3348", "stroke-width": 1 }, svg);
+  el("line", { x1: ml, x2: ml + iw, y1: zeroY, y2: zeroY, stroke: chartInk().axis, "stroke-width": 1 }, svg);
 
   const step = niceStep(top - bottom, 4);
   for (let g = -maxAbs; g <= maxAbs + 1e-9; g += step) {
     el("line", { x1: ml, x2: ml + iw, y1: y(g), y2: y(g), stroke: "#1c2333", "stroke-width": 1 }, svg);
     svgText(ml - 7, y(g) + 4, (opts.yFmt || ((v) => v.toFixed(1)))(g),
-      { "text-anchor": "end", "font-size": 11, fill: "#5f6b82", class: "num" }, svg);
+      { "text-anchor": "end", "font-size": 11, fill: chartInk().faint, class: "num" }, svg);
   }
 
   const slot = iw / items.length;
@@ -247,7 +258,7 @@ function barChartV(container, items, opts = {}) {
       fill: item.color || (v >= 0 ? "#22c55e" : "#ef4444"),
       opacity: 0.85,
     }, svg);
-    svgText(cx, height - mb + 18, compact ? chartLabel(item.label, 8) : item.label, { "text-anchor": "middle", "font-size": compact ? 9.5 : 10.5, fill: "#97a1b5" }, svg);
+    svgText(cx, height - mb + 18, compact ? chartLabel(item.label, 8) : item.label, { "text-anchor": "middle", "font-size": compact ? 9.5 : 10.5, fill: chartInk().dim }, svg);
   });
 }
 
@@ -292,11 +303,11 @@ function interactiveLineChart(container, series, labels, opts = {}) {
   const step = niceStep(max - min, 5);
   for (let g = Math.ceil(min / step) * step; g <= max; g += step) {
     el("line", { x1: ml, x2: ml + iw, y1: y(g), y2: y(g), stroke: "#1c2333", "stroke-width": 1 }, svg);
-    svgText(ml - 8, y(g) + 4, yFmt(g), { "text-anchor": "end", "font-size": 11, fill: "#5f6b82", class: "num" }, svg);
+    svgText(ml - 8, y(g) + 4, yFmt(g), { "text-anchor": "end", "font-size": 11, fill: chartInk().faint, class: "num" }, svg);
   }
   const every = Math.max(1, Math.ceil(n / (opts.ticks || (compact ? 3 : 6))));
   for (let i = 0; i < n; i += every) {
-    svgText(x(i), height - 8, viewLabels[i] || "", { "text-anchor": "middle", "font-size": 11, fill: "#5f6b82", class: "num" }, svg);
+    svgText(x(i), height - 8, viewLabels[i] || "", { "text-anchor": "middle", "font-size": 11, fill: chartInk().faint, class: "num" }, svg);
   }
 
   view.forEach((s) => {
@@ -462,12 +473,12 @@ function histogram(container, values, opts = {}) {
     t.textContent = `${(opts.fmt || fmtPct)(binLo)} → ${(opts.fmt || fmtPct)(binLo + span / bins)}: ${c}`;
     if (i % Math.ceil(bins / 6) === 0) {
       svgText(ml + slot * i + slot / 2, height - 10, (opts.fmt || fmtPct)(binLo),
-        { "text-anchor": "middle", "font-size": 10.5, fill: "#5f6b82", class: "num" }, svg);
+        { "text-anchor": "middle", "font-size": 10.5, fill: chartInk().faint, class: "num" }, svg);
     }
     if (c) svgText(ml + slot * i + slot / 2, mt + ih - h - 5, String(c),
-      { "text-anchor": "middle", "font-size": 10.5, fill: "#97a1b5", class: "num" }, svg);
+      { "text-anchor": "middle", "font-size": 10.5, fill: chartInk().dim, class: "num" }, svg);
   });
-  el("line", { x1: ml, x2: ml + iw, y1: mt + ih, y2: mt + ih, stroke: "#2a3348" }, svg);
+  el("line", { x1: ml, x2: ml + iw, y1: mt + ih, y2: mt + ih, stroke: chartInk().axis }, svg);
 }
 
 /* Scatter plot. `points` = [{x, y, label, color}] */
@@ -494,14 +505,14 @@ function scatterChart(container, points, opts = {}) {
   for (let g = Math.ceil(y0 / stepY) * stepY; g <= y1; g += stepY) {
     el("line", { x1: ml, x2: ml + iw, y1: Y(g), y2: Y(g), stroke: "#1c2333" }, svg);
     svgText(ml - 8, Y(g) + 4, (opts.yFmt || ((v) => v.toFixed(1)))(g),
-      { "text-anchor": "end", "font-size": 11, fill: "#5f6b82", class: "num" }, svg);
+      { "text-anchor": "end", "font-size": 11, fill: chartInk().faint, class: "num" }, svg);
   }
   const stepX = niceStep(x1 - x0, 5);
   for (let g = Math.ceil(x0 / stepX) * stepX; g <= x1; g += stepX) {
     svgText(X(g), height - 12, (opts.xFmt || ((v) => v.toFixed(0)))(g),
-      { "text-anchor": "middle", "font-size": 11, fill: "#5f6b82", class: "num" }, svg);
+      { "text-anchor": "middle", "font-size": 11, fill: chartInk().faint, class: "num" }, svg);
   }
-  if (y0 < 0 && y1 > 0) el("line", { x1: ml, x2: ml + iw, y1: Y(0), y2: Y(0), stroke: "#2a3348" }, svg);
+  if (y0 < 0 && y1 > 0) el("line", { x1: ml, x2: ml + iw, y1: Y(0), y2: Y(0), stroke: chartInk().axis }, svg);
 
   points.forEach((p) => {
     const c = el("circle", {
@@ -515,7 +526,7 @@ function scatterChart(container, points, opts = {}) {
     c.addEventListener("mouseleave", () => c.setAttribute("r", p.r || 5));
     if (p.href) c.addEventListener("click", () => (location.href = p.href));
   });
-  svgText(ml + iw / 2, height - 1, opts.xLabel || "", { "text-anchor": "middle", "font-size": 11, fill: "#5f6b82" }, svg);
+  svgText(ml + iw / 2, height - 1, opts.xLabel || "", { "text-anchor": "middle", "font-size": 11, fill: chartInk().faint }, svg);
 }
 
 /* Donut chart. `items` = [{label, value, color}] */
@@ -545,7 +556,7 @@ function donutChart(container, items, opts = {}) {
     path.addEventListener("mouseleave", () => path.setAttribute("opacity", 0.9));
     a0 = a1;
   });
-  svgText(cx, cy + 5, opts.center || "", { "text-anchor": "middle", "font-size": 15, fill: "#e6eaf2", class: "num" }, svg);
+  svgText(cx, cy + 5, opts.center || "", { "text-anchor": "middle", "font-size": 15, fill: chartInk().text, class: "num" }, svg);
 }
 
 /* Heatmap grid. `rows` = [{label, cells:[{label,value}]}]
@@ -634,11 +645,11 @@ function candleChart(container, candles, opts = {}) {
   const step = niceStep(hi - lo, 5);
   for (let g = Math.ceil(lo / step) * step; g <= hi; g += step) {
     el("line", { x1: ml, x2: ml + iw, y1: Y(g), y2: Y(g), stroke: "#1c2333" }, svg);
-    svgText(ml - 6, Y(g) + 4, yFmt(g), { "text-anchor": "end", "font-size": 11, fill: "#5f6b82", class: "num" }, svg);
+    svgText(ml - 6, Y(g) + 4, yFmt(g), { "text-anchor": "end", "font-size": 11, fill: chartInk().faint, class: "num" }, svg);
   }
   const every = Math.max(1, Math.ceil(n / (compact ? 4 : 9)));
   for (let i = 0; i < n; i += every) {
-    svgText(X(i), height - (mb - 14), xTime(i), { "text-anchor": "middle", "font-size": 10.5, fill: "#5f6b82", class: "num" }, svg);
+    svgText(X(i), height - (mb - 14), xTime(i), { "text-anchor": "middle", "font-size": 10.5, fill: chartInk().faint, class: "num" }, svg);
   }
 
   // volume bars (bottom sub-pane)
