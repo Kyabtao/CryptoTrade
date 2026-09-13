@@ -234,3 +234,41 @@ vertical rhythm, colour contrast or touch-target size on a real device; the
 bold-weight text widths use a 1.5–3.5 % factor on the variable font's 400-weight
 advances because the metrics table deltas were not read. Lighthouse is still
 not runnable here (see README → Verification & budgets).
+
+---
+
+## 14. Chart grammar follows the main site; desk keeps its light values
+
+**Brief:** make the desk's charts look and behave like the main site's
+(`docs/assets/charts.js`) without re-theming the desk.
+
+**Decision:** borrow the main site's chart _structure_ (dashed crosshair,
+hover dot, dark HTML tooltip, full-plot hit rect with `touch-action: pan-y`,
+nearest-index mapping) but keep GPTHEIST's light colour tokens for everything
+drawn on the card. The single exception is the tooltip, ported 1:1 as the
+shared `.chart-tip` class in `src/theme/index.css` — a dark tooltip on light
+UI is the normal pattern on both surfaces, so its colours are fixed, not
+themed. No drag-to-zoom: the main site's `band` rect is zoom-selection
+feedback, and zoom state on a 220px panel would need store wiring for no
+benefit.
+
+**Precedent notes.**
+
+- Hit-rect charts use `pointermove`/`leave`/`cancel` (the main-site contract),
+  not the RidgePlot per-element `onMouseEnter` precedent — per-element
+  handlers do not scale to ~190 series points and miss touch. The hit rect
+  keeps `cursor:crosshair; touch-action:pan-y` verbatim: `none` would trap
+  the finger and block page scroll over the chart.
+- Hover overlays render only while hovering (`hover != null`), so the rest
+  state stays pixel-identical to the reference and the `chartBounds` guard
+  scans the same geometry as before.
+- Axis-label unification (the desk mixes 8.5px/9px; the main site uses 11px)
+  is deferred: `0.0125` at 11px mono is ~40px wide and would start at x≈−6 in
+  the 40px left margin, failing the bounds guard — adopting it means widening
+  `M.left`, a real fidelity change to be decided separately.
+
+**Test note:** jsdom's `PointerEvent` constructor drops `clientX` from the
+init dict, so `fireEvent.pointerMove(hit, { clientX })` reaches the handler
+with `clientX === undefined`. The hover tests dispatch a `MouseEvent` typed
+as `pointermove` inside `act()` instead — React's `onPointerMove` still fires
+and the coordinates survive. Real browsers are unaffected.
