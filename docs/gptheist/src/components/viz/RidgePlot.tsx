@@ -138,7 +138,7 @@ export const RidgePlot = memo(function RidgePlot({ data }: Props) {
               x={geom.x(t)}
               y={height - 6}
               textAnchor="middle"
-              fontSize={8.5}
+              fontSize={11}
               fill="var(--gp-faint)"
               style={{ fontFamily: 'var(--gp-font-mono)' }}
             >

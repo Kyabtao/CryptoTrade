@@ -234,3 +234,105 @@ vertical rhythm, colour contrast or touch-target size on a real device; the
 bold-weight text widths use a 1.5–3.5 % factor on the variable font's 400-weight
 advances because the metrics table deltas were not read. Lighthouse is still
 not runnable here (see README → Verification & budgets).
+
+---
+
+## 14. Chart grammar follows the main site; desk keeps its light values
+
+**Brief:** make the desk's charts look and behave like the main site's
+(`docs/assets/charts.js`) without re-theming the desk.
+
+**Decision:** borrow the main site's chart _structure_ (dashed crosshair,
+hover dot, dark HTML tooltip, full-plot hit rect with `touch-action: pan-y`,
+nearest-index mapping) but keep GPTHEIST's light colour tokens for everything
+drawn on the card. The single exception is the tooltip, ported 1:1 as the
+shared `.chart-tip` class in `src/theme/index.css` — a dark tooltip on light
+UI is the normal pattern on both surfaces, so its colours are fixed, not
+themed. No drag-to-zoom: the main site's `band` rect is zoom-selection
+feedback, and zoom state on a 220px panel would need store wiring for no
+benefit.
+
+**Precedent notes.**
+
+- Hit-rect charts use `pointermove`/`leave`/`cancel` (the main-site contract),
+  not the RidgePlot per-element `onMouseEnter` precedent — per-element
+  handlers do not scale to ~190 series points and miss touch. The hit rect
+  keeps `cursor:crosshair; touch-action:pan-y` verbatim: `none` would trap
+  the finger and block page scroll over the chart.
+- Hover overlays render only while hovering (`hover != null`), so the rest
+  state stays pixel-identical to the reference and the `chartBounds` guard
+  scans the same geometry as before.
+- Axis-label unification (the desk mixes 8.5px/9px; the main site uses 11px)
+  is deferred: `0.0125` at 11px mono is ~40px wide and would start at x≈−6 in
+  the 40px left margin, failing the bounds guard — adopting it means widening
+  `M.left`, a real fidelity change to be decided separately.
+
+**Test note:** jsdom's `PointerEvent` constructor drops `clientX` from the
+init dict, so `fireEvent.pointerMove(hit, { clientX })` reaches the handler
+with `clientX === undefined`. The hover tests dispatch a `MouseEvent` typed
+as `pointermove` inside `act()` instead — React's `onPointerMove` still fires
+and the coordinates survive. Real browsers are unaffected.
+
+---
+
+## 15. Hover interactions for Histogram, Chord, ForceGraph and Penteract
+
+**Brief:** the interaction-first half of the chart-unification work — every desk
+chart now answers the pointer (RidgePlot already did; BalanceChart was done in
+§14). Appearance/grammar changes stay deferred.
+
+**Shared grammar.** Hover-only additions; rest states are pixel-identical and
+the `chartBounds` guard scans the same geometry as before. All four use the
+dark `.chart-tip` tooltip (§14) and `pointermove`/`leave`/`cancel` (pointer
+events cover touch; per-element `pointermove` replaces the RidgePlot
+`mouseenter` precedent because React polyfills `*enter` from over/out pairs
+and a synthetic `pointerenter` never arrives). Tooltips are data- or
+cursor-anchored with the main-site clamp (14px offset, flipped inside the box).
+
+**Per chart.**
+
+- _Histogram_ (flex divs, no SVG): tooltip only, like the main-site histogram's
+  `<title>` tags — `BIN i / 12` plus the count, anchored above the bar.
+- _Chord_ (no main-site counterpart): hovering an arc lights the ribbons that
+  touch it and dims the rest; hovering a ribbon names the pair. Tooltips carry
+  Out/In per agent and both directions per pair. Cursor-following position.
+- _ForceGraph_: satellites grow 2.1 → 5.1 (the main site's scatter `r+3`
+  precedent) via invisible r=7 hit circles — 2.1px dots are otherwise
+  unhoverable; hubs take handlers directly and gain a dashed info ring.
+  Tooltips name the hub (or `NODE id`) with the link degree and class.
+- _Penteract_: invisible r=9 hit circles per vertex, grown dot, tooltip with
+  the vertex index and its five ±1 coordinates as a sign string.
+
+---
+
+## 16. Chart appearance grammar (11px labels, 2px stroke, bar caps)
+
+**Brief:** the appearance half of chart unification — adopt the main site's
+chart grammar while keeping the desk's light tokens.
+
+**Applied.**
+
+- _Axis labels 8.5/9px → 11px_ on BalanceChart (both axes plus the red value
+  tag, which fits its 52px rect at 39.6px), RidgePlot (x-axis) and ChordDiagram
+  (group codes, bold kept). No margin changes were needed.
+- _Correction to §14:_ the claim that 11px labels would need `M.left` 40→52px
+  was wrong — it used the raw 6-char tick `0.0125`, but labels render at 3dp
+  (`0.013`, 5 chars = 33px), leaving x=1px inside the box. The `chartBounds`
+  guard confirms all three widths empirically.
+- _Series stroke 1.6 → 2px_ on BalanceChart (the main-site `stroke-width 2`).
+  A visible rest-state change, accepted as the brief's explicit ask.
+- _Histogram bars_ `rounded-t-[2px]` → `[3px]` and `opacity: 0.85`, matching
+  the main-site `rx="3" opacity="0.85"` bar treatment.
+- _Gridlines:_ no change — BalanceChart already dashes non-zero lines
+  (`2 4`), which is the requested treatment.
+
+**Deliberately not unified.**
+
+- _RidgePlot tooltip stays light._ `VISUAL_SPEC.md` pins it as a white box, so
+  migrating it to the shared dark `.chart-tip` would break fidelity. It is the
+  one tooltip on the desk that differs, by spec.
+- _ForceGraph pills (7.5px) and APPROVED tag (8px) keep their sizes._ They are
+  annotations, not axis labels, and 11px text physically does not fit the
+  68/84px pills (`CATALYST RING` alone is 79px at 11px mono).
+- _Penteract edges_ keep `strokeWidth 1 / opacity 0.75`: they are lattice
+  edges, not a series line, and have no main-site counterpart.

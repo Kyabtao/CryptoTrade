@@ -1,5 +1,5 @@
 import { line, curveCatmullRom } from 'd3-shape';
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { useMeasure } from '../../lib/useMeasure';
 import { usePrefersReducedMotion } from '../../lib/usePrefersReducedMotion';
 import type { GraphData, GraphNode, HubId } from '../../data/graph';
@@ -31,16 +31,29 @@ const HUB_LABEL: Record<HubId, string> = {
   astra: 'ASTRA PRIME',
 };
 
+function hubLabelOf(cls: GraphNode['cls']): string | null {
+  if (cls === 'hub-bear') return HUB_LABEL.bear;
+  if (cls === 'hub-catalyst') return HUB_LABEL.catalyst;
+  if (cls === 'hub-astra') return HUB_LABEL.astra;
+  return null;
+}
+
 /**
  * The relationship simulation: a force layout that ran once at data-generation
  * time, rendered as SVG with a gentle per-node jitter afterwards (frozen under
  * reduced motion). Shows the three labelled hubs, the dashed median path and
  * the blue APPROVED / FLOW tag.
+ *
+ * Hover follows the shared grammar: the node under the pointer grows (like the
+ * main site's scatter points) or gains a dashed ring for hubs, and a dark
+ * `.chart-tip` names it. Satellite dots are 2.1px targets, so each gets an
+ * invisible r=7 hit circle; hubs are big enough to take handlers directly.
  */
 export const ForceGraph = memo(function ForceGraph({ data }: Props) {
   const [ref, { width, height }] = useMeasure<HTMLDivElement>();
   const reduced = usePrefersReducedMotion();
   const [now, setNow] = useState(0);
+  const [hover, setHover] = useState<number | null>(null);
 
   useEffect(() => {
     if (reduced || typeof requestAnimationFrame === 'undefined') {
@@ -92,6 +105,33 @@ export const ForceGraph = memo(function ForceGraph({ data }: Props) {
     return { pts, hubs, medianPath };
   }, [width, height, now, data]);
 
+  const byId = useMemo(() => new Map(data.nodes.map((nd) => [nd.id, nd] as const)), [data]);
+  const degree = useMemo(() => {
+    const m = new Map<number, number>();
+    for (const nd of data.nodes) m.set(nd.id, 0);
+    for (const e of data.edges) {
+      m.set(e.source, (m.get(e.source) ?? 0) + 1);
+      m.set(e.target, (m.get(e.target) ?? 0) + 1);
+    }
+    return m;
+  }, [data]);
+
+  const clear = useCallback(() => {
+    setHover(null);
+  }, []);
+
+  const hn = hover != null ? (byId.get(hover) ?? null) : null;
+  const hnIdx = hn ? data.nodes.indexOf(hn) : -1;
+  const hp = hnIdx >= 0 ? (geom?.pts[hnIdx] ?? null) : null;
+  const hubHead = hn ? hubLabelOf(hn.cls) : null;
+  const tip =
+    hp && hn
+      ? {
+          left: Math.max(4, hp[0] > width - 150 ? hp[0] - 144 : hp[0] + 14),
+          top: Math.max(4, Math.min(hp[1] - 24, Math.max(4, height - 76))),
+        }
+      : null;
+
   return (
     <div ref={ref} className="relative h-full w-full">
       {geom ? (
@@ -101,6 +141,8 @@ export const ForceGraph = memo(function ForceGraph({ data }: Props) {
           role="img"
           aria-label="Relationship graph simulation with bear cluster, catalyst ring and astra prime hubs"
           className="block"
+          onPointerLeave={clear}
+          onPointerCancel={clear}
         >
           {data.edges.map((e, i) => {
             const a = geom.pts[e.source];
@@ -137,14 +179,58 @@ export const ForceGraph = memo(function ForceGraph({ data }: Props) {
                 key={'n' + String(n.id)}
                 cx={p[0]}
                 cy={p[1]}
-                r={hub ? 12 : 2.1}
+                r={hub ? 12 : hover === n.id ? 5.1 : 2.1}
                 fill={nodeColor(n)}
                 stroke="var(--gp-card)"
                 strokeWidth={hub ? 1.6 : 0.7}
                 opacity={hub ? 0.9 : 0.85}
+                onPointerMove={
+                  hub
+                    ? () => {
+                        setHover(n.id);
+                      }
+                    : undefined
+                }
+                data-testid={hub ? 'graph-node-' + String(n.id) : 'graph-dot-' + String(n.id)}
               />
             );
           })}
+
+          {/* invisible hit layer over the 2.1px satellites (hubs take handlers
+              directly); rendered above the dots but below the labels */}
+          {data.nodes.map((n, i) => {
+            const p = geom.pts[i];
+            if (!p || n.cls.startsWith('hub-')) return null;
+            return (
+              <circle
+                key={'h' + String(n.id)}
+                cx={p[0]}
+                cy={p[1]}
+                r={7}
+                fill="transparent"
+                style={{ cursor: 'pointer' }}
+                onPointerMove={() => {
+                  setHover(n.id);
+                }}
+                data-testid={'graph-node-' + String(n.id)}
+              />
+            );
+          })}
+
+          {/* dashed ring around a hovered hub */}
+          {hp && hubHead ? (
+            <circle
+              cx={hp[0]}
+              cy={hp[1]}
+              r={16}
+              fill="none"
+              stroke="var(--gp-info)"
+              strokeWidth={1}
+              strokeDasharray="3 3"
+              pointerEvents="none"
+              data-testid="graph-hub-ring"
+            />
+          ) : null}
 
           {geom.hubs.map(({ hub, p }) =>
             p ? (
@@ -188,6 +274,22 @@ export const ForceGraph = memo(function ForceGraph({ data }: Props) {
             </text>
           </g>
         </svg>
+      ) : null}
+
+      {tip && hn ? (
+        <div className="chart-tip" style={{ left: tip.left, top: tip.top, opacity: 1 }}>
+          <div className="t-head">{hubHead ?? 'NODE ' + String(hn.id)}</div>
+          <div className="t-row">
+            <span className="sw" style={{ background: nodeColor(hn) }} />
+            Links<b className="num">{String(degree.get(hn.id) ?? 0)}</b>
+          </div>
+          {hubHead ? null : (
+            <div className="t-row">
+              <span className="sw" style={{ background: nodeColor(hn) }} />
+              Class<b className="num">{hn.cls.toUpperCase()}</b>
+            </div>
+          )}
+        </div>
       ) : null}
     </div>
   );
