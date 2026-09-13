@@ -272,3 +272,33 @@ init dict, so `fireEvent.pointerMove(hit, { clientX })` reaches the handler
 with `clientX === undefined`. The hover tests dispatch a `MouseEvent` typed
 as `pointermove` inside `act()` instead — React's `onPointerMove` still fires
 and the coordinates survive. Real browsers are unaffected.
+
+---
+
+## 15. Hover interactions for Histogram, Chord, ForceGraph and Penteract
+
+**Brief:** the interaction-first half of the chart-unification work — every desk
+chart now answers the pointer (RidgePlot already did; BalanceChart was done in
+§14). Appearance/grammar changes stay deferred.
+
+**Shared grammar.** Hover-only additions; rest states are pixel-identical and
+the `chartBounds` guard scans the same geometry as before. All four use the
+dark `.chart-tip` tooltip (§14) and `pointermove`/`leave`/`cancel` (pointer
+events cover touch; per-element `pointermove` replaces the RidgePlot
+`mouseenter` precedent because React polyfills `*enter` from over/out pairs
+and a synthetic `pointerenter` never arrives). Tooltips are data- or
+cursor-anchored with the main-site clamp (14px offset, flipped inside the box).
+
+**Per chart.**
+
+- _Histogram_ (flex divs, no SVG): tooltip only, like the main-site histogram's
+  `<title>` tags — `BIN i / 12` plus the count, anchored above the bar.
+- _Chord_ (no main-site counterpart): hovering an arc lights the ribbons that
+  touch it and dims the rest; hovering a ribbon names the pair. Tooltips carry
+  Out/In per agent and both directions per pair. Cursor-following position.
+- _ForceGraph_: satellites grow 2.1 → 5.1 (the main site's scatter `r+3`
+  precedent) via invisible r=7 hit circles — 2.1px dots are otherwise
+  unhoverable; hubs take handlers directly and gain a dashed info ring.
+  Tooltips name the hub (or `NODE id`) with the link degree and class.
+- _Penteract_: invisible r=9 hit circles per vertex, grown dot, tooltip with
+  the vertex index and its five ±1 coordinates as a sign string.
