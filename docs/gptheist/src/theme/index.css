@@ -100,6 +100,46 @@
 }
 
 @layer utilities {
+  /* Crosshair tooltip shared by every desk chart. Ported 1:1 from the main
+     site (`docs/assets/style.css` → `.tooltip`): the desk keeps its light
+     tokens everywhere except here — a dark tooltip on light cards is the
+     normal pattern on both surfaces, so the colours are fixed, not themed. */
+  .chart-tip {
+    position: absolute;
+    pointer-events: none;
+    opacity: 0;
+    background: rgba(15, 19, 28, 0.97);
+    border: 1px solid #232b3d;
+    border-radius: 9px;
+    padding: 8px 10px;
+    font-size: 12px;
+    color: #e6eaf2;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+    transition: opacity 0.1s ease;
+    z-index: 20;
+    min-width: 130px;
+  }
+  .chart-tip .t-head {
+    color: #5f6b82;
+    font-size: 11px;
+    margin-bottom: 5px;
+  }
+  .chart-tip .t-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 2px;
+  }
+  .chart-tip .t-row b {
+    margin-left: auto;
+  }
+  .chart-tip .sw {
+    width: 9px;
+    height: 9px;
+    border-radius: 2px;
+    flex: none;
+  }
+
   /* Quiet hover feedback shared by every card on the desk. */
   .hoverable {
     transition:
