@@ -22,6 +22,9 @@ const NAV_ITEMS = [
   { href: "risk.html", label: "Risk" },
   { href: "trades.html", label: "Trades" },
   { href: "profile.html", label: "Profile" },
+  // desk.html: the GPTHEIST panel language (ridge, chord, signal graph, crew
+  // cards) rebuilt as plain SVG in the shared chrome, driven by live state.
+  { href: "desk.html", label: "Desk" },
   // A separate self-contained app (Vite + React) built into docs/gptheist/dist/.
   // It ships its own markup and stylesheet and does not use the shared chrome.
   { href: "gptheist/dist/index.html", label: "GPTHEIST" },
