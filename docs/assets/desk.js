@@ -17,21 +17,23 @@
 
 let DP = {};
 
+/* Resolved from the body class — the same source of truth as theme.js
+   (siteInk) and charts.js (chartInk), and the values mirror the
+   body.theme-cream overrides in style.css. Class-based rather than
+   getComputedStyle: deterministic, and SVG attributes cannot use var(). */
 function dPalette() {
-  const cs = getComputedStyle(document.body);
-  const g = (name, fb) => (cs.getPropertyValue(name) || "").trim() || fb;
-  DP = {
-    panel: g("--panel", "#121722"),
-    panel2: g("--panel-2", "#171d2b"),
-    borderSoft: g("--border-soft", "#1c2333"),
-    text: g("--text", "#e6eaf2"),
-    dim: g("--text-dim", "#97a1b5"),
-    faint: g("--text-faint", "#5f6b82"),
-    accent: g("--accent", "#3b82f6"),
-    green: g("--green", "#22c55e"),
-    red: g("--red", "#ef4444"),
-    iso: g("--iso-stroke", "#414d68"),
-  };
+  const cream = document.body.classList.contains("theme-cream");
+  DP = cream
+    ? {
+        panel: "#ffffff", panel2: "#f3f3ef", borderSoft: "#ebebe6",
+        text: "#141414", dim: "#56564f", faint: "#8a8a84",
+        accent: "#2f6fed", green: "#1f9d55", red: "#d33333", iso: "#b9b9b1",
+      }
+    : {
+        panel: "#121722", panel2: "#171d2b", borderSoft: "#1c2333",
+        text: "#e6eaf2", dim: "#97a1b5", faint: "#5f6b82",
+        accent: "#3b82f6", green: "#22c55e", red: "#ef4444", iso: "#414d68",
+      };
   return DP;
 }
 
@@ -241,14 +243,9 @@ function deskEquityChart(container, rows, opts = {}) {
 
 /* ---------- activity log ---------- */
 
-/* entries: [{ts, code, color, name, msg, right, rightCls}] — newest first. */
-function deskActivityLog(container, entries, cap = 70) {
-  if (!entries.length) {
-    container.innerHTML = '<div class="empty">No fills recorded yet.</div>';
-    return;
-  }
-  container.innerHTML = entries.slice(0, cap).map((e, i) => `
-    <div class="dlog-row${i === 0 ? " latest" : ""}">
+function dLogRow(e) {
+  return `
+    <div class="dlog-row">
       <span class="dlog-t num">${esc(e.ts)}</span>
       <span class="dlog-code mono" style="color:${e.color};border-color:${e.color}44">${esc(e.code)}</span>
       <span class="dlog-body">
@@ -256,7 +253,30 @@ function deskActivityLog(container, entries, cap = 70) {
         <span class="dlog-msg">${esc(e.msg || "")}</span>
       </span>
       <span class="dlog-right num ${e.rightCls || ""}">${e.right || ""}</span>
-    </div>`).join("");
+    </div>`;
+}
+
+/* entries: [{ts, code, color, name, msg, right, rightCls}] — newest first.
+   The gptheist reference pins the newest event in a spotlight block (big time
+   + code, message on the second line) above the scrolling list. */
+function deskActivityLog(container, entries, cap = 70) {
+  if (!entries.length) {
+    container.innerHTML = '<div class="empty">No fills recorded yet.</div>';
+    return;
+  }
+  const s = entries[0];
+  const side = s.side || "";
+  container.innerHTML = `
+    <div class="dlog-spot">
+      <div class="dlog-spot-top">
+        <span class="dlog-spot-t num">${esc(s.ts)}</span>
+        <span class="dlog-code mono" style="color:${s.color};border-color:${s.color}44">${esc(s.code)}</span>
+        <b class="dlog-spot-name">${esc(s.name)}</b>
+        <span class="dlog-spot-right num ${s.rightCls || ""}">${s.right || ""}</span>
+      </div>
+      <div class="dlog-spot-msg">${esc(side ? side.toUpperCase() + " · " : "")}${esc(s.msg || "")}</div>
+    </div>
+    <div class="dlog-list">${entries.slice(1, cap).map(dLogRow).join("")}</div>`;
 }
 
 /* ---------- return ridgeline ---------- */

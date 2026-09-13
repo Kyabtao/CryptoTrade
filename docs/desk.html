@@ -169,7 +169,7 @@
       /* applied before the first draw so charts read the right palette */
       const themeBtn = document.getElementById("themeBtn");
       let cream = false;
-      try { cream = localStorage.getItem("deskTheme") === "cream"; } catch (e) { /* private mode */ }
+      try { cream = localStorage.getItem("siteTheme") === "cream"; } catch (e) { /* private mode */ }
       const applyTheme = () => {
         document.body.classList.toggle("theme-cream", cream);
         themeBtn.textContent = cream ? "DARK" : "CREAM";
@@ -256,6 +256,7 @@
             code: a.id.slice(0, 2),
             color: categoryColor(a.category, cats),
             name: a.name,
+            side: t.side,
             msg: (t.side === "buy" ? t.entry_reason : t.exit_reason) || (t.side === "buy" ? "entry" : "exit"),
             right: t.side === "buy" ? "BUY" : (t.pnl >= 0 ? "+" : "") + fmtUSD(t.pnl),
             rightCls: t.side === "buy" ? "" : pctClass(t.pnl),
@@ -475,7 +476,7 @@
       /* ---------- theme toggle (charts re-read the palette on redraw) ---------- */
       themeBtn.addEventListener("click", () => {
         cream = !cream;
-        try { localStorage.setItem("deskTheme", cream ? "cream" : "dark"); } catch (e) { /* private mode */ }
+        try { localStorage.setItem("siteTheme", cream ? "cream" : "dark"); } catch (e) { /* private mode */ }
         applyTheme();
         redraw.forEach((f) => f());
       });

@@ -58,6 +58,12 @@ to toggle series, drag across a chart to zoom into a range and double-click to
 reset. The "last update" details are shown as a dismissible message strip at the
 top of each page rather than inside the navigation bar.
 
+A **☀ / 🌙 toggle in the navigation bar** (plus the CREAM button on the desk)
+flips the whole dashboard to the gptheist original cream palette. The choice
+persists in `localStorage` (`siteTheme`) and every page re-tints on the spot —
+shared charts resolve ink/gridline colours at draw time (`chartInk()` /
+`siteInk()`), then redraw via a synthetic resize event.
+
 ### The bot's identity
 
 The bot trades under a single persona, **Umair’s Bot** (`BOT_NAME` in

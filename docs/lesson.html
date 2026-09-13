@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="assets/style.css" />
 </head>
 <body>
+  <script src="assets/theme.js"></script>
   <script src="assets/data.js"></script>
   <script src="assets/charts.js"></script>
   <script src="assets/layout.js"></script>
@@ -251,7 +252,7 @@
           name: l.name, color: "#3b82f6", area: true, values: history.map((h) => (h.rets && h.rets[l.id] != null ? h.rets[l.id] : null)),
         }];
         if (history.length) {
-          series.push({ name: "Portfolio (42 accts)", color: "#97a1b5", dashed: true, values: history.map((h) => h.return_pct) });
+          series.push({ name: "Portfolio (42 accts)", color: siteInk().dim, dashed: true, values: history.map((h) => h.return_pct) });
         }
         let zoom = null;
         const draw = () => {

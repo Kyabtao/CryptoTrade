@@ -50,6 +50,7 @@ function renderNav(active) {
     <div class="nav-inner">
       <a class="brand" href="index.html"><span class="logo">₿</span> CryptoTrade</a>
       <div class="nav-links" id="navLinks" aria-label="Primary navigation">${links}</div>
+      <button class="chip-btn theme-toggle" id="siteThemeBtn" type="button" aria-pressed="false" title="Switch to cream">☀</button>
       <a class="nav-who" href="profile.html" title="Bot profile &amp; account rules">
         <span class="avatar">${BOT.initials}</span>
         <span class="who-text"><b>${BOT.name}</b><span class="hide-sm">${BOT.handle}</span></span>
