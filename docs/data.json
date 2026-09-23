@@ -2,15 +2,15 @@
   "meta": {
     "version": 1,
     "created_at": "2026-09-01T04:07:31Z",
-    "updated_at": "2026-09-22T22:08:39Z",
+    "updated_at": "2026-09-23T00:32:30Z",
     "symbol": "BTC/USDT",
     "timeframe": "15m",
     "starting_balance": 1000.0,
     "fee_rate": 0.001,
-    "run_count": 150,
-    "candles_processed": 150,
-    "last_candle_ts": 1790113500000,
-    "prev_candle_ts": 1790113500000,
+    "run_count": 151,
+    "candles_processed": 151,
+    "last_candle_ts": 1790122500000,
+    "prev_candle_ts": 1790122500000,
     "bot_version": "1.0.0",
     "bot_name": "Umair\u2019s Bot",
     "bot_handle": "@umairs_bot",
@@ -36,8 +36,8 @@
       "candle_limit": 100,
       "disabled": []
     },
-    "last_price": 86217.5,
-    "total_trades": 388
+    "last_price": 86483.0,
+    "total_trades": 391
   },
   "accounts": {
     "01_rsi_mean_reversion": {
@@ -50,7 +50,7 @@
       "realized_pnl": 54.83488891,
       "total_fees": 5.93149239,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
+      "last_candle_ts": 1790122500000,
       "lots": [],
       "strategy_state": {},
       "trades": [
@@ -149,15 +149,21 @@
     "02_dual_ema_crossover": {
       "strategy_id": "02_dual_ema_crossover",
       "name": "Dual EMA Crossover (9/21)",
-      "balance_usd": 960.62464857,
-      "crypto_holdings": 0.0,
-      "entry_price": null,
+      "balance_usd": 47.11863901,
+      "crypto_holdings": 0.010552286763,
+      "entry_price": 86483.0,
       "unrealized_pnl": 0.0,
       "realized_pnl": -39.37535144,
-      "total_fees": 3.70412918,
+      "total_fees": 4.6167226,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
-      "lots": [],
+      "last_candle_ts": 1790122500000,
+      "lots": [
+        {
+          "qty": 0.010552286763196235,
+          "price": 86483.0,
+          "fee": 0.9125934161414999
+        }
+      ],
       "strategy_state": {},
       "trades": [
         {
@@ -219,6 +225,21 @@
           "entry_reason": null,
           "balance_after": 960.6246485674557,
           "holdings_after": 0
+        },
+        {
+          "timestamp": "2026-09-23T00:15:00Z",
+          "candle_ts": 1790122500000,
+          "side": "buy",
+          "price": 86483.0,
+          "qty": 0.010552286763196235,
+          "notional": 912.5934161414999,
+          "fee": 0.9125934161414999,
+          "pnl": 0.0,
+          "gross_pnl": 0.0,
+          "exit_reason": null,
+          "entry_reason": "EMA9 crossed above EMA21",
+          "balance_after": 47.118639012358585,
+          "holdings_after": 0.010552286763196235
         }
       ]
     },
@@ -228,11 +249,11 @@
       "balance_usd": 51.32122531,
       "crypto_holdings": 0.011518861744,
       "entry_price": 86292.3,
-      "unrealized_pnl": -0.86161086,
+      "unrealized_pnl": 2.19664693,
       "realized_pnl": 46.3042877,
       "total_fees": 8.70703346,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
+      "last_candle_ts": 1790122500000,
       "lots": [
         {
           "qty": 0.011518861744280776,
@@ -382,21 +403,15 @@
     "04_triple_moving_average": {
       "strategy_id": "04_triple_moving_average",
       "name": "Triple MA Trend (20/50/200)",
-      "balance_usd": 54.31384842,
-      "crypto_holdings": 0.012190545081,
-      "entry_price": 86292.3,
-      "unrealized_pnl": -0.91185277,
-      "realized_pnl": 107.31597191,
-      "total_fees": 22.7061169,
+      "balance_usd": 1107.53448378,
+      "crypto_holdings": 0.0,
+      "entry_price": null,
+      "unrealized_pnl": 0.0,
+      "realized_pnl": 107.53448377,
+      "total_fees": 23.76039181,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
-      "lots": [
-        {
-          "qty": 0.0121905450813572,
-          "price": 86292.3,
-          "fee": 1.051950173324
-        }
-      ],
+      "last_candle_ts": 1790122500000,
+      "lots": [],
       "strategy_state": {},
       "trades": [
         {
@@ -743,6 +758,21 @@
           "entry_reason": "trend confirmed SMA20=86038.32 > SMA50=85778.75 > SMA200=84020.45",
           "balance_after": 54.313848422676074,
           "holdings_after": 0.0121905450813572
+        },
+        {
+          "timestamp": "2026-09-23T00:15:00Z",
+          "candle_ts": 1790122500000,
+          "side": "sell",
+          "price": 86483.0,
+          "qty": 0.0121905450813572,
+          "notional": 1054.2749102710147,
+          "fee": 1.0542749102710147,
+          "pnl": 0.218511863419784,
+          "gross_pnl": 2.3247369470147987,
+          "exit_reason": "SMA20 dropped below SMA50",
+          "entry_reason": null,
+          "balance_after": 1107.5344837807438,
+          "holdings_after": 0
         }
       ]
     },
@@ -752,11 +782,11 @@
       "balance_usd": 49.05,
       "crypto_holdings": 0.011876143079,
       "entry_price": 79992.3,
-      "unrealized_pnl": 73.93136589,
+      "unrealized_pnl": 77.08448188,
       "realized_pnl": 0.0,
       "total_fees": 0.95,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
+      "last_candle_ts": 1790122500000,
       "lots": [
         {
           "qty": 0.011876143078771332,
@@ -765,7 +795,7 @@
         }
       ],
       "strategy_state": {
-        "supertrend_stop": 85871.92022132671,
+        "supertrend_stop": 85899.46353393876,
         "supertrend_direction": 1
       },
       "trades": [
@@ -796,7 +826,7 @@
       "realized_pnl": 0.0,
       "total_fees": 0.0,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
+      "last_candle_ts": 1790122500000,
       "lots": [],
       "strategy_state": {},
       "trades": []
@@ -811,7 +841,7 @@
       "realized_pnl": 93.92584809,
       "total_fees": 31.10613836,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
+      "last_candle_ts": 1790122500000,
       "lots": [],
       "strategy_state": {},
       "trades": [
@@ -1300,15 +1330,21 @@
     "15_parabolic_sar": {
       "strategy_id": "15_parabolic_sar",
       "name": "Parabolic SAR Flip",
-      "balance_usd": 973.48277483,
-      "crypto_holdings": 0.0,
-      "entry_price": null,
+      "balance_usd": 47.74933011,
+      "crypto_holdings": 0.010693530938,
+      "entry_price": 86483.0,
       "unrealized_pnl": 0.0,
       "realized_pnl": -26.51722518,
-      "total_fees": 9.25258074,
+      "total_fees": 10.17738938,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
-      "lots": [],
+      "last_candle_ts": 1790122500000,
+      "lots": [
+        {
+          "qty": 0.010693530937739209,
+          "price": 86483.0,
+          "fee": 0.9248086360885
+        }
+      ],
       "strategy_state": {},
       "trades": [
         {
@@ -1460,6 +1496,21 @@
           "entry_reason": null,
           "balance_after": 973.4827748303105,
           "holdings_after": 0
+        },
+        {
+          "timestamp": "2026-09-23T00:15:00Z",
+          "candle_ts": 1790122500000,
+          "side": "buy",
+          "price": 86483.0,
+          "qty": 0.010693530937739209,
+          "notional": 924.8086360885,
+          "fee": 0.9248086360885,
+          "pnl": 0.0,
+          "gross_pnl": 0.0,
+          "exit_reason": null,
+          "entry_reason": "SAR flipped below price (stop 86018.90)",
+          "balance_after": 47.74933010541156,
+          "holdings_after": 0.010693530937739209
         }
       ]
     },
@@ -1473,7 +1524,7 @@
       "realized_pnl": -15.56745553,
       "total_fees": 3.79829556,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
+      "last_candle_ts": 1790122500000,
       "lots": [],
       "strategy_state": {},
       "trades": [
@@ -1549,7 +1600,7 @@
       "realized_pnl": -34.6081915,
       "total_fees": 3.72474489,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
+      "last_candle_ts": 1790122500000,
       "lots": [],
       "strategy_state": {},
       "trades": [
@@ -1621,11 +1672,11 @@
       "balance_usd": 52.62365012,
       "crypto_holdings": 0.01253846773,
       "entry_price": 81287.0,
-      "unrealized_pnl": 61.82091514,
+      "unrealized_pnl": 65.14987833,
       "realized_pnl": 72.85729094,
       "total_fees": 12.90874098,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
+      "last_candle_ts": 1790122500000,
       "lots": [
         {
           "qty": 0.012538467730184409,
@@ -1842,7 +1893,7 @@
       "realized_pnl": -8.32551827,
       "total_fees": 3.70930269,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
+      "last_candle_ts": 1790122500000,
       "lots": [],
       "strategy_state": {},
       "trades": [
@@ -1914,11 +1965,11 @@
       "balance_usd": 48.99554109,
       "crypto_holdings": 0.011696428012,
       "entry_price": 81131.2,
-      "unrealized_pnl": 59.4915418,
+      "unrealized_pnl": 62.59694343,
       "realized_pnl": -1.11027337,
       "total_fees": 21.59015095,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
+      "last_candle_ts": 1790122500000,
       "lots": [
         {
           "qty": 0.011696428011529474,
@@ -2285,7 +2336,7 @@
       "realized_pnl": 21.89787857,
       "total_fees": 9.62370112,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
+      "last_candle_ts": 1790122500000,
       "lots": [],
       "strategy_state": {},
       "trades": [
@@ -2451,7 +2502,7 @@
       "realized_pnl": 0.49895524,
       "total_fees": 16.92171758,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
+      "last_candle_ts": 1790122500000,
       "lots": [],
       "strategy_state": {},
       "trades": [
@@ -2733,11 +2784,11 @@
       "balance_usd": 48.04729593,
       "crypto_holdings": 0.010894025432,
       "entry_price": 85421.1,
-      "unrealized_pnl": 8.67600185,
+      "unrealized_pnl": 11.56836561,
       "realized_pnl": -20.44248861,
       "total_fees": 6.54435707,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
+      "last_candle_ts": 1790122500000,
       "lots": [
         {
           "qty": 0.01089402543189563,
@@ -2864,7 +2915,7 @@
       "realized_pnl": 6.74304693,
       "total_fees": 19.26995821,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
+      "last_candle_ts": 1790122500000,
       "lots": [],
       "strategy_state": {},
       "trades": [
@@ -3176,11 +3227,11 @@
       "balance_usd": 47.3293785,
       "crypto_holdings": 0.010632122444,
       "entry_price": 86217.5,
-      "unrealized_pnl": 0.0,
+      "unrealized_pnl": 2.82282851,
       "realized_pnl": -35.07892967,
       "total_fees": 14.2635857,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
+      "last_candle_ts": 1790122500000,
       "lots": [
         {
           "qty": 0.01063212244397599,
@@ -3427,7 +3478,7 @@
       "realized_pnl": 123.87518661,
       "total_fees": 8.0235482,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
+      "last_candle_ts": 1790122500000,
       "lots": [],
       "strategy_state": {},
       "trades": [
@@ -3563,7 +3614,7 @@
       "realized_pnl": 21.89787857,
       "total_fees": 9.62370112,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
+      "last_candle_ts": 1790122500000,
       "lots": [],
       "strategy_state": {},
       "trades": [
@@ -3729,7 +3780,7 @@
       "realized_pnl": 48.48978748,
       "total_fees": 19.80787185,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
+      "last_candle_ts": 1790122500000,
       "lots": [],
       "strategy_state": {},
       "trades": [
@@ -4041,11 +4092,11 @@
       "balance_usd": 49.05,
       "crypto_holdings": 0.011121373993,
       "entry_price": 85421.1,
-      "unrealized_pnl": 8.85706225,
+      "unrealized_pnl": 11.80978704,
       "realized_pnl": 0.0,
       "total_fees": 0.95,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
+      "last_candle_ts": 1790122500000,
       "lots": [
         {
           "qty": 0.01112137399307665,
@@ -4078,11 +4129,11 @@
       "balance_usd": 54.49374934,
       "crypto_holdings": 0.012232922023,
       "entry_price": 86278.2,
-      "unrealized_pnl": -0.74253837,
+      "unrealized_pnl": 2.50530243,
       "realized_pnl": 110.98367671,
       "total_fees": 9.00544398,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
+      "last_candle_ts": 1790122500000,
       "lots": [
         {
           "qty": 0.012232922022880635,
@@ -4091,7 +4142,7 @@
         }
       ],
       "strategy_state": {
-        "vwap": 86007.22882716575
+        "vwap": 86413.02806733272
       },
       "trades": [
         {
@@ -4241,7 +4292,7 @@
       "realized_pnl": -70.71433431,
       "total_fees": 14.39870094,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
+      "last_candle_ts": 1790122500000,
       "lots": [],
       "strategy_state": {},
       "trades": [
@@ -4497,7 +4548,7 @@
       "realized_pnl": 49.08410828,
       "total_fees": 9.4188564,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
+      "last_candle_ts": 1790122500000,
       "lots": [],
       "strategy_state": {},
       "trades": [
@@ -4663,7 +4714,7 @@
       "realized_pnl": -4.77620072,
       "total_fees": 3.75577576,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
+      "last_candle_ts": 1790122500000,
       "lots": [],
       "strategy_state": {},
       "trades": [
@@ -4739,7 +4790,7 @@
       "realized_pnl": 0.0,
       "total_fees": 0.0,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
+      "last_candle_ts": 1790122500000,
       "lots": [],
       "strategy_state": {},
       "trades": []
@@ -4750,11 +4801,11 @@
       "balance_usd": 46.32200107,
       "crypto_holdings": 0.010961183969,
       "entry_price": 81849.2,
-      "unrealized_pnl": 47.88173993,
+      "unrealized_pnl": 50.79193428,
       "realized_pnl": -55.61669587,
       "total_fees": 6.51733599,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
+      "last_candle_ts": 1790122500000,
       "lots": [
         {
           "qty": 0.01096118396909805,
@@ -4881,7 +4932,7 @@
       "realized_pnl": 0.0,
       "total_fees": 0.0,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
+      "last_candle_ts": 1790122500000,
       "lots": [],
       "strategy_state": {},
       "trades": []
@@ -4896,7 +4947,7 @@
       "realized_pnl": -5.77318449,
       "total_fees": 9.43162616,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
+      "last_candle_ts": 1790122500000,
       "lots": [],
       "strategy_state": {},
       "trades": [
@@ -5062,15 +5113,15 @@
       "realized_pnl": 52.28433059,
       "total_fees": 1.95423857,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
+      "last_candle_ts": 1790122500000,
       "lots": [],
       "strategy_state": {
         "pivots": {
-          "r2": 91453.1667,
-          "r1": 89038.8333,
-          "p": 84972.2667,
-          "s1": 82557.9333,
-          "s2": 78491.3667
+          "r2": 87596.1333,
+          "r1": 86888.7667,
+          "p": 86000.7333,
+          "s1": 85293.3667,
+          "s2": 84405.3333
         }
       },
       "trades": [
@@ -5116,7 +5167,7 @@
       "realized_pnl": 37.2017658,
       "total_fees": 3.92013971,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
+      "last_candle_ts": 1790122500000,
       "lots": [],
       "strategy_state": {
         "opening_range": {
@@ -5197,10 +5248,10 @@
       "realized_pnl": 29.96085588,
       "total_fees": 5.89313716,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
+      "last_candle_ts": 1790122500000,
       "lots": [],
       "strategy_state": {
-        "chandelier_stop": 86045.2638736407
+        "chandelier_stop": 86008.47318335013
       },
       "trades": [
         {
@@ -5301,11 +5352,11 @@
       "balance_usd": 49.05,
       "crypto_holdings": 0.01205099345,
       "entry_price": 78831.6750736,
-      "unrealized_pnl": 89.00652781,
+      "unrealized_pnl": 92.20606658,
       "realized_pnl": 0.0,
       "total_fees": 0.95,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
+      "last_candle_ts": 1790122500000,
       "lots": [
         {
           "qty": 0.0012978315829911384,
@@ -5374,8 +5425,8 @@
         }
       ],
       "strategy_state": {
-        "runs": 150,
-        "last_price": 86217.5,
+        "runs": 151,
+        "last_price": 86483.0,
         "last_24h_change_pct": -0.026646492568524933
       },
       "trades": [
@@ -5586,7 +5637,7 @@
       "realized_pnl": 9.28273177,
       "total_fees": 2.2915743,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
+      "last_candle_ts": 1790122500000,
       "lots": [],
       "strategy_state": {
         "grid": {
@@ -5892,11 +5943,11 @@
       "balance_usd": 299.3,
       "crypto_holdings": 0.009127592399,
       "entry_price": 76690.54109369,
-      "unrealized_pnl": 86.9581977,
+      "unrealized_pnl": 89.38157349,
       "realized_pnl": 0.0,
       "total_fees": 0.7,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
+      "last_candle_ts": 1790122500000,
       "lots": [
         {
           "qty": 0.0012598266478532553,
@@ -5972,11 +6023,11 @@
       "balance_usd": 0.0,
       "crypto_holdings": 0.01230110034,
       "entry_price": 78860.25593525,
-      "unrealized_pnl": 90.50219746,
+      "unrealized_pnl": 93.7681396,
       "realized_pnl": -28.96201102,
       "total_fees": 3.34347931,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
+      "last_candle_ts": 1790122500000,
       "lots": [
         {
           "qty": 0.0039335131385894685,
@@ -6182,7 +6233,7 @@
       "realized_pnl": -7.57902142,
       "total_fees": 1.58557798,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
+      "last_candle_ts": 1790122500000,
       "lots": [],
       "strategy_state": {
         "kelly": {
@@ -6443,18 +6494,18 @@
       "realized_pnl": 0.0,
       "total_fees": 0.0,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
+      "last_candle_ts": 1790122500000,
       "lots": [],
       "strategy_state": {
         "consensus": {
           "votes": {
             "rsi": 0,
-            "ema_cross": -1,
-            "macd": -1,
-            "bollinger": 1,
-            "stoch_rsi": -1
+            "ema_cross": 1,
+            "macd": 1,
+            "bollinger": -1,
+            "stoch_rsi": 1
           },
-          "score": -2
+          "score": 2
         }
       },
       "trades": []
@@ -6469,7 +6520,7 @@
       "realized_pnl": 0.70300788,
       "total_fees": 3.80338165,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
+      "last_candle_ts": 1790122500000,
       "lots": [],
       "strategy_state": {},
       "trades": [
@@ -6545,10 +6596,10 @@
       "realized_pnl": 7.6781647,
       "total_fees": 11.41179457,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
+      "last_candle_ts": 1790122500000,
       "lots": [],
       "strategy_state": {
-        "atr_percentile": 0.0
+        "atr_percentile": 4.0
       },
       "trades": [
         {
@@ -6739,11 +6790,11 @@
       "balance_usd": 46.26147268,
       "crypto_holdings": 0.011574671206,
       "entry_price": 77409.7,
-      "unrealized_pnl": 101.94738905,
+      "unrealized_pnl": 105.02046426,
       "realized_pnl": -56.85070982,
       "total_fees": 6.45363105,
       "starting_balance": 1000.0,
-      "last_candle_ts": 1790113500000,
+      "last_candle_ts": 1790122500000,
       "lots": [
         {
           "qty": 0.011574671206205422,
@@ -6753,10 +6804,10 @@
       ],
       "strategy_state": {
         "ensemble": {
-          "median_return_pct": 0.7907062248086127,
+          "median_return_pct": 0.9282731770000163,
           "peer_count": 41,
           "leader": "18_heikin_ashi_trend",
-          "leader_return_pct": 13.365899164717444
+          "leader_return_pct": 13.69879548295383
         }
       },
       "trades": [
